@@ -64,6 +64,57 @@ public class WorldTest {
         assertEquals(0, w.metrics().collisions);
     }
 
+    /** 行人（手机）突然走进出租车已获授权的格子：车必须在行人前停下，行人离开后继续行驶。 */
+    @Test
+    public void taxisStopForPedestriansInsideTheirAuthority() throws Exception {
+        Config cfg = TestSupport.config();
+        World w = TestSupport.world(cfg);
+        run(w, 3);
+        int trials = 0;
+        for (int attempt = 0; attempt < 40 && trials < 5; attempt++) {
+            Agent car = null;
+            for (Agent a : w.agents()) {
+                if (a.taxi && a.route != null && a.v > 0.5 && a.authority >= a.progress + 2) {
+                    car = a;
+                    break;
+                }
+            }
+            if (car == null) {
+                run(w, 0.5);
+                continue;
+            }
+            trials++;
+            int cell = car.route.cell(car.authority);         // 已经授权给这辆车的最远一格
+            double px = w.map().centerX(cell), py = w.map().centerY(cell);
+            FakeLink phone = new FakeLink();
+            w.onDeviceMessage(phone, JsonParser.parseString("{\"type\":\"register\",\"kind\":\"phone\",\"x\":"
+                    + px + ",\"y\":" + py + "}").getAsJsonObject());
+            Agent ped = null;
+            for (Agent a : w.agents()) if (!a.taxi) ped = a;
+            assertNotNull(ped);
+            int contacts = w.metrics().freeContacts;
+            double minDist = Double.POSITIVE_INFINITY;
+            boolean stopped = false;
+            for (int i = 0; i < 80; i++) {                    // 4 s
+                w.step();
+                minDist = Math.min(minDist, Math.hypot(car.x - ped.x, car.y - ped.y));
+                if (car.v < 0.01) stopped = true;
+            }
+            assertEquals(car.id + " 撞到了行人", contacts, w.metrics().freeContacts);
+            assertTrue(car.id + " 没有停车", stopped);
+            assertTrue("最小中心距 " + minDist, minDist > cfg.vehicle.bodyRadius + cfg.vehicle.phoneRadius);
+            w.onDeviceClosed(phone);
+            double s0 = car.s;
+            run(w, 3);
+            assertTrue(car.id + " 行人离开后没有继续行驶", car.s > s0 + 0.5 || car.route == null || car.v > 0.3);
+        }
+        assertTrue("应至少完成 3 次试验", trials >= 3);
+        assertEquals(0, w.metrics().collisions);
+        boolean logged = false;
+        for (var e : w.events().recent(200)) if (e.msg().contains("紧急停车")) logged = true;
+        assertTrue("事件日志里应有紧急停车记录", logged);
+    }
+
     /** 测试用的假设备连接：记录服务端发来的消息。 */
     static final class FakeLink implements DeviceLink {
         final List<JsonObject> received = new ArrayList<>();

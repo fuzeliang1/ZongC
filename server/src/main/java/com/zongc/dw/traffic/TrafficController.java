@@ -28,17 +28,25 @@ import java.util.List;
  */
 public final class TrafficController {
 
-    /** 一次更新的结果：需要 World 处理的车辆。 */
-    public record Result(List<Agent> stuck, List<Integer> stuckBlockingCells, List<Agent> offRoute) {}
+    /**
+     * 一次更新的结果：需要 World 处理的车辆。
+     *
+     * @param yields 本次因行人闯入已授权格子而紧急停车的说明（写入事件日志）
+     */
+    public record Result(List<Agent> stuck, List<Integer> stuckBlockingCells, List<Agent> offRoute,
+                         List<String> yields) {}
 
     private final GridMap map;
     private final Config cfg;
     private final int[] owner;
+    /** 被行人（手机等自由智能体）车身覆盖的格子。 */
+    private final boolean[] pedestrian;
 
     public TrafficController(GridMap map, Config cfg) {
         this.map = map;
         this.cfg = cfg;
         this.owner = new int[map.size()];
+        this.pedestrian = new boolean[map.size()];
     }
 
     /** 格子当前归属的智能体下标，-1 表示空闲。 */
@@ -79,15 +87,19 @@ public final class TrafficController {
             }
         }
 
-        // 2. 重建占用表：先车身，再已有授权
+        // 2. 重建占用表：先车身，再已有授权。行人走进已授权的格子时先把授权收回
         Arrays.fill(owner, -1);
+        Arrays.fill(pedestrian, false);
         for (Agent a : agents) {
             for (int c : a.bodyCells) {
                 if (owner[c] < 0) owner[c] = a.index();
+                if (!a.taxi) pedestrian[c] = true;
             }
         }
+        List<String> yields = new ArrayList<>();
         for (Agent a : agents) {
             if (!a.taxi || a.route == null) continue;
+            yieldToPedestrian(a, agents, yields);
             for (int i = a.progress; i <= a.authority; i++) {
                 int c = a.route.cell(i);
                 if (owner[c] < 0) owner[c] = a.index();
@@ -137,7 +149,35 @@ public final class TrafficController {
                 stuckCells.add(r.cell(pending[0]));
             }
         }
-        return new Result(stuck, stuckCells, offRoute);
+        return new Result(stuck, stuckCells, offRoute, yields);
+    }
+
+    /**
+     * 行人（手机等自由智能体）走进了这辆车已获授权、但车还没开到的格子：立即把授权收回到行人前一格。
+     * 内部仿真车会按"授权终点前刹停"的约束马上减速 / 停住，外部设备会收到新的停车点。
+     * 如果新的授权终点落在路口里、而车还没进路口，就退到路口之前，不让车停在路口中间。
+     */
+    private void yieldToPedestrian(Agent a, List<Agent> agents, List<String> yields) {
+        Route r = a.route;
+        for (int i = a.progress + 1; i <= a.authority; i++) {
+            int cell = r.cell(i);
+            if (!pedestrian[cell]) continue;
+            int k = i - 1;
+            if (!map.isCross(r.cell(a.progress))) {
+                while (k > a.progress && map.isCross(r.cell(k))) k--;
+            }
+            a.authority = k;
+            a.permitDirty = true;
+            String who = "";
+            for (Agent f : agents) {
+                if (f.taxi) continue;
+                for (int c : f.bodyCells) {
+                    if (c == cell) who = " " + f.id + " ";
+                }
+            }
+            yields.add(a.id + " 为行人" + who + "紧急停车");
+            return;
+        }
     }
 
     /**
@@ -175,7 +215,7 @@ public final class TrafficController {
     }
 
     private boolean free(int cell, Agent a) {
-        return map.passable(cell) && (owner[cell] < 0 || owner[cell] == a.index());
+        return map.passable(cell) && !pedestrian[cell] && (owner[cell] < 0 || owner[cell] == a.index());
     }
 
     private boolean allFree(Route r, int from, int to, Agent a) {

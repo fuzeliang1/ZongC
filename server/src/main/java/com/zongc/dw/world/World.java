@@ -116,6 +116,7 @@ public final class World {
             dispatch();
         }
         TrafficController.Result r = traffic.update(agents, time, dt, metrics);
+        for (String msg : r.yields()) events.warn(time, msg);
         for (Agent a : agents) {
             if (!Double.isNaN(a.blockedSince)) metrics.maxBlocked = Math.max(metrics.maxBlocked, time - a.blockedSince);
         }
