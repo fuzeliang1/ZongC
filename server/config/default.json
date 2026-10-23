@@ -1,0 +1,52 @@
+{
+  "map": "../maps/city-5x4.json",
+  "webRoot": "../../web",
+  "seed": 20261023,
+  "taxis": 8,
+  "tickHz": 20,
+  "timeScale": 1.0,
+  "snapshotHz": 10,
+
+  "vehicle": {
+    "bodyRadius": 0.3,
+    "vMax": 1.5,
+    "aAcc": 1.0,
+    "aDec": 1.5,
+    "vTurn": 0.6,
+    "stopMargin": 0.08,
+    "phoneRadius": 0.45
+  },
+
+  "traffic": {
+    "horizonCells": 3,
+    "turnCost": 0.5,
+    "priorityHoldSec": 3.0,
+    "stuckRerouteSec": 12.0
+  },
+
+  "dispatch": {
+    "strategy": "HUNGARIAN",
+    "intervalSec": 2.0,
+    "waitWeight": 0.3
+  },
+
+  "tasks": {
+    "ratePerMin": 6.0,
+    "maxWaiting": 15,
+    "minTripCells": 12,
+    "dwellSec": 2.0,
+    "minCruiseCells": 8
+  },
+
+  "devices": {
+    "tcpPort": 9000,
+    "udpPort": 9001,
+    "heartbeatTimeoutSec": 3.0,
+    "worldHz": 5.0,
+    "maxTaxis": 20
+  },
+
+  "http": {
+    "port": 8080
+  }
+}

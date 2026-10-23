@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MiniDiDi 数字世界</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>MiniDiDi 数字世界</h1>
+      <span class="map-name" id="mapName">正在加载地图</span>
+    </div>
+    <div class="status">
+      <span class="clock" id="simClock" title="仿真时间">00:00</span>
+      <span class="conn" id="conn" data-state="connecting">连接中</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage" aria-label="城市地图">
+      <canvas id="map"></canvas>
+      <div class="tooltip" id="tooltip" hidden></div>
+      <div class="mode-banner" id="modeBanner" hidden></div>
+      <div class="legend" aria-label="图例">
+        <span><i class="lg-carpet"></i>行驶授权</span>
+        <span><i class="lg-pin"></i>等待的乘客</span>
+        <span><i class="lg-flag"></i>目的地</span>
+        <span><i class="lg-block"></i>路障</span>
+      </div>
+    </section>
+
+    <aside class="rail">
+      <section class="panel" aria-labelledby="h-metrics">
+        <h2 id="h-metrics">运行情况</h2>
+        <dl class="metrics" id="metrics"></dl>
+        <div class="safety" id="safety"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-cars">
+        <h2 id="h-cars">车辆 <span class="count" id="carCount"></span></h2>
+        <table class="cars">
+          <thead><tr><th>车辆</th><th>驱动</th><th>状态</th><th class="num">速度</th></tr></thead>
+          <tbody id="carRows"></tbody>
+        </table>
+      </section>
+
+      <section class="panel" aria-labelledby="h-tasks">
+        <h2 id="h-tasks">订单 <span class="count" id="taskCount"></span></h2>
+        <ul class="tasks" id="taskList"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="h-control">
+        <h2 id="h-control">控制</h2>
+        <div class="controls">
+          <label>派单策略
+            <select id="strategy">
+              <option value="HUNGARIAN">批量最优（匈牙利算法）</option>
+              <option value="GREEDY">贪心（最近空车）</option>
+            </select>
+          </label>
+          <label><span>订单到达率 <output id="rateOut">6</output> 单/分钟</span>
+            <input type="range" id="rate" min="0" max="40" step="1" value="6">
+          </label>
+          <label>仿真倍速
+            <select id="timeScale">
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×（接入设备时必须）</option>
+              <option value="2">2×</option>
+              <option value="5">5×</option>
+              <option value="10">10×</option>
+            </select>
+          </label>
+          <div class="buttons">
+            <button type="button" id="pauseBtn">暂停</button>
+            <button type="button" id="taskBtn">手动下单</button>
+            <button type="button" id="resetBtn" class="quiet">重置仿真</button>
+          </div>
+          <p class="hint">按住 Shift 点击道路可设置或解除路障。</p>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-events">
+        <h2 id="h-events">事件</h2>
+        <ol class="events" id="events"></ol>
+      </section>
+    </aside>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

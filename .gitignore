@@ -1,0 +1,28 @@
+# 构建产物
+server/build/
+server/target/
+out/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Python
+__pycache__/
+*.pyc
+
+# MATLAB
+*.asv
+*.autosave
+slprj/
+
+# 系统 / 日志 / 实验输出
+.DS_Store
+Thumbs.db
+*.log
+results/
