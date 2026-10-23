@@ -32,7 +32,7 @@ import java.util.Set;
  *   ]
  * }
  * </pre>
- * 支持的动作见 {@link #ACTIONS} 与 docs/protocol.md 第 7 节。
+ * 支持的动作见 {@link #ACTIONS} 与 docs/protocol.md 第 6 节。
  */
 public final class Scenario {
     /** 支持的动作。 */

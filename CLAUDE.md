@@ -98,14 +98,17 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
 - 服务端修复：行人走进已授权格子时紧急收回授权。
 
 ### 进行中（2026-10-23，目标："把能做的都做到较好的程度"）
-1. 场景脚本引擎 —— **服务端完成**（`world/Scenario*.java`，3 个脚本 demo / perception / rush-hour，
-   `--scenario`、`GET /api/scenarios`、`POST /api/scenario`，测试 `ScenarioTest`）；网页显示待做
-2. 感知与建图 —— **服务端完成**（`world/Perception.java`：模拟激光雷达、占据栅格、发现 / 撤除、设备 scan 消息；
+1. ✅ 场景脚本引擎（`world/Scenario*.java`，脚本 demo / perception / rush-hour，`--scenario`、
+   `GET /api/scenarios`、`POST /api/scenario`，网页顶栏进度 + 事件横幅 + 切换下拉框，测试 `ScenarioTest`）
+2. ✅ 感知与建图（`world/Perception.java`：模拟激光雷达、占据栅格、发现 / 撤除、设备 scan 消息；
    `World.applyBlock` 收回授权 + 重规划；`planUTurn` 掉头；上下车点被切断时就近改点；`barrierHits` 真实世界碰撞计数；
-   测试 `world/PerceptionTest`）；网页显示、协议文档待做
+   网页：锥桶 / 上帝视角问号 / 雷达扇形 / 指标；协议文档 2.4、3.3 节；架构 5.9 节；测试 `world/PerceptionTest`）
 3. 图像处理加速模块（服务端颜色分割识别路障）+ 手机拍照上报
-4. 派单优化 —— **服务端完成**（`Demand` 需求热点、`Rebalancer` 空车调度；订单用独立随机数序列保证对比公平；
-   潮汐需求、8 车 5 单/分钟下平均等待约 −18%，测试 `world/RebalanceTest`）；网页显示待做
+4. ✅ 派单优化（`Demand` 需求热点、`Rebalancer` 空车调度；订单用独立随机数序列保证对比公平；
+   网页热点圆 + 分区热力图；架构 5.11 节；测试 `world/RebalanceTest`）
+   - 效果评估：`python3 tools/run_evaluation.py`（约 5 分钟）→ `docs/eval/summary.md` + 原始 CSV。
+     关键数字：饱和时匈牙利比贪心平均等待 −45%；潮汐需求空车调度 −20%（4 单/分）/ −18%（5 单/分）；
+     16 车高负载演示场景 6×60 分钟零碰撞（含车撞障碍）
 5. Three.js 3D 可视化
 6. 全自主演示：一键启动（含 Matlab）、App 自动连接
 7. Gazebo 接入脚手架（无法在当前环境测试）

@@ -46,8 +46,9 @@ sequenceDiagram
     loop 每 0.1 秒
         D->>S: state（x, y, θ, v）
     end
-    S-->>D: permit（授权延伸或因行人收回时）
+    S-->>D: permit（授权延伸，或因行人 / 障碍收回时）
     S-->>D: world（周边车辆，5 Hz）
+    S-->>D: scan（服务端模拟的激光雷达，5 Hz，可忽略）
     S-->>D: path（到站、派单、绕行时下发新路线）
     Note over D,S: 断线或 3 秒无消息：服务端内部仿真接管该车
 ```
@@ -134,6 +135,22 @@ sequenceDiagram
 {"type":"world","t":35.2,"agents":[{"id":"car-2","x":30.1,"y":8.5,"theta":0.0,"v":1.5,"r":0.3,"taxi":true}]}
 ```
 
+**scan**：服务端按这辆车的最新位姿模拟的激光雷达扫描（约 5 Hz）。服务端自己用它建图（见架构说明 5.9 节）；
+设备可以用它做本地安全检查或画出来，不处理的设备直接忽略即可。
+
+| 字段 | 说明 |
+|---|---|
+| t, x, y, theta | 扫描时刻（仿真时间）与车辆位姿 |
+| angleMin, angleStep | 第 k 束射线的方向 = theta + angleMin + k·angleStep（共 48 束，覆盖 360°，从车尾开始逆时针） |
+| rangeMax | 量程（米），没有命中的射线距离等于它 |
+| ranges | 48 个距离（米） |
+| kinds | 48 个命中类型：0 未命中，1 建筑 / 地图边界，2 路障 / 障碍，3 车辆，4 行人（这是"真值"，只用于显示和本地安全检查） |
+
+```json
+{"type":"scan","agentId":"car-1","t":35.2,"x":12.5,"y":0.5,"theta":0.0,"angleMin":-3.14159,"angleStep":0.1309,
+ "rangeMax":3.0,"ranges":[3.0,3.0,2.71,...],"kinds":[0,0,1,...]}
+```
+
 **error**：`{"type":"error","message":"请先发送 register 消息"}`。出错的那条消息被忽略，连接保持。
 
 ### 2.5 行驶授权的语义（必须遵守）
@@ -141,7 +158,7 @@ sequenceDiagram
 1. 设备沿 `waypoints` 折线行驶，并计算自己在折线上的投影长度 s。
 2. 任何时刻都必须满足 **s ≤ stopS**。推荐的速度上限是 v ≤ √(2·a·(stopS − s))，这样总能在停车点前刹住。
 3. 收到新的 `path` 之后、收到同一 `routeId` 的 `permit` 之前，不得前进（stopS 视为 0）。
-4. 服务端保证任意两辆车不会获得同一个格子的授权，因此只要遵守第 2 条就不会相撞。授权通常只向前延伸；**唯一的例外是行人**：手机等自由智能体走进了已经授权给某辆车、但车还没开到的格子时，服务端会立即把授权收回到行人之前，下发一条 `stopS` 更小的 `permit`（如果这样会停在路口中间，就退到路口之前）。设备必须直接采用新的 `stopS`（不要取历史最大值），按第 2 条立即减速停车。
+4. 服务端保证任意两辆车不会获得同一个格子的授权，因此只要遵守第 2 条就不会相撞。授权通常只向前延伸，**例外有两种**：手机等自由智能体（行人）走进了已经授权给某辆车、但车还没开到的格子；或者这样的格子变得不可通行（人工设置路障、车辆感知发现了障碍）。这时服务端立即把授权收回到它之前，下发一条 `stopS` 更小的 `permit`（如果这样会停在路口中间，就退到路口之前），障碍的情况下紧接着下发绕行或掉头的新 `path`。设备必须直接采用新的 `stopS`（不要取历史最大值），按第 2 条立即减速停车。
 5. `final=true` 且到达终点后，服务端会在乘客上下车（约 2 秒）后下发下一条路线。
 
 服务端会统计"越权行驶"次数并显示在界面上，作为考核时的证据。
@@ -199,8 +216,10 @@ for line in f:
 | GET | `/api/map` | 地图：`name, width, height, resolution, rows`（rows 第一行为最北边） |
 | GET | `/api/snapshot` | 最新的世界快照（结构见 3.3） |
 | GET | `/api/stream` | SSE 推送，约 10 Hz，每条 `data:` 是一个快照 |
-| GET | `/api/config` | 运行配置：strategy, ratePerMin, timeScale, paused, taxis, seed, tickHz |
-| POST | `/api/config` | 修改配置，请求体可包含 `strategy`（GREEDY/HUNGARIAN）、`ratePerMin`、`timeScale`、`paused` |
+| GET | `/api/config` | 运行配置：strategy, ratePerMin, timeScale, paused, taxis, seed, tickHz, rebalance, scenario（名称）, scenarioFile |
+| POST | `/api/config` | 修改配置，请求体可包含 `strategy`（GREEDY/HUNGARIAN）、`ratePerMin`、`timeScale`、`paused`、`rebalance`（空车调度开关） |
+| GET | `/api/scenarios` | 场景目录（`server/scenarios/`）下的全部脚本：`{"current":"demo.json","scenarios":[{"file","name","description","loop","events","durationSec"}]}` |
+| POST | `/api/scenario` | 切换场景脚本：`{"file":"perception.json"}`，`file` 为空或 null 表示停止脚本。会重置仿真，脚本从头开始 |
 | POST | `/api/sim/pause` | 暂停 |
 | POST | `/api/sim/resume` | 继续 |
 | POST | `/api/sim/reset` | 重置，可带 `{"seed": 123}`；已连接设备自动重新绑定 |
@@ -230,12 +249,19 @@ es.onmessage = (e) => { const snapshot = JSON.parse(e.data); /* 更新画面 */ 
     "id": "car-1", "num": 1, "taxi": true, "driver": "MATLAB", "online": true, "device": "127.0.0.1:52144",
     "status": "TO_PICKUP", "x": 12.5, "y": 0.5, "theta": 0.0, "v": 1.5, "r": 0.3, "taskId": "T012",
     "route": [12.5,0.5, 13.5,0.5, ...], "held": [12,0, 13,0, 14,0], "stop": [14.12,0.5],
-    "routeId": 9, "blocked": false
+    "routeId": 9, "blocked": false, "scan": [30,30,27, ...], "seen": [1,0,0], "zone": "(0~8, 0~8)"
   }],
   "tasks": [{"id": "T012", "state": "ASSIGNED", "from": [20,0], "to": [31,24], "agent": "car-1", "age": 8.2}],
-  "metrics": { "delivered": 31, "avgWait": 24.5, "collisions": 0, "obstacleHits": 0, "minCarGap": 0.28, ... },
+  "metrics": { "delivered": 31, "avgWait": 24.5, "collisions": 0, "obstacleHits": 0, "barrierHits": 0,
+               "minCarGap": 0.28, "discoveries": 3, "coverage": 0.86, "uturns": 1, "rebalanceMoves": 12, ... },
   "events": [{"seq": 210, "t": 125.1, "level": "info", "msg": "订单 T012 派给 car-1（接驾约 8 m，HUNGARIAN）"}],
-  "blocked": [22,10]
+  "blocked": [22,10],
+  "hidden": [35,15], "discovered": [11,20], "suspect": [],
+  "scenario": {"name": "期末演示（全自主循环）", "elapsed": 63.2, "step": 7, "steps": 19, "nextIn": 26.8,
+               "next": "(11,20) 出现掉落的货物（未知障碍）", "banner": "(35,15) 突然出现施工围挡……", "loop": 1},
+  "hotspots": [{"name": "居民区", "x": 5, "y": 4, "radius": 5, "origin": 3, "dest": 0.3}],
+  "zones": {"zoneSize": 9, "cols": 6, "rows": 4, "perMin": [2.4, 0.3, ...], "on": true, "moves": 12},
+  "vision": {"seq": 2, "source": "phone-1", "t": 88.0, "objects": 1, "summary": "识别到 1 个路障", "mapped": [16,15]}
 }
 ```
 
@@ -245,9 +271,19 @@ es.onmessage = (e) => { const snapshot = JSON.parse(e.data); /* 更新画面 */ 
 | agents[].held | 当前已获授权（预约）的格子，扁平数组 [cx0,cy0,…] |
 | agents[].stop | 授权停车点 |
 | agents[].blocked | 前方受阻、正在等待 |
+| agents[].scan | 最近一次模拟激光雷达扫描：48 个距离，单位**分米**（整数），第 k 束方向 = theta − π + k·2π/48；手机为 null |
+| agents[].seen | 这次扫描识别到的 [车辆数, 行人数, 未知障碍命中数] |
+| agents[].zone | 空车调度给它指定的待命区域，没有时省略 |
 | tasks | 进行中的订单（WAITING / ASSIGNED / PICKED），`age` 为已等待秒数 |
-| metrics | 运行指标，字段含义见 `Metrics.View`（server/src/main/java/com/zongc/dw/world/Metrics.java） |
-| blocked | 路障格子，扁平数组 |
+| metrics | 运行指标，字段含义见 `Metrics.View`（server/src/main/java/com/zongc/dw/world/Metrics.java）。`barrierHits` 是车撞路障 / 未知障碍的次数（按真实世界判断，必须为 0），`discoveries` / `obstacleClears` 是感知发现 / 撤除的障碍数，`coverage` 是最近 60 s 内被车辆传感器核实过的道路比例 |
+| blocked | 人工路障格子（扁平数组），不含感知发现的障碍 |
+| hidden | 真实世界里存在、系统还不知道的障碍（"上帝视角"，只用于显示，规划时不用） |
+| discovered | 车辆感知发现、已写进全局地图的障碍 |
+| suspect | 疑似障碍（占据概率 0.6~0.8，还没确认） |
+| scenario | 正在运行的场景脚本：名称、本轮已进行时间、已执行 / 总事件数、下一个事件及倒计时、当前横幅（事件发生后显示 8 s）、第几轮；没有脚本时省略 |
+| hotspots | 需求热点（均匀需求时省略） |
+| zones | 分区需求预测（单/分钟，按行从南到北、每行从西到东）与空车调度状态 |
+| vision | 最近一次图像识别的摘要（详细结果见 `GET /api/vision/last`），没有时省略 |
 
 值为 null 的字段会被省略（例如内部仿真车没有 `device`）。
 
@@ -303,9 +339,47 @@ python tools/gen_map.py --widths 8,10,6,8,9 --heights 6,5,7,6 -o server/maps/my-
 
 然后修改配置文件中的 `map` 字段。
 
-## 6. 版本记录
+## 6. 场景脚本格式
+
+场景脚本（`server/scenarios/*.json`）让演示中的突发情况按时间自动发生，满足"考核过程中不可人工操作"。
+启动时用 `scripts/start_server.sh --scenario demo` 指定（`none` 表示不运行），也可以在网页"控制"面板里切换。
+
+```json
+{
+  "name": "期末演示（全自主循环）",
+  "description": "一句话说明，会显示在网页的场景列表里",
+  "loop": true, "loopGapSec": 20,
+  "events": [
+    {"t": 0, "action": "announce", "text": "演示开始"},
+    {"t": 30, "action": "roadblock", "cell": [17, 24], "text": "交通管制：(17,24) 封路"},
+    {"t": 60, "action": "obstacle", "cell": [35, 15], "text": "出现施工围挡（系统不知道）"},
+    {"t": 255, "action": "obstacle", "cell": [35, 15], "on": false}
+  ]
+}
+```
+
+- `t`：本轮开始后的秒数（仿真时间）。同一时刻的事件按文件中的先后执行。
+- `text`：可选，事件发生时写入事件日志，并在网页上以横幅显示 8 秒。
+- `loop`：最后一个事件之后再等 `loopGapSec` 秒重新开始；新一轮开始时自动撤掉本轮脚本放置的路障和障碍，并清掉感知对它们的结论。
+- 加载时逐条检查（格子是否在地图内、是否可通行、字段是否齐全），出错时报出第几个事件、什么问题。
+
+| action | 参数 | 作用 |
+|---|---|---|
+| `announce` | `text` | 只显示文字 |
+| `rate` | `ratePerMin`（0~120） | 修改订单到达率 |
+| `strategy` | `value`：`GREEDY` / `HUNGARIAN` | 切换派单策略 |
+| `roadblock` | `cell`，`blocked`（默认 true） | 设置 / 解除**已知**路障：立即写入地图，车辆马上绕行 |
+| `obstacle` | `cell`，`on`（默认 true） | 在真实世界放置 / 移除**未知**障碍：系统不知道，要靠车辆感知发现；2.5 m 内有车或行人时推迟出现（最多 30 s） |
+| `task` | `from`、`to`（车道格） | 下一个指定订单 |
+| `rush` | `count`（1~50） | 订单潮：一次出现 count 个随机订单 |
+| `demand` | `originShare`、`destShare`、`hotspots[{name, center:[x,y], radius, origin, dest}]` | 设置需求热点；`hotspots` 为空数组表示恢复均匀需求 |
+| `rebalance` | `on` | 开 / 关空车调度 |
+| `clear` | 无 | 撤掉本脚本放置的全部路障和障碍（障碍要等车辆观测到才从地图上删掉） |
+
+## 7. 版本记录
 
 | 版本 | 内容 |
 |---|---|
 | v1 | 首版：register/state/path/permit/world；REST + SSE；地图格式 |
 | v1（补充） | 行人闯入已授权格子时紧急收回授权（permit 的 stopS 可能变小）；补充手机 App 的实际报文。消息格式不变，旧设备只要直接采用最新 stopS 即兼容 |
+| v1（补充 2） | 新增下行消息 `scan`（模拟激光雷达，可忽略）；授权也会因路障 / 感知发现的障碍而收回；快照新增感知、场景、需求字段；新增场景脚本接口与格式（第 6 节）。旧设备不受影响 |

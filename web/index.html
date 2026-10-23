@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MiniDiDi 数字世界</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='9' width='26' height='14' rx='5' fill='%232f6bd8'/%3E%3Crect x='18' y='12' width='6' height='8' rx='1.5' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -11,6 +12,10 @@
     <div class="brand">
       <h1>MiniDiDi 数字世界</h1>
       <span class="map-name" id="mapName">正在加载地图</span>
+    </div>
+    <div class="scenario" id="scenarioStrip" hidden>
+      <div class="row"><span class="name" id="scName"></span><span id="scLoop"></span><span class="next" id="scNext"></span></div>
+      <div class="bar"><i id="scBar"></i></div>
     </div>
     <div class="status">
       <span class="clock" id="simClock" title="仿真时间">00:00</span>
@@ -23,11 +28,16 @@
       <canvas id="map"></canvas>
       <div class="tooltip" id="tooltip" hidden></div>
       <div class="mode-banner" id="modeBanner" hidden></div>
+      <div class="scenario-banner" id="scBanner" hidden></div>
       <div class="legend" aria-label="图例">
         <span><i class="lg-carpet"></i>行驶授权</span>
         <span><i class="lg-pin"></i>等待的乘客</span>
         <span><i class="lg-flag"></i>目的地</span>
         <span><i class="lg-block"></i>路障</span>
+        <span><i class="lg-sensed"></i>感知发现的障碍</span>
+        <span><i class="lg-ghost"></i>未知障碍（系统尚不知道）</span>
+        <span><i class="lg-scan"></i>雷达扫描</span>
+        <span><i class="lg-demand"></i>需求热点</span>
       </div>
     </section>
 
@@ -60,6 +70,12 @@
               <option value="GREEDY">贪心（最近空车）</option>
             </select>
           </label>
+          <label>场景脚本（切换会重置仿真；考核时按启动参数自动运行）
+            <span class="inline">
+              <select id="scenarioSel"><option value="">不运行脚本</option></select>
+              <button type="button" id="scenarioBtn">切换</button>
+            </span>
+          </label>
           <label><span>订单到达率 <output id="rateOut">6</output> 单/分钟</span>
             <input type="range" id="rate" min="0" max="40" step="1" value="6">
           </label>
@@ -72,6 +88,12 @@
               <option value="10">10×</option>
             </select>
           </label>
+          <div class="toggles" role="group" aria-label="选项与图层">
+            <label><input type="checkbox" id="rebalance">空车调度</label>
+            <label><input type="checkbox" id="lyScan" checked>雷达扫描</label>
+            <label><input type="checkbox" id="lyTruth" checked>真实世界（上帝视角）</label>
+            <label><input type="checkbox" id="lyDemand" checked>需求热力图</label>
+          </div>
           <div class="buttons">
             <button type="button" id="pauseBtn">暂停</button>
             <button type="button" id="taskBtn">手动下单</button>

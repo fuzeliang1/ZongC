@@ -1,0 +1,7 @@
+strategy,rebalance,seed,taxis,ratePerMin,minutes,created,delivered,avgWait,maxWait,avgRide,avgTotal,deliveredPerMin,emptyRatio,collisions,obstacleHits,barrierHits,reroutes,uturns,discoveries,obstacleClears,avgDiscoverySec,coverage,rebalanceMoves,dispatchMs,minCarGap,minWallGap,minBarrierGap,maxBlocked,simSecPerWallSec
+GREEDY,off,1,16,16.0,60.0,880,859,65.2,195.8,37.6,102.7,14.32,0.423,0,0,0,2,27,20,18,19.5,0.973,65,0.3,0.28,0.2,0.08,12.0,299
+GREEDY,off,2,16,16.0,60.0,891,863,70.3,207.7,38.1,108.4,14.38,0.412,0,0,0,2,21,20,16,12.5,0.998,46,0.5,0.28,0.2,0.08,12.0,334
+GREEDY,off,3,16,16.0,60.0,884,856,70.0,191.6,37.8,107.9,14.27,0.423,0,0,0,2,21,20,16,20.8,0.995,62,0.58,0.245,0.2,0.08,12.0,333
+HUNGARIAN,off,1,16,16.0,60.0,880,859,65.2,195.8,37.6,102.7,14.32,0.423,0,0,0,2,27,20,18,19.5,0.973,65,0.3,0.28,0.2,0.08,12.0,326
+HUNGARIAN,off,2,16,16.0,60.0,891,863,70.3,207.7,38.1,108.4,14.38,0.412,0,0,0,2,21,20,16,12.5,0.998,46,1.37,0.28,0.2,0.08,12.0,307
+HUNGARIAN,off,3,16,16.0,60.0,884,856,70.0,191.6,37.8,107.9,14.27,0.423,0,0,0,2,21,20,16,20.8,0.995,62,0.48,0.245,0.2,0.08,12.0,328

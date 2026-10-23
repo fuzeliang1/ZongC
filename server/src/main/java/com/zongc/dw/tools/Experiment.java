@@ -64,7 +64,8 @@ public final class Experiment {
         List<String> rows = new ArrayList<>();
         rows.add("strategy,rebalance,seed,taxis,ratePerMin,minutes,created,delivered,avgWait,maxWait,avgRide,avgTotal,"
                 + "deliveredPerMin,emptyRatio,collisions,obstacleHits,barrierHits,reroutes,uturns,discoveries,"
-                + "rebalanceMoves,dispatchMs,minCarGap,minWallGap,minBarrierGap,maxBlocked");
+                + "obstacleClears,avgDiscoverySec,coverage,rebalanceMoves,dispatchMs,minCarGap,minWallGap,minBarrierGap,"
+                + "maxBlocked,simSecPerWallSec");
         System.out.printf("%-10s %4s %6s %6s %8s %8s %8s %8s %8s %6s %6s %6s %6s %8s %8s%n",
                 "策略", "调度", "种子", "送达", "平均等待", "最长等待", "平均乘车", "单/分钟", "空驶率", "碰撞", "绕行",
                 "掉头", "发现", "最小车距", "最长受阻");
@@ -82,14 +83,15 @@ public final class Experiment {
                     log.setEcho(false);
                     World w = new World(cfg, map, log);
                     if (scenarioPath != null) {
-                        w.setScenario(Scenario.load(Path.of(scenarioPath), map));
+                        w.setScenario(Scenario.load(findScenario(cfg, scenarioPath), map));
                     }
                     long steps = Math.round(minutes * 60 * cfg.tickHz);
                     long t0 = System.nanoTime();
                     for (long s = 0; s < steps; s++) {
                         w.step();
-                        // 场景脚本可能在运行中开关调度；对比实验以命令行为准
+                        // 场景脚本可能在运行中改到达率、开关调度；命令行指定了的，以命令行为准
                         if (reb != null && w.rebalanceOn() != reb) w.setRebalance(reb);
+                        if (rate != null && cfg.tasks.ratePerMin != rate) cfg.tasks.ratePerMin = rate;
                     }
                     double sec = (System.nanoTime() - t0) / 1e9;
                     Metrics.View v = w.metricsView();
@@ -105,10 +107,12 @@ public final class Experiment {
                             String.valueOf(v.deliveredPerMin()), String.valueOf(v.emptyRatio()),
                             String.valueOf(v.collisions()), String.valueOf(v.obstacleHits()),
                             String.valueOf(v.barrierHits()), String.valueOf(v.reroutes()), String.valueOf(v.uturns()),
-                            String.valueOf(v.discoveries()), String.valueOf(v.rebalanceMoves()),
+                            String.valueOf(v.discoveries()), String.valueOf(v.obstacleClears()),
+                            String.valueOf(v.avgDiscoverySec()), String.valueOf(v.coverage()),
+                            String.valueOf(v.rebalanceMoves()),
                             String.valueOf(v.lastDispatchMs()), String.valueOf(nz(v.minCarGap())),
                             String.valueOf(nz(v.minWallGap())), String.valueOf(nz(v.minBarrierGap())),
-                            String.valueOf(v.maxBlocked())));
+                            String.valueOf(v.maxBlocked()), String.valueOf(Math.round(minutes * 60 / sec))));
                 }
             }
         }
@@ -118,6 +122,17 @@ public final class Experiment {
             }
             System.out.println("结果已写入 " + csv);
         }
+    }
+
+    /** 场景文件：先按当前目录找，找不到再到配置的场景目录（server/scenarios）里找，可以省略 .json。 */
+    private static Path findScenario(Config cfg, String arg) {
+        Path p = Path.of(arg);
+        if (Files.isRegularFile(p)) return p;
+        Path dir = cfg.resolve(cfg.scenarioDir);
+        for (Path c : new Path[]{dir.resolve(arg), dir.resolve(arg + ".json"), dir.resolve(p.getFileName())}) {
+            if (Files.isRegularFile(c)) return c;
+        }
+        throw new IllegalArgumentException("找不到场景脚本: " + arg);
     }
 
     private static double nz(Double v) {

@@ -309,7 +309,7 @@ public final class DeviceBridge {
 
     /**
      * 下发服务端为这辆车模拟的激光雷达扫描（约 5 Hz）。设备可以用它做本地安全检查（前方很近处有东西就刹车），
-     * 也可以画出来；不处理这条消息的设备直接忽略即可。格式见 docs/protocol.md 2.9 节。
+     * 也可以画出来；不处理这条消息的设备直接忽略即可。格式见 docs/protocol.md 2.4 节。
      */
     void sendScan(Agent a, Perception.Scan s) {
         if (a.link == null || !a.link.isOpen()) return;

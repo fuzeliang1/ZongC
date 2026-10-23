@@ -40,6 +40,8 @@ export class MapView {
     this.selected = null;
     this.hoverId = null;
     this.pendingCell = null;           // 手动下单时已选的上车点
+    // 可开关的图层：雷达扫描、真实世界（上帝视角：系统还不知道的障碍）、需求热力图
+    this.layers = { scan: true, truth: true, demand: true };
 
     new ResizeObserver(() => this.layout()).observe(canvas);
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => this.renderStatic());
@@ -126,7 +128,7 @@ export class MapView {
       paper: cssVar('--paper'), road: cssVar('--road'), lane: cssVar('--lane-mark'),
       block: cssVar('--block'), top: cssVar('--block-top'), edge: cssVar('--block-edge'), muted: cssVar('--muted'),
       ink: cssVar('--ink'), panel: cssVar('--panel'), signal: cssVar('--signal'), danger: cssVar('--danger'),
-      font: cssVar('--font'),
+      sensed: cssVar('--sensed'), demand: cssVar('--demand'), font: cssVar('--font'),
     };
 
     g.fillStyle = col.paper;
@@ -145,6 +147,14 @@ export class MapView {
         const rect = cells.length === (x1 - x0 + 1) * (y1 - y0 + 1);
         if (rect) this.drawBlock(g, x0, y0, x1, y1, S, col);
         else for (const [cx, cy] of cells) this.drawBlock(g, cx, cy, cx, cy, S, col);
+      }
+    }
+
+    // 道路区域的轮廓（需求热力图只染在道路上，不盖住建筑）
+    this.roadPath = new Path2D();
+    for (let y = 0; y < this.H; y++) {
+      for (let x = 0; x < this.W; x++) {
+        if (this.grid[y][x] !== '#') this.roadPath.rect(this.sx(x * this.res), this.sy((y + 1) * this.res), S, S);
       }
     }
 
@@ -268,9 +278,15 @@ export class MapView {
     const poses = new Map();
     for (const a of s.agents) poses.set(a.id, this.displayPose(a, now));
 
+    if (this.layers.demand && (s.hotspots || s.zones?.on)) {
+      this.drawZones(g, s.zones, S);
+      this.drawHotspots(g, s.hotspots || [], S);
+    }
     this.drawBlocked(g, s.blocked || [], S);
+    this.drawPerception(g, s, S);
     for (const a of s.agents) if (a.taxi && a.held) this.drawCarpet(g, a, S);
     for (const a of s.agents) if (a.taxi && a.route) this.drawRoute(g, a, poses.get(a.id), S);
+    if (this.layers.scan) for (const a of s.agents) if (a.scan) this.drawScan(g, a, poses.get(a.id), S);
     this.drawTasks(g, s, S, t);
     if (this.pendingCell) this.drawPending(g, S);
     for (const a of s.agents) {
@@ -292,6 +308,175 @@ export class MapView {
       g.moveTo(x + S * 0.25, y + S * 0.25); g.lineTo(x + S * 0.75, y + S * 0.75);
       g.moveTo(x + S * 0.75, y + S * 0.25); g.lineTo(x + S * 0.25, y + S * 0.75);
       g.stroke();
+    }
+  }
+
+  // ------------------------------------------------------------ 感知与建图
+
+  /** 感知图层：车辆发现并写进地图的障碍（橙色锥桶）、疑似障碍（淡橙）、真实存在但系统还不知道的障碍（虚线问号）。 */
+  drawPerception(g, s, S) {
+    const sensed = this.col.sensed;
+    const sus = s.suspect || [];
+    for (let i = 0; i < sus.length; i += 2) {
+      const x = this.sx(sus[i] * this.res), y = this.sy((sus[i + 1] + 1) * this.res);
+      g.fillStyle = sensed + '26';
+      g.fillRect(x + 1, y + 1, S - 2, S - 2);
+      g.strokeStyle = sensed + 'aa';
+      g.lineWidth = 1;
+      g.setLineDash([2, 2]);
+      g.strokeRect(x + 1.5, y + 1.5, S - 3, S - 3);
+      g.setLineDash([]);
+    }
+    const dis = s.discovered || [];
+    for (let i = 0; i < dis.length; i += 2) {
+      const x = this.sx(dis[i] * this.res), y = this.sy((dis[i + 1] + 1) * this.res);
+      g.fillStyle = sensed + '30';
+      g.fillRect(x, y, S, S);
+      this.cone(g, x + S / 2, y + S / 2, S, sensed, false);
+    }
+    if (!this.layers.truth) return;
+    const hid = s.hidden || [];
+    for (let i = 0; i < hid.length; i += 2) {
+      const x = this.sx(hid[i] * this.res), y = this.sy((hid[i + 1] + 1) * this.res);
+      g.strokeStyle = this.col.ink + '99';
+      g.lineWidth = 1.2;
+      g.setLineDash([3, 2]);
+      g.strokeRect(x + 1.5, y + 1.5, S - 3, S - 3);
+      g.setLineDash([]);
+      this.cone(g, x + S / 2, y + S / 2, S, this.col.ink + '88', true);
+    }
+  }
+
+  /** 锥桶图标；ghost = true 时只画轮廓并标"?"（系统还不知道）。 */
+  cone(g, cx, cy, S, color, ghost) {
+    const h = S * 0.62, w = S * 0.52;
+    g.beginPath();
+    g.moveTo(cx, cy - h / 2);
+    g.lineTo(cx + w / 2, cy + h / 2);
+    g.lineTo(cx - w / 2, cy + h / 2);
+    g.closePath();
+    if (ghost) {
+      g.strokeStyle = color;
+      g.lineWidth = 1.2;
+      g.stroke();
+      g.fillStyle = color;
+      g.font = `700 ${Math.max(8, S * 0.36)}px ${this.col.font}`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('?', cx, cy + h * 0.12);
+      return;
+    }
+    g.fillStyle = color;
+    g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.fillRect(cx - w * 0.22, cy + h * 0.02, w * 0.44, Math.max(1.5, h * 0.12));
+  }
+
+  /**
+   * 激光雷达扫描：48 束射线的端点连成"可见区域"，所有车都画淡淡的一层；
+   * 选中的车再画出每一束射线和命中点。射线 k 的角度 = θ − π + k·2π/48，距离单位分米。
+   */
+  drawScan(g, a, p, S) {
+    const n = a.scan.length;
+    if (!n) return;
+    const color = carColor(a.num);
+    const selected = this.selected === a.id;
+    const pts = [];
+    for (let k = 0; k < n; k++) {
+      const ang = p.theta - Math.PI + (k * 2 * Math.PI) / n;
+      const r = a.scan[k] / 10;
+      pts.push([p.x + Math.cos(ang) * r, p.y + Math.sin(ang) * r, r]);
+    }
+    g.fillStyle = color + (selected ? '22' : '12');
+    g.beginPath();
+    pts.forEach(([x, y], i) => (i ? g.lineTo(this.sx(x), this.sy(y)) : g.moveTo(this.sx(x), this.sy(y))));
+    g.closePath();
+    g.fill();
+    if (!selected) return;
+    g.strokeStyle = color + '55';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (const [x, y] of pts) {
+      g.moveTo(this.sx(p.x), this.sy(p.y));
+      g.lineTo(this.sx(x), this.sy(y));
+    }
+    g.stroke();
+    g.fillStyle = color;
+    for (const [x, y, r] of pts) {
+      if (r >= 2.95) continue;
+      g.beginPath();
+      g.arc(this.sx(x), this.sy(y), Math.max(1.6, S * 0.07), 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  // ------------------------------------------------------------ 需求与空车调度
+
+  /**
+   * 分区需求热力图：服务端按区域统计的叫车强度（单/分钟，指数衰减），只染在道路上，颜色越深叫车越多。
+   * 只在设置了需求热点或开启空车调度时显示；开启调度时标出分区边界和数值。
+   */
+  drawZones(g, z, S) {
+    if (!z || !z.perMin) return;
+    const max = Math.max(0.3, ...z.perMin);
+    const demand = this.col.demand;
+    g.save();
+    g.clip(this.roadPath);
+    for (let zy = 0; zy < z.rows; zy++) {
+      for (let zx = 0; zx < z.cols; zx++) {
+        const k = z.perMin[zy * z.cols + zx] / max;
+        if (k < 0.08) continue;
+        const x0 = zx * z.zoneSize, y0 = zy * z.zoneSize;
+        const w = Math.min(z.zoneSize, this.W - x0) * S, h = Math.min(z.zoneSize, this.H - y0) * S;
+        g.fillStyle = demand + Math.round(12 + k * 52).toString(16).padStart(2, '0');
+        g.fillRect(this.sx(x0 * this.res), this.sy(y0 * this.res) - h, w, h);
+      }
+    }
+    g.restore();
+    if (!z.on) return;
+    g.font = `600 ${clamp(S * 0.42, 9, 12)}px ${this.col.font}`;
+    g.textAlign = 'left';
+    g.textBaseline = 'top';
+    for (let zy = 0; zy < z.rows; zy++) {
+      for (let zx = 0; zx < z.cols; zx++) {
+        const v = z.perMin[zy * z.cols + zx];
+        const x0 = zx * z.zoneSize, y0 = zy * z.zoneSize;
+        const w = Math.min(z.zoneSize, this.W - x0) * S, h = Math.min(z.zoneSize, this.H - y0) * S;
+        const left = this.sx(x0 * this.res), top = this.sy(y0 * this.res) - h;
+        g.strokeStyle = demand + '50';
+        g.lineWidth = 1;
+        g.setLineDash([4, 4]);
+        g.strokeRect(left + 0.5, top + 0.5, w - 1, h - 1);
+        g.setLineDash([]);
+        if (v >= 0.1 && v >= max * 0.3) {   // 只标出需求较高的区域，避免满屏数字
+          g.fillStyle = demand;
+          g.fillText(`${v.toFixed(1)} 单/分`, left + 4, top + 3);
+        }
+      }
+    }
+  }
+
+  drawHotspots(g, hs, S) {
+    const demand = this.col.demand;
+    for (const h of hs) {
+      const cx = this.sx((h.x + 0.5) * this.res), cy = this.sy((h.y + 0.5) * this.res);
+      g.strokeStyle = demand;
+      g.lineWidth = 1.5;
+      g.setLineDash([6, 4]);
+      g.beginPath();
+      g.arc(cx, cy, h.radius * S, 0, Math.PI * 2);
+      g.stroke();
+      g.setLineDash([]);
+      const label = `${h.name} · ${h.origin >= h.dest ? '出发多' : '到达多'}`;
+      g.font = `600 ${clamp(S * 0.45, 10, 13)}px ${this.col.font}`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      const tw = g.measureText(label).width + 10;
+      g.fillStyle = this.col.panel + 'e6';
+      this.roundRect(g, cx - tw / 2, cy - 9, tw, 18, 4);
+      g.fill();
+      g.fillStyle = demand;
+      g.fillText(label, cx, cy);
     }
   }
 

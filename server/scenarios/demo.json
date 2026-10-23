@@ -21,7 +21,7 @@
        {"name": "商务区", "center": [46, 28], "radius": 5, "origin": 0.3, "dest": 2},
        {"name": "地铁站", "center": [26, 12], "radius": 4, "origin": 0.5, "dest": 1}
      ]},
-    {"t": 120, "action": "rate", "ratePerMin": 10},
+    {"t": 120, "action": "rate", "ratePerMin": 7},
     {"t": 150, "action": "rebalance", "on": true, "text": "开启空车调度：根据需求预测，把空车提前调往叫车多的区域"},
     {"t": 210, "action": "rush", "count": 8, "text": "演唱会散场：一次出现 8 个订单"},
 

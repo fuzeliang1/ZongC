@@ -4,13 +4,13 @@
 
 ![数字世界实时界面](docs/images/overview.png)
 
-图中，每辆车前方浅色的格子是它当前获得的"行驶授权"。任意两辆车的授权格互不重叠，所以不会相撞。实线路线表示车上有乘客，虚线表示空车。琥珀色圆点是等待接驾的乘客，旗帜是目的地。带"M"标记的车由 Matlab（这里用模拟设备代替）驱动。
+图中，每辆车前方浅色的格子是它当前获得的"行驶授权"。任意两辆车的授权格互不重叠，所以不会相撞。实线路线表示车上有乘客，虚线表示空车。琥珀色圆点是等待接驾的乘客，旗帜是目的地。车周围的扇形是模拟激光雷达的扫描范围，橙色锥桶是车辆感知发现、已写进地图的障碍，紫色虚线圆是早高峰的需求热点。顶部是正在自动运行的场景脚本和下一个事件。
 
 ## 快速开始
 
 只需要安装 **JDK 17 或更新版本**。演示用的模拟设备另需 Python 3。
 
-**Windows**：双击 `scripts\start_demo.bat`，会依次启动服务端、5 辆模拟车、1 部模拟手机，并打开浏览器。
+**Windows**：双击 `scripts\start_demo.bat`，会依次启动服务端（运行"期末演示"场景脚本，之后全程自动）、5 辆模拟车、1 部模拟手机，并打开浏览器。
 
 **Linux / macOS**：
 
@@ -18,7 +18,7 @@
 scripts/start_demo.sh
 ```
 
-只启动服务端用 `scripts/start_server.bat` 或 `scripts/start_server.sh`，然后浏览器打开 http://localhost:8080 。
+只启动服务端用 `scripts/start_server.bat` 或 `scripts/start_server.sh`，然后浏览器打开 http://localhost:8080 。加 `--scenario perception`（或 `demo`、`rush-hour`）运行指定的场景脚本。
 
 接入 Matlab 模拟车：先启动服务端，然后在 MATLAB 中进入 `matlab/` 目录，运行 `run_fleet`。详见 [matlab/README.md](matlab/README.md)。
 
@@ -34,7 +34,9 @@ scripts/start_demo.sh
 | 设备接入模块：UDP/TCP/RESTful | TCP 9000（注册、路线、授权、状态）、UDP 9001（状态上报）、HTTP 8080（REST + SSE） |
 | 优化与决策模块 | 贪心 / 匈牙利两种派单策略，可在界面上切换并用离线实验对比 |
 | Matlab 模拟车，至少 5 辆，与数字车同步 | `matlab/`：纯追踪 + 速度 PI 控制，遵守行驶授权，断线由数字世界接管 |
-| 启动后全自主运行 | 一键启动；设备断线自动接管、重连自动恢复 |
+| 启动后全自主运行 | 一键启动；场景脚本按时间自动制造路障、未知障碍、早晚高峰、订单潮并循环播放（`server/scenarios/`）；设备断线自动接管、重连自动恢复 |
+| 智能：环境感知与辅助建图（第 2 页） | 每辆车 10 Hz 模拟 48 束激光雷达；系统一开始不知道的障碍由车辆发现，占据栅格确认后写入全局地图、收回授权、重规划或掉头，障碍消失后自动撤掉；按真实世界统计"车撞障碍"，长时间实验为零。详见 [架构设计说明 5.9 节](docs/architecture.md#59-环境感知与辅助建图) |
+| 优化与决策：空车调度 | 分区需求预测 + 匈牙利算法调度空车；潮汐需求下平均等待降低约 20% |
 | 手机 App 作为智能体接入、位姿估计 | `phone/`：安卓 App，行人航位推算（计步 + 步长 + 陀螺仪航向），室外可融合磁力计和卫星定位（含北斗）；出租车会给行人让路，还能在手机上叫车。详见 [phone/README.md](phone/README.md) |
 | Gazebo、3D 可视化 | 尚未开始，见 [docs/plan.md](docs/plan.md) |
 
@@ -60,10 +62,11 @@ docs/      文档
 ## 测试与实验
 
 ```bash
-cd server && mvn test                                    # 服务端单元测试（11 项）
+cd server && mvn test                                    # 服务端单元测试（24 项）
 cd phone && ./gradlew test                               # 手机 App 核心算法单元测试（64 项）
 scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16   # 派单策略对比
+python3 tools/run_evaluation.py                          # 跑完全部效果评估实验，结果写到 docs/eval/summary.md
 scripts/phone_sim.sh                                     # 模拟一部"拿着走路的手机"接入运行中的服务端
 ```
 
-接近饱和的场景（16 辆车，16 单/分钟）下，匈牙利算法派单比贪心派单的平均等待时间少约 45%（36 s 对 66 s），送达效率高约 10%。详见 [架构设计说明 5.4 节](docs/architecture.md#54-派单)。
+接近饱和的场景（16 辆车，16 单/分钟）下，匈牙利算法派单比贪心派单的平均等待时间少约 45%（39 s 对 70 s），送达效率高约 13%；潮汐需求下开启空车调度，平均等待再降约 20%；16 车高负载运行演示场景 6 × 60 分钟，零碰撞（含车撞障碍）。详见 [效果评估实验结果](docs/eval/summary.md)。

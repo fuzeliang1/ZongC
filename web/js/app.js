@@ -66,6 +66,8 @@ function tooltipHtml(a) {
     `速度 ${a.v.toFixed(2)} m/s，位置 (${a.x.toFixed(1)}, ${a.y.toFixed(1)})`,
   ];
   if (a.taskId) lines.push(`订单 ${esc(a.taskId)}`);
+  if (a.zone) lines.push(`空车调度：在区域 ${esc(a.zone)} 内待命`);
+  if (a.seen) lines.push(`雷达看到：车 ${a.seen[0]}，行人 ${a.seen[1]}${a.seen[2] ? `，<b style="color:var(--sensed)">未知障碍 ${a.seen[2]} 处</b>` : ''}`);
   if (a.blocked) lines.push('<span style="color:var(--danger)">前方受阻，等待通行</span>');
   return lines.join('<br>');
 }
@@ -140,16 +142,20 @@ function renderPanels() {
     metric('空驶率', Math.round(m.emptyRatio * 100), '%'),
     metric('数字车', m.taxis),
     metric('外部接入', m.externalTaxis + m.freeAgents),
-    metric('绕行次数', m.reroutes),
+    metric('绕行 / 掉头', `${m.reroutes}<small>/${m.uturns}</small>`),
+    metric('感知发现障碍', m.discoveries, m.obstacleClears ? `撤除 ${m.obstacleClears}` : ''),
+    metric('地图核实', Math.round(m.coverage * 100), '%'),
+    metric('空车调度', m.rebalanceMoves, '次'),
   ].join('');
 
-  const crashes = m.collisions + m.obstacleHits;
+  const crashes = m.collisions + m.obstacleHits + m.barrierHits;
   const safety = $('safety');
   safety.dataset.bad = crashes > 0 ? 'true' : 'false';
   const gaps = [];
   if (m.minCarGap != null) gaps.push(`最小车距 ${m.minCarGap.toFixed(2)} m`);
   if (m.minWallGap != null) gaps.push(`最小离墙 ${m.minWallGap.toFixed(2)} m`);
-  safety.innerHTML = `<strong>${crashes === 0 ? '零碰撞' : `碰撞 ${m.collisions} 次，撞墙 ${m.obstacleHits} 次`}</strong>`
+  if (m.minBarrierGap != null) gaps.push(`离障碍 ${m.minBarrierGap.toFixed(2)} m`);
+  safety.innerHTML = `<strong>${crashes === 0 ? '零碰撞' : `碰撞 ${m.collisions} 次，撞墙 ${m.obstacleHits} 次，撞障碍 ${m.barrierHits} 次`}</strong>`
     + `　${gaps.join('，')}${m.authorityViolations ? `，越权行驶 ${m.authorityViolations} 次` : ''}`;
 
   // 车辆表
@@ -161,7 +167,8 @@ function renderPanels() {
     return `<tr data-id="${esc(a.id)}" class="${a.id === selected ? 'selected' : ''}">`
       + `<td><span class="swatch" style="background:${color}"></span>${esc(a.id)}</td>`
       + `<td class="${ext ? 'ext' : ''}">${esc(DRIVER[a.driver] || a.driver)}${ext ? ' ' + driverLetter(a.driver) : ''}</td>`
-      + `<td>${esc(STATUS[a.status] || a.status)}${a.blocked ? '<span class="blocked-tag">受阻</span>' : ''}</td>`
+      + `<td>${esc(STATUS[a.status] || a.status)}${a.blocked ? '<span class="blocked-tag">受阻</span>' : ''}`
+      + `${a.zone ? '<span class="zone-tag" title="空车调度：在该区域待命">调度</span>' : ''}</td>`
       + `<td class="num">${a.v.toFixed(2)}</td></tr>`;
   }).join('');
 
@@ -182,7 +189,53 @@ function renderPanels() {
     ? ev.map((e) => `<li data-level="${e.level}"><time>${fmtClock(e.t)}</time><span>${esc(e.msg)}</span></li>`).join('')
     : '<li class="empty">暂无事件</li>';
 
+  renderScenario(s);
   syncControls(s);
+}
+
+// ------------------------------------------------------------ 场景脚本
+
+let bannerText = null;
+
+function renderScenario(s) {
+  const sc = s.scenario;
+  const strip = $('scenarioStrip');
+  strip.hidden = !sc;
+  const banner = $('scBanner');
+  if (!sc) {
+    banner.hidden = true;
+    bannerText = null;
+    return;
+  }
+  $('scName').textContent = `场景：${sc.name}`;
+  $('scLoop').textContent = `第 ${sc.loop} 轮 · ${fmtClock(sc.elapsed)}`;
+  $('scNext').textContent = sc.next != null ? `下一步（${Math.ceil(sc.nextIn)} s 后）：${sc.next}` : '本轮事件已全部执行';
+  const total = sc.elapsed + (sc.nextIn ?? 0);
+  $('scBar').style.width = `${Math.round((sc.steps ? sc.step / sc.steps : 1) * 100)}%`;
+  $('scBar').title = `已执行 ${sc.step} / ${sc.steps} 个事件，总长约 ${Math.round(total)} s`;
+  if (sc.banner) {
+    if (sc.banner !== bannerText) {
+      banner.innerHTML = `<small>场景事件 · 自动触发</small>${esc(sc.banner)}`;
+      banner.hidden = false;
+      bannerText = sc.banner;
+    }
+  } else if (bannerText) {
+    banner.hidden = true;
+    bannerText = null;
+  }
+}
+
+async function loadScenarios() {
+  try {
+    const r = await (await fetch('/api/scenarios')).json();
+    const sel = $('scenarioSel');
+    sel.innerHTML = '<option value="">不运行脚本</option>' + r.scenarios.map((x) => `<option value="${esc(x.file)}"`
+      + `${x.error ? ' disabled' : ''} title="${esc(x.description || x.error || '')}">${esc(x.name || x.file)}`
+      + `${x.loop ? '（循环）' : ''}</option>`).join('');
+    sel.value = r.current || '';
+  } catch (err) {
+    // 服务端还没启动时忽略，稍后 start() 会重试
+  }
 }
 
 $('carRows').addEventListener('click', (e) => {
@@ -205,6 +258,8 @@ function syncControls(s) {
   }
   const ts = $('timeScale');
   if (document.activeElement !== ts && [...ts.options].some((o) => Number(o.value) === s.timeScale)) ts.value = String(s.timeScale);
+  const reb = $('rebalance');
+  if (document.activeElement !== reb && s.zones) reb.checked = !!s.zones.on;
   $('pauseBtn').textContent = s.paused ? '继续' : '暂停';
   $('pauseBtn').setAttribute('aria-pressed', s.paused ? 'true' : 'false');
 }
@@ -225,6 +280,31 @@ $('rate').addEventListener('change', (e) => post('/api/config', { ratePerMin: Nu
 $('timeScale').addEventListener('change', (e) => post('/api/config', { timeScale: Number(e.target.value) }));
 $('pauseBtn').addEventListener('click', () => post(latest?.paused ? '/api/sim/resume' : '/api/sim/pause'));
 $('taskBtn').addEventListener('click', () => setTaskMode(taskMode ? null : 'pickup'));
+$('rebalance').addEventListener('change', (e) => post('/api/config', { rebalance: e.target.checked }));
+$('scenarioBtn').addEventListener('click', async () => {
+  const file = $('scenarioSel').value;
+  const name = $('scenarioSel').selectedOptions[0]?.textContent || '';
+  if (!confirm(file ? `切换到场景"${name}"？仿真会重置，脚本从头开始。` : '停止场景脚本？仿真会重置。')) return;
+  const r = await post('/api/scenario', { file: file || null });
+  if (r && !r.ok) alertBanner(r.error || '切换失败');
+  setTimeout(loadScenarios, 500);
+});
+
+// 图层开关（只记在本机浏览器里）
+const LAYER_KEY = 'minididi.layers';
+try {
+  const saved = JSON.parse(localStorage.getItem(LAYER_KEY) || 'null');
+  if (saved) Object.assign(view.layers, saved);
+} catch (err) { /* 隐私模式等情况下不可用 */ }
+for (const [id, key] of [['lyScan', 'scan'], ['lyTruth', 'truth'], ['lyDemand', 'demand']]) {
+  const box = $(id);
+  box.checked = view.layers[key];
+  box.addEventListener('change', () => {
+    view.layers[key] = box.checked;
+    try { localStorage.setItem(LAYER_KEY, JSON.stringify(view.layers)); } catch (err) { /* 忽略 */ }
+  });
+}
+
 $('resetBtn').addEventListener('click', () => {
   if (confirm('重置仿真？订单和统计数据会清零，已连接的设备会自动重新绑定。')) post('/api/sim/reset', {});
 });
@@ -236,6 +316,7 @@ async function start() {
     const m = await (await fetch('/api/map')).json();
     $('mapName').textContent = `${m.name}（${m.width}×${m.height} 格，每格 ${m.resolution} 米）`;
     view.setMap(m);
+    loadScenarios();
   } catch (err) {
     $('mapName').textContent = '地图加载失败，请确认服务端已启动';
     setTimeout(start, 2000);
