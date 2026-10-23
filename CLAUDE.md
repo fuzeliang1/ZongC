@@ -93,7 +93,7 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
 - 2D 网页界面；Python 模拟设备；一键演示脚本。
 - Matlab 模拟车代码（未在 MATLAB 实测）。
 - 安卓 App（`phone/`）：PDR（计步 + Weinberg 步长 + 陀螺航向 + 零偏估计）、室外磁力计 PI 融合 + 卫星卡尔曼融合、
-  标定、小地图、叫车、模拟行走、CSV 记录 + MATLAB 分析脚本；核心 64 项单元测试 + 端到端仿真通过；
+  标定、小地图、叫车、模拟行走、CSV 记录 + MATLAB 分析脚本；核心 65 项单元测试 + 端到端仿真通过；
   **未在真机运行过**（安卓层只对照 API 桩做过编译检查）。
 - 服务端修复：行人走进已授权格子时紧急收回授权。
 
@@ -103,7 +103,10 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
 2. ✅ 感知与建图（`world/Perception.java`：模拟激光雷达、占据栅格、发现 / 撤除、设备 scan 消息；
    `World.applyBlock` 收回授权 + 重规划；`planUTurn` 掉头；上下车点被切断时就近改点；`barrierHits` 真实世界碰撞计数；
    网页：锥桶 / 上帝视角问号 / 雷达扇形 / 指标；协议文档 2.4、3.3 节；架构 5.9 节；测试 `world/PerceptionTest`）
-3. 图像处理加速模块（服务端颜色分割识别路障）+ 手机拍照上报
+3. ✅ 图像处理加速模块（`vision/`：HSV 颜色分割 + 开运算 + 连通域 + 合并反光条切开的块，按行并行；针孔模型测距、
+   映射到地图格子，作为观测并入占据栅格并登记到数字孪生真实世界 120 s；`POST /api/vision/detect`、
+   `GET /api/vision/last(.jpg)`、`/api/vision/sample.jpg`；网页"图像识别"面板；手机"拍照"按钮（系统相机缩略图，
+   无需权限）；测速工具 `tools/VisionBench`；测试 `vision/VisionTest`、手机 `MapClientTest`）
 4. ✅ 派单优化（`Demand` 需求热点、`Rebalancer` 空车调度；订单用独立随机数序列保证对比公平；
    网页热点圆 + 分区热力图；架构 5.11 节；测试 `world/RebalanceTest`）
    - 效果评估：`python3 tools/run_evaluation.py`（约 5 分钟）→ `docs/eval/summary.md` + 原始 CSV。

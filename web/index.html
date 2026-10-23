@@ -103,6 +103,19 @@
         </div>
       </section>
 
+      <section class="panel" aria-labelledby="h-vision">
+        <h2 id="h-vision">图像识别 <span class="count">服务端处理，手机拍照上传</span></h2>
+        <figure class="vision" id="visionFig" hidden>
+          <img id="visionImg" alt="最近一次识别的照片，方框是识别出的目标">
+          <figcaption id="visionCap"></figcaption>
+        </figure>
+        <p class="hint" id="visionEmpty">还没有照片。手机 App 点"拍照识别"，或在这里上传一张照片试试。</p>
+        <div class="buttons">
+          <label class="file-btn"><input type="file" id="visionFile" accept="image/*">上传照片</label>
+          <button type="button" id="visionSample">用示例图片测试</button>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="h-events">
         <h2 id="h-events">事件</h2>
         <ol class="events" id="events"></ol>

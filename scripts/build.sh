@@ -9,5 +9,6 @@ javac -encoding UTF-8 --release 17 -nowarn \
   -sourcepath server/src/main/java \
   -d server/build/classes \
   server/src/main/java/com/zongc/dw/DwServer.java \
-  server/src/main/java/com/zongc/dw/tools/Experiment.java
+  server/src/main/java/com/zongc/dw/tools/Experiment.java \
+  server/src/main/java/com/zongc/dw/tools/VisionBench.java
 echo "编译完成：server/build/classes"

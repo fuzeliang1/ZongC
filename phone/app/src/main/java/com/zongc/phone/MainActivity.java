@@ -3,12 +3,16 @@ package com.zongc.phone;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -30,8 +34,10 @@ import com.zongc.phone.core.Geo;
 import com.zongc.phone.core.MapData;
 import com.zongc.phone.core.PdrConfig;
 import com.zongc.phone.core.PdrState;
+import com.zongc.phone.core.VisionResult;
 import com.zongc.phone.core.WorldSnapshot;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /**
@@ -81,7 +87,9 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
     private Button outdoorBtn;
     private Button recordBtn;
     private Button hailBtn;
+    private Button photoBtn;
     private Button settingsBtn;
+    private static final int REQ_PHOTO = 41;
 
     // 传感器频率统计
     private long rateT;
@@ -257,6 +265,12 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
                 onHailClicked();
             }
         });
+        photoBtn = button("拍照", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onPhotoClicked();
+            }
+        });
         settingsBtn = button("设置", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -264,7 +278,7 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
             }
         });
         body.addView(buttonRow(positionBtn, headingBtn, calibBtn, simBtn));
-        body.addView(buttonRow(outdoorBtn, recordBtn, hailBtn, settingsBtn));
+        body.addView(buttonRow(outdoorBtn, recordBtn, hailBtn, photoBtn, settingsBtn));
         return root;
     }
 
@@ -686,6 +700,68 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
                 }
             }
         }, "hail").start();
+    }
+
+    // ================================================================ 拍照识别
+
+    /**
+     * 拍照识别路障：调用系统相机拍一张照片（只取缩略图，不需要相机或存储权限），上传给服务端的
+     * 图像处理模块。服务端识别出橙 / 红色路障后，按手机当前位姿换算到地图上，出租车随即绕行。
+     */
+    private void onPhotoClicked() {
+        mode = MODE_NONE;
+        DwConnection.Status cs = core.connStatus();
+        if (cs == null || cs.state != DwConnection.State.CONNECTED) {
+            toast("请先连接服务端");
+            return;
+        }
+        try {
+            startActivityForResult(new Intent(MediaStore.ACTION_IMAGE_CAPTURE), REQ_PHOTO);
+        } catch (ActivityNotFoundException e) {
+            toast("手机上没有可用的相机应用");
+        }
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_PHOTO) return;
+        if (resultCode != RESULT_OK || data == null || data.getExtras() == null) {
+            toast("没有拍照");
+            return;
+        }
+        Object o = data.getExtras().get("data");     // 相机返回的缩略图
+        if (!(o instanceof Bitmap)) {
+            toast("没有拿到照片");
+            return;
+        }
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ((Bitmap) o).compress(Bitmap.CompressFormat.JPEG, 92, bos);
+        final byte[] jpeg = bos.toByteArray();
+        toast("正在上传照片，由服务端识别……");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    final VisionResult r = core.detectPhoto(jpeg);
+                    core.sendEvent("拍照识别：" + r.summary);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            toast(r.summary + (r.mapped > 0 ? "。出租车会绕开它" : ""));
+                        }
+                    });
+                } catch (final IOException e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            toast("识别失败：" + e.getMessage());
+                        }
+                    });
+                }
+            }
+        }, "photo").start();
     }
 
     // ================================================================ 设置

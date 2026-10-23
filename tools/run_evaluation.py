@@ -80,7 +80,7 @@ def main():
       '同一组内各配置使用相同的种子，订单序列完全相同（配对比较）。原始数据见同目录 CSV。\n\n')
 
     # 1. 派单策略
-    print('1/4 派单策略对比', flush=True)
+    print('1/5 派单策略对比', flush=True)
     w('## 1. 派单策略：贪心 vs 匈牙利算法\n\n')
     w('| 场景 | 策略 | 送达 (单) | 平均等待 (s) | 最长等待 (s) | 送达效率 (单/分) | 空驶率 | 碰撞 |\n|---|---|---|---|---|---|---|---|\n')
     key_results = {}
@@ -99,7 +99,7 @@ def main():
     w(f'\n接近饱和时，匈牙利算法把平均等待从 {g16:.1f} s 降到 {h16:.1f} s（−{(1 - h16 / g16) * 100:.0f}%）。\n\n')
 
     # 2. 空车调度
-    print('2/4 空车调度对比', flush=True)
+    print('2/5 空车调度对比', flush=True)
     w('## 2. 空车调度（潮汐需求：早高峰居民区 → 商务区，晚高峰反向）\n\n')
     w('8 车，场景 `rush-hour.json`，派单均为匈牙利算法。\n\n')
     w('| 到达率 | 空车调度 | 送达 (单) | 平均等待 (s) | 最长等待 (s) | 空驶率 | 调度次数 | 碰撞 |\n|---|---|---|---|---|---|---|---|\n')
@@ -118,7 +118,7 @@ def main():
     w('\n空车调度只调动"空车"，车辆接近饱和（几乎没有空车）时无从调度，效果随负载升高而减弱。\n\n')
 
     # 3. 感知与建图
-    print('3/4 感知与建图', flush=True)
+    print('3/5 感知与建图', flush=True)
     w('## 3. 感知与建图（场景 `perception.json`：4 处未知障碍陆续出现、消失，循环播放）\n\n')
     rows = experiment('perception', ['--minutes', minutes, '--seeds', seeds8, '--strategies', 'HUNGARIAN',
                                      '--scenario', 'perception'])
@@ -136,7 +136,7 @@ def main():
       '偏僻路段要等到有车路过。\n\n')
 
     # 4. 安全性
-    print('4/4 安全性长时间运行', flush=True)
+    print('4/5 安全性长时间运行', flush=True)
     w('## 4. 安全性：长时间、高密度运行\n\n')
     rows = experiment('safety', ['--minutes', '60' if not a.quick else '20', '--seeds', seeds3,
                                  '--strategies', 'GREEDY,HUNGARIAN', '--taxis', '16', '--rate', '16',
@@ -152,6 +152,22 @@ def main():
     w(f'| 最小离墙 (m) | {min(float(r["minWallGap"]) for r in rows):.3f} |\n')
     w(f'| 最长连续受阻 (s) | {max(float(r["maxBlocked"]) for r in rows):.1f} |\n')
     w(f'| 仿真速度（仿真秒 / 墙钟秒） | {fmt(rows, "simSecPerWallSec", 0)} |\n')
+
+    # 5. 图像处理加速
+    print('5/5 图像处理测速', flush=True)
+    path = os.path.join(OUT, 'vision-bench.csv')
+    subprocess.run(['java', '-Dstdout.encoding=UTF-8', '-cp', CP, 'com.zongc.dw.tools.VisionBench', '--csv', path,
+                    '--runs', '7' if a.quick else '15'], cwd=SERVER, check=True, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, env=dict(os.environ, LC_ALL='C.UTF-8'))
+    with open(path, encoding='utf-8') as f:
+        rows = list(csv.DictReader(f))
+    w('\n## 5. 图像处理加速（颜色分割 + 开运算 + 连通域，同一张图单线程 vs 按行并行）\n\n')
+    w(f'测试机器 {rows[0]["threads"]} 个 CPU 核，每种尺寸各跑多次取中位数。服务端实际处理时会先把照片缩到 640 像素宽。\n\n')
+    w('| 图像尺寸 | 单线程 (ms) | 并行 (ms) | 加速比 |\n|---|---|---|---|\n')
+    for r in rows:
+        w(f'| {r["width"]}×{r["height"]} | {float(r["serialMs"]):.2f} | {float(r["parallelMs"]):.2f} | {float(r["speedup"]):.2f} |\n')
+    w('\n并行只覆盖颜色分割和开运算（每一行互不依赖），连通域标记仍是串行的，所以加速比低于核数（阿姆达尔定律）；'
+      '图越大，可并行部分占比越高，加速越明显。\n')
 
     with open(os.path.join(OUT, 'summary.md'), 'w', encoding='utf-8') as f:
         f.write(md.getvalue())

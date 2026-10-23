@@ -62,8 +62,8 @@ docs/      文档
 ## 测试与实验
 
 ```bash
-cd server && mvn test                                    # 服务端单元测试（24 项）
-cd phone && ./gradlew test                               # 手机 App 核心算法单元测试（64 项）
+cd server && mvn test                                    # 服务端单元测试（29 项）
+cd phone && ./gradlew test                               # 手机 App 核心算法单元测试（65 项）
 scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16   # 派单策略对比
 python3 tools/run_evaluation.py                          # 跑完全部效果评估实验，结果写到 docs/eval/summary.md
 scripts/phone_sim.sh                                     # 模拟一部"拿着走路的手机"接入运行中的服务端

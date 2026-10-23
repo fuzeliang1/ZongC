@@ -147,7 +147,16 @@ public final class World {
         return generator.randomTrip(this);
     }
 
-    /** 图像处理模块的识别结果：把障碍观测并入感知地图，并记下摘要给界面显示。 */
+    /** 图像识别登记的障碍在真实世界里保留多久（秒），期间再被拍到会续期。 */
+    public static final double VISION_TTL_SEC = 120;
+
+    /**
+     * 图像处理模块的识别结果：把识别出的路障作为观测并入感知地图（见 {@link Perception#visionObstacle}），
+     * 并记下摘要给界面显示。
+     *
+     * @param cells  识别出的路障所在的格子（格索引），可以为空（只识别、不建图）
+     * @param weight 一次识别相当于几次激光命中（2 次即可确认）
+     */
     public void reportVision(String source, int objects, String summary, int[] cells, double weight) {
         visionReports++;
         int[] mapped = null;
@@ -156,7 +165,7 @@ public final class World {
             for (int i = 0; i < cells.length; i++) {
                 mapped[i * 2] = map.cx(cells[i]);
                 mapped[i * 2 + 1] = map.cy(cells[i]);
-                perception.observeObstacle(this, cells[i], weight, source);
+                perception.visionObstacle(this, cells[i], weight, source, VISION_TTL_SEC);
             }
         }
         vision = new Snapshot.VisionView(visionReports, source, Num.r1(time), objects, summary, mapped);

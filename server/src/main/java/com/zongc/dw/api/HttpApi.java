@@ -14,6 +14,8 @@ import com.zongc.dw.map.GridMap;
 import com.zongc.dw.sim.SimulationEngine;
 import com.zongc.dw.sim.SnapshotHub;
 import com.zongc.dw.util.Log;
+import com.zongc.dw.vision.VisionService;
+import com.zongc.dw.world.Agent;
 import com.zongc.dw.world.DeviceBridge;
 import com.zongc.dw.world.Scenario;
 import com.zongc.dw.world.Task;
@@ -35,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * HTTP 接口（可视化与人机交互模块的服务端部分），基于 JDK 自带的 HttpServer：
  * <ul>
- *   <li>REST：地图、快照、配置、订单、路障、事件、场景脚本（见 docs/protocol.md 第 4 节）；</li>
+ *   <li>REST：地图、快照、配置、订单、路障、事件、场景脚本、图像识别（见 docs/protocol.md 第 3 节）；</li>
  *   <li>SSE（Server-Sent Events）：/api/stream 以约 10 Hz 推送世界快照，浏览器用 EventSource 接收；</li>
  *   <li>静态文件：web/ 目录下的前端页面。</li>
  * </ul>
@@ -60,6 +62,7 @@ public final class HttpApi {
     private final Path webRoot;
     private final Gson gson = new Gson();
     private final String mapJson;
+    private final VisionService vision;
     private HttpServer server;
 
     public HttpApi(Config cfg, SimulationEngine engine, Path webRoot) {
@@ -67,6 +70,7 @@ public final class HttpApi {
         this.engine = engine;
         this.webRoot = webRoot.toAbsolutePath().normalize();
         this.mapJson = buildMapJson(engine.map());
+        this.vision = new VisionService(engine.map());
     }
 
     public void start() throws IOException {
@@ -133,6 +137,18 @@ public final class HttpApi {
                 case "GET /api/info" -> sendJson(ex, 200, infoJson().toString());
                 case "GET /api/scenarios" -> sendJson(ex, 200, scenariosJson().toString());
                 case "POST /api/scenario" -> switchScenario(ex);
+                case "POST /api/vision/detect" -> visionDetect(ex);
+                case "GET /api/vision/last" -> {
+                    VisionService.Report r = vision.last();
+                    if (r == null) sendJson(ex, 404, error("还没有识别过图片"));
+                    else sendJson(ex, 200, gson.toJson(r));
+                }
+                case "GET /api/vision/sample.jpg" -> sendBytes(ex, "image/jpeg", sampleImage());
+                case "GET /api/vision/last.jpg" -> {
+                    byte[] img = vision.lastImage();
+                    if (img == null) sendJson(ex, 404, error("还没有识别过图片"));
+                    else sendBytes(ex, "image/jpeg", img);
+                }
                 default -> sendJson(ex, 404, error("没有这个接口: " + method + " " + path));
             }
         } catch (BadRequest e) {
@@ -267,6 +283,59 @@ public final class HttpApi {
         return o;
     }
 
+    /**
+     * 图像识别：请求体是一张 JPEG / PNG 图片，参数放在查询串里：
+     * source（手机的智能体编号或 web）、x / y / theta（相机在地图上的位姿，省略时用 source 智能体的当前位姿）、
+     * hfov（水平视场角，度）、h（目标真实高度，米）、scale（比例尺）、benchmark=1（附带单线程对比耗时）。
+     * 识别在 HTTP 线程里完成（不占用仿真线程），结果再交给仿真线程并入地图。
+     */
+    private void visionDetect(HttpExchange ex) throws Exception {
+        byte[] body = ex.getRequestBody().readNBytes(VisionService.MAX_BYTES + 1);
+        String source = queryStr(ex, "source", "web");
+        double[] pose = null;
+        Double qx = queryDouble(ex, "x"), qy = queryDouble(ex, "y"), qt = queryDouble(ex, "theta");
+        if (qx != null && qy != null) {
+            pose = new double[]{qx, qy, qt != null ? qt : 0};
+        } else if (!source.equals("web")) {
+            pose = await(engine.call(w -> {
+                Agent a = w.agent(source);
+                return a == null ? null : new double[]{a.x, a.y, a.theta};
+            }));
+        }
+        double hfov = orDefault(queryDouble(ex, "hfov"), 63);
+        double h = orDefault(queryDouble(ex, "h"), 0.7);
+        double scale = orDefault(queryDouble(ex, "scale"), 1.0);
+        boolean bench = "1".equals(queryStr(ex, "benchmark", "0"));
+        VisionService.Report r;
+        try {
+            r = vision.process(body, new VisionService.Params(source, pose, hfov, h, scale, bench));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequest(e.getMessage());
+        }
+        int[] idx = vision.mappedCells(r);
+        await(engine.call(w -> {
+            w.reportVision(r.source(), r.objects().size(), r.summary(), idx, 2.0);
+            return true;
+        }));
+        JsonObject o = gson.toJsonTree(r).getAsJsonObject();
+        o.addProperty("ok", true);
+        o.addProperty("posed", pose != null);
+        sendJson(ex, 200, o.toString());
+    }
+
+    private byte[] sample;
+
+    /** 网页"示例图片"按钮用的测试照片：程序画出的路面 + 一个橙色锥桶。 */
+    private synchronized byte[] sampleImage() throws IOException {
+        if (sample == null) {
+            var img = com.zongc.dw.vision.SyntheticImages.roadScene(960, 720, 600, 230, 11);
+            var bos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "jpg", bos);
+            sample = bos.toByteArray();
+        }
+        return sample;
+    }
+
     /** 场景目录下的全部脚本（名称、说明、事件数），以及当前正在运行的脚本。 */
     private JsonObject scenariosJson() {
         JsonObject o = new JsonObject();
@@ -392,6 +461,44 @@ public final class HttpApi {
         } catch (RuntimeException e) {
             if (e instanceof BadRequest) throw e;
             throw new BadRequest("请求体不是合法 JSON: " + e.getMessage());
+        }
+    }
+
+    private static String queryStr(HttpExchange ex, String key, String def) {
+        String q = ex.getRequestURI().getRawQuery();
+        if (q == null) return def;
+        for (String part : q.split("&")) {
+            String[] kv = part.split("=", 2);
+            if (kv.length == 2 && kv[0].equals(key)) return URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+        }
+        return def;
+    }
+
+    private static Double queryDouble(HttpExchange ex, String key) {
+        String v = queryStr(ex, key, null);
+        if (v == null || v.isBlank()) return null;
+        try {
+            double d = Double.parseDouble(v);
+            return Double.isFinite(d) ? d : null;
+        } catch (NumberFormatException e) {
+            throw new BadRequest(key + " 不是数字: " + v);
+        }
+    }
+
+    private static double orDefault(Double v, double def) {
+        return v != null ? v : def;
+    }
+
+    private static void sendBytes(HttpExchange ex, String type, byte[] data) {
+        try {
+            ex.getResponseHeaders().set("Content-Type", type);
+            ex.getResponseHeaders().set("Cache-Control", "no-cache");
+            ex.sendResponseHeaders(200, data.length == 0 ? -1 : data.length);
+            try (OutputStream out = ex.getResponseBody()) {
+                out.write(data);
+            }
+        } catch (IOException e) {
+            Log.debug("HTTP 响应发送失败: " + e.getMessage());
         }
     }
 

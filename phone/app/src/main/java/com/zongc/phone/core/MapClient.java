@@ -10,7 +10,7 @@ import java.nio.charset.Charset;
 import java.util.Map;
 
 /**
- * 访问数字世界的 HTTP 接口（端口 8080）：拉地图、拉快照、叫车。
+ * 访问数字世界的 HTTP 接口（端口 8080）：拉地图、拉快照、叫车、上传照片做图像识别。
  *
  * <p>全部是阻塞调用，必须在后台线程里用（安卓禁止在主线程联网）。</p>
  */
@@ -66,6 +66,24 @@ public final class MapClient {
         return id;
     }
 
+    /**
+     * 拍照识别：把一张 JPEG 照片上传给服务端的图像处理模块。服务端用这部手机（source）在地图上的位姿
+     * 把识别出的路障换算到地图格子上，写入全局地图，出租车随即绕行。
+     *
+     * @param source  这部手机在数字世界里的编号（welcome 里的 agentId）
+     * @param hfovDeg 相机水平视场角（度）
+     * @param scale   比例尺：真实世界 1 米 = 地图上多少米
+     */
+    public VisionResult detectPhoto(String source, byte[] jpeg, double hfovDeg, double scale) throws IOException {
+        String q = "/api/vision/detect?source=" + java.net.URLEncoder.encode(source, "UTF-8")
+                + "&hfov=" + Fmt.show(hfovDeg, 1) + "&scale=" + Fmt.show(scale, 3);
+        try {
+            return VisionResult.fromJson(requestBytes("POST", q, "image/jpeg", jpeg));
+        } catch (IllegalArgumentException e) {
+            throw new IOException("服务端返回的识别结果无法解析");
+        }
+    }
+
     private static Map<String, Object> parse(String json) throws IOException {
         try {
             Map<String, Object> o = Json.parseObject(json);
@@ -78,6 +96,11 @@ public final class MapClient {
 
     /** 发送请求并返回响应正文；HTTP 状态码 ≥ 400 时抛出带服务端错误信息的 IOException。 */
     String request(String method, String path, String body) throws IOException {
+        return requestBytes(method, path, "application/json; charset=utf-8", body == null ? null : body.getBytes(UTF8));
+    }
+
+    /** 发送请求（请求体为任意字节，例如照片）并返回响应正文。 */
+    String requestBytes(String method, String path, String contentType, byte[] bytes) throws IOException {
         HttpURLConnection c;
         try {
             c = (HttpURLConnection) URI.create(base + path).toURL().openConnection();
@@ -90,10 +113,9 @@ public final class MapClient {
             c.setUseCaches(false);
             c.setRequestMethod(method);
             c.setRequestProperty("Accept", "application/json");
-            if (body != null) {
-                byte[] bytes = body.getBytes(UTF8);
+            if (bytes != null) {
                 c.setDoOutput(true);
-                c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                c.setRequestProperty("Content-Type", contentType);
                 c.setFixedLengthStreamingMode(bytes.length);
                 OutputStream os = c.getOutputStream();
                 try {

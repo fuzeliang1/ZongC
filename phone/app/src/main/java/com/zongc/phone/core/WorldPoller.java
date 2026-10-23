@@ -96,4 +96,9 @@ public final class WorldPoller {
     public String hail(int fromX, int fromY, int toX, int toY) throws IOException {
         return api.hail(fromX, fromY, toX, toY);
     }
+
+    /** 拍照识别（阻塞，在后台线程调用）。 */
+    public VisionResult detectPhoto(String source, byte[] jpeg, double hfovDeg, double scale) throws IOException {
+        return api.detectPhoto(source, jpeg, hfovDeg, scale);
+    }
 }

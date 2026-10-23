@@ -49,6 +49,36 @@ public class MapClientTest {
         });
     }
 
+    private volatile String lastPath;
+    private volatile int lastBodyLength;
+
+    private void routeVision() {
+        http.route("/api/vision/detect", new TinyHttpServer.Handler() {
+            @Override
+            public TinyHttpServer.Response handle(String method, String path, String body) {
+                lastPath = path;
+                lastBodyLength = body.length();
+                return new TinyHttpServer.Response(200, "{\"ok\":true,\"seq\":3,\"detectMs\":4.2,"
+                        + "\"objects\":[{\"label\":\"路障\",\"kind\":\"barrier\",\"distance\":2.3}],"
+                        + "\"mapped\":[17,15],\"summary\":\"识别到 1 个目标：路障\"}");
+            }
+        });
+    }
+
+    @Test
+    public void detectPhotoUploadsTheImageAndParsesTheResult() throws IOException {
+        routeVision();
+        byte[] jpeg = new byte[2048];
+        for (int i = 0; i < jpeg.length; i++) jpeg[i] = (byte) ('a' + i % 26);
+        VisionResult r = client().detectPhoto("phone-2", jpeg, 63, 4);
+        assertEquals(1, r.objects);
+        assertEquals(1, r.mapped);
+        assertEquals(4.2, r.detectMs, 1e-9);
+        assertTrue(r.summary.contains("路障"));
+        assertTrue(lastPath, lastPath.contains("source=phone-2") && lastPath.contains("hfov=63.0") && lastPath.contains("scale=4.000"));
+        assertEquals(jpeg.length, lastBodyLength);
+    }
+
     @After
     public void tearDown() throws IOException {
         http.stop();

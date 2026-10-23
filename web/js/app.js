@@ -190,8 +190,56 @@ function renderPanels() {
     : '<li class="empty">暂无事件</li>';
 
   renderScenario(s);
+  renderVision(s);
   syncControls(s);
 }
+
+// ------------------------------------------------------------ 图像识别
+
+let visionSeq = 0;
+
+async function renderVision(s) {
+  const v = s.vision;
+  if (!v || v.seq === visionSeq) return;
+  visionSeq = v.seq;
+  $('visionImg').src = `/api/vision/last.jpg?seq=${v.seq}`;
+  $('visionFig').hidden = false;
+  $('visionEmpty').hidden = true;
+  let detail = '';
+  try {
+    const r = await (await fetch('/api/vision/last')).json();
+    detail = `${r.width}×${r.height} 像素，缩到 ${r.procWidth}×${r.procHeight} 处理；解码 ${r.decodeMs} ms，识别 ${r.detectMs} ms`
+      + `（${r.threads} 线程并行${r.speedup ? `，比单线程快 ${r.speedup} 倍` : ''}）`;
+  } catch (err) { /* 忽略 */ }
+  $('visionCap').innerHTML = `<b>${esc(v.source === 'web' ? '网页上传' : v.source)}</b>：${esc(v.summary)}`
+    + (v.mapped ? `<small>已写入地图：${esc(cellsText(v.mapped))}</small>` : '') + (detail ? `<small>${esc(detail)}</small>` : '');
+}
+
+function cellsText(flat) {
+  const out = [];
+  for (let i = 0; i < flat.length; i += 2) out.push(`(${flat[i]},${flat[i + 1]})`);
+  return out.join('、');
+}
+
+async function uploadImage(blob) {
+  try {
+    const r = await fetch('/api/vision/detect?source=web&benchmark=1', { method: 'POST', body: blob });
+    const j = await r.json();
+    if (!j.ok) alertBanner(j.error || '识别失败');
+  } catch (err) {
+    alertBanner('上传失败：' + err.message);
+  }
+}
+
+$('visionFile').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (f) uploadImage(f);
+  e.target.value = '';
+});
+$('visionSample').addEventListener('click', async () => {
+  const blob = await (await fetch('/api/vision/sample.jpg')).blob();
+  uploadImage(blob);
+});
 
 // ------------------------------------------------------------ 场景脚本
 

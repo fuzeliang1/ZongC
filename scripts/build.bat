@@ -8,7 +8,7 @@ if errorlevel 1 (
   exit /b 1
 )
 if not exist server\build\classes mkdir server\build\classes
-javac -encoding UTF-8 --release 17 -nowarn -cp server\lib\gson-2.13.1.jar -sourcepath server\src\main\java -d server\build\classes server\src\main\java\com\zongc\dw\DwServer.java server\src\main\java\com\zongc\dw\tools\Experiment.java
+javac -encoding UTF-8 --release 17 -nowarn -cp server\lib\gson-2.13.1.jar -sourcepath server\src\main\java -d server\build\classes server\src\main\java\com\zongc\dw\DwServer.java server\src\main\java\com\zongc\dw\tools\Experiment.java server\src\main\java\com\zongc\dw\tools\VisionBench.java
 if errorlevel 1 (
   echo [ERROR] Build failed.
   exit /b 1

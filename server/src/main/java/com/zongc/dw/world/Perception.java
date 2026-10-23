@@ -20,7 +20,7 @@ import java.util.Set;
  *  每辆车 10 Hz 扫描：48 束射线、360°、量程 3 m，对真实世界做光线投射（建筑、障碍、路障、其他车和行人）
  *     │
  *     ├─ 命中点分类：落在已知建筑/路障上 → 已知静态物；靠近已知的车 / 行人 → 动态目标；其余 → 未知障碍
- *     └─ 占据栅格（log-odds）：未知障碍所在格 +0.85，射线经过的格 −0.4
+ *     └─ 占据栅格（log-odds，限制在 [−2, 4]）：未知障碍所在格 +0.85，射线经过的格 −0.4
  *  某格的占据概率超过 0.8 → 服务端把它加入全局地图（等同路障），收回经过它的行驶授权，相关车辆立即重规划
  *  被感知加入的障碍格，之后被观测为空闲（概率低于 0.2）→ 自动从地图上撤掉，道路恢复通行
  * </pre>
@@ -39,6 +39,8 @@ public final class Perception {
     static final double L_HIT = 0.85;
     static final double L_FREE = -0.4;
     static final double L_MAX = 4.0;
+    /** 空闲证据的下限：限制得比上限紧，新出现的障碍 3 次命中（0.3 s）就能推翻"这里一直是空的"。 */
+    static final double L_MIN = -2.0;
     static final double L_CONFIRM = 1.4;    // p ≈ 0.80
     static final double L_CLEAR = -1.4;     // p ≈ 0.20
     /** 命中点离已知智能体中心多近算"看到的是它"（米，加在半径上）。 */
@@ -60,6 +62,9 @@ public final class Perception {
     /** 真实世界中存在、系统可能还不知道的障碍。 */
     final boolean[] hidden;
     private final double[] hiddenSince;
+    /** 由图像识别登记到真实世界里的障碍的到期时间（NaN 表示不是图像识别登记的）。 */
+    private final double[] visionUntil;
+    private final List<Integer> visionCells = new ArrayList<>();
     /** 占据栅格（log-odds），建筑格不使用。 */
     final double[] logOdds;
     /** 由感知加入全局地图的障碍（之后可被感知自动撤掉）。 */
@@ -88,6 +93,8 @@ public final class Perception {
         int n = map.size();
         hidden = new boolean[n];
         hiddenSince = new double[n];
+        visionUntil = new double[n];
+        java.util.Arrays.fill(visionUntil, Double.NaN);
         logOdds = new double[n];
         discovered = new boolean[n];
         lastSeen = new double[n];
@@ -103,6 +110,7 @@ public final class Perception {
     /** 场景脚本放置 / 移除真实世界中的障碍（系统并不会因此直接知道）。 */
     public void setHidden(World w, int cell, boolean on) {
         if (!map.type(cell).drivable()) return;
+        visionUntil[cell] = Double.NaN;   // 场景脚本接管这一格
         if (hidden[cell] == on) return;
         hidden[cell] = on;
         hiddenSince[cell] = w.time();
@@ -136,6 +144,7 @@ public final class Perception {
         if (scanTimer < 1.0 / SCAN_HZ - 1e-9) return;
         scanTimer = 0;
         scanCount++;
+        expireVisionObstacles(w);
         List<Agent> agents = w.agents();
         for (Agent a : new ArrayList<>(agents)) {
             if (!a.taxi) continue;
@@ -297,7 +306,7 @@ public final class Perception {
             if (Math.min(exit, dist) - t >= 0.25 * res && stamp[c] != stampSeq) {
                 stamp[c] = stampSeq;
                 lastSeen[c] = now;
-                logOdds[c] = Math.max(-L_MAX, logOdds[c] + L_FREE);
+                logOdds[c] = Math.max(L_MIN, logOdds[c] + L_FREE);
                 if (discovered[c] && logOdds[c] <= L_CLEAR) cleared.add(c);
             }
             if (tMaxX < tMaxY) {
@@ -330,8 +339,49 @@ public final class Perception {
         if (cell < 0 || !map.type(cell).drivable()) return;
         reports++;
         lastSeen[cell] = w.time();
-        logOdds[cell] = Math.min(L_MAX, logOdds[cell] + L_HIT * weight);
+        // 照片是"现在这里有东西"的直接证据：以前观测到的空闲不再作数
+        logOdds[cell] = Math.min(L_MAX, Math.max(0, logOdds[cell]) + L_HIT * weight);
         if (!discovered[cell] && !map.isBlocked(cell) && logOdds[cell] >= L_CONFIRM) discover(w, cell, source, "图像识别");
+    }
+
+    /**
+     * 手机拍照经图像识别发现的路障：既是一次观测（并入占据栅格），也说明真实世界里确实有它，
+     * 所以同时登记到数字孪生的"真实世界"里，车辆的激光雷达随后也能看到它，前后一致。
+     * 登记有有效期：ttl 秒内没有再被拍到，就认为它已经被搬走，从真实世界移除（地图上的障碍随后由感知撤掉）。
+     */
+    public void visionObstacle(World w, int cell, double weight, String source, double ttl) {
+        if (cell < 0 || !map.type(cell).drivable()) return;
+        boolean nearAgent = false;
+        for (Agent a : w.agents()) {
+            if (Math.hypot(a.x - map.centerX(cell), a.y - map.centerY(cell)) < 1.0 * map.resolution()) nearAgent = true;
+        }
+        if (!hidden[cell] && !nearAgent) {
+            hidden[cell] = true;
+            hiddenSince[cell] = w.time();
+            visionUntil[cell] = w.time() + ttl;
+            visionCells.add(cell);
+        } else if (!Double.isNaN(visionUntil[cell])) {
+            visionUntil[cell] = w.time() + ttl;
+        }
+        observeObstacle(w, cell, weight, source);
+    }
+
+    private void expireVisionObstacles(World w) {
+        if (visionCells.isEmpty()) return;
+        for (int i = visionCells.size() - 1; i >= 0; i--) {
+            int c = visionCells.get(i);
+            if (Double.isNaN(visionUntil[c])) {
+                visionCells.remove(i);
+            } else if (w.time() > visionUntil[c]) {
+                visionUntil[c] = Double.NaN;
+                visionCells.remove(i);
+                if (hidden[c]) {
+                    hidden[c] = false;
+                    w.events().info(w.time(), "图像识别登记的障碍 (" + map.cx(c) + "," + map.cy(c)
+                            + ") 一段时间内没有再被拍到，视为已移除（等车辆感知确认后从地图上撤掉）");
+                }
+            }
+        }
     }
 
     private void discover(World w, int cell, String by, String how) {
@@ -342,7 +392,7 @@ public final class Perception {
         discovered[cell] = true;
         discoveries++;
         String latency = "";
-        if (hidden[cell]) {
+        if (hidden[cell] && Double.isNaN(visionUntil[cell])) {   // 图像识别登记的障碍是"拍到即发现"，不计入发现延迟
             double d = w.time() - hiddenSince[cell];
             sumDiscoverySec += d;
             timedDiscoveries++;

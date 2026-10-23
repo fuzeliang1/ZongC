@@ -220,6 +220,10 @@ for line in f:
 | POST | `/api/config` | 修改配置，请求体可包含 `strategy`（GREEDY/HUNGARIAN）、`ratePerMin`、`timeScale`、`paused`、`rebalance`（空车调度开关） |
 | GET | `/api/scenarios` | 场景目录（`server/scenarios/`）下的全部脚本：`{"current":"demo.json","scenarios":[{"file","name","description","loop","events","durationSec"}]}` |
 | POST | `/api/scenario` | 切换场景脚本：`{"file":"perception.json"}`，`file` 为空或 null 表示停止脚本。会重置仿真，脚本从头开始 |
+| POST | `/api/vision/detect` | 图像识别：请求体是一张 JPEG / PNG 照片（不是 JSON），参数在查询串里，见 3.4 节 |
+| GET | `/api/vision/last` | 最近一次识别的完整结果（JSON） |
+| GET | `/api/vision/last.jpg` | 最近一次识别的标注图（画出了检测框） |
+| GET | `/api/vision/sample.jpg` | 一张程序画出的示例照片（路面 + 橙色锥桶），用于测试 |
 | POST | `/api/sim/pause` | 暂停 |
 | POST | `/api/sim/resume` | 继续 |
 | POST | `/api/sim/reset` | 重置，可带 `{"seed": 123}`；已连接设备自动重新绑定 |
@@ -286,6 +290,39 @@ es.onmessage = (e) => { const snapshot = JSON.parse(e.data); /* 更新画面 */ 
 | vision | 最近一次图像识别的摘要（详细结果见 `GET /api/vision/last`），没有时省略 |
 
 值为 null 的字段会被省略（例如内部仿真车没有 `device`）。
+
+### 3.4 图像识别（图像处理加速模块）
+
+```
+POST /api/vision/detect?source=phone-1&hfov=63&scale=3
+Content-Type: image/jpeg
+<照片的二进制内容>
+```
+
+| 查询参数 | 默认值 | 说明 |
+|---|---|---|
+| source | `web` | 拍照的智能体编号（手机用 welcome 里的 agentId）。不是 `web` 时，服务端用这个智能体的当前位姿作为相机位姿 |
+| x, y, theta | 无 | 直接给出相机在地图上的位姿（优先于 source） |
+| hfov | 63 | 相机水平视场角（度） |
+| h | 0.7 | 目标的真实高度（米），用于按针孔模型估计距离 |
+| scale | 1 | 比例尺：真实世界 1 米 = 地图上多少米（与手机 App 设置一致） |
+| benchmark | 0 | 1 表示再用单线程跑一遍，返回并行加速比 |
+
+返回（节选）：
+
+```json
+{"ok": true, "seq": 2, "source": "phone-1", "width": 960, "height": 720, "procWidth": 640, "procHeight": 480,
+ "decodeMs": 12.4, "detectMs": 5.1, "serialMs": 6.3, "speedup": 1.24, "threads": 2, "posed": true,
+ "objects": [{"label": "路障", "kind": "barrier", "bbox": [520, 330, 160, 230], "area": 15800,
+              "bearingDeg": 9.1, "distance": 2.44, "cell": [18, 15]}],
+ "mapped": [18, 15], "summary": "识别到 1 个目标：路障（右前方 9°，约 2.44 m，格子 (18,15)），1 处路障已写入地图"}
+```
+
+- `kind`：`barrier`（橙 / 红色路障、锥桶）或 `warning`（黄色警示牌）。只有路障会写入地图。
+- `bearingDeg` 以相机光轴为 0，右边为正；`distance` 是地图米。
+- 有相机位姿时，路障所在格作为观测并入感知的占据栅格（一次识别即可确认），写入全局地图，出租车立即绕行；
+  同时登记到数字孪生的"真实世界"里 120 s（期间再拍到会续期），之后视为已搬走，由车辆感知把它从地图上撤掉。
+- 照片缩到 640 像素宽再处理；单张不超过 16 MB。
 
 ## 4. 枚举值
 
@@ -382,4 +419,4 @@ python tools/gen_map.py --widths 8,10,6,8,9 --heights 6,5,7,6 -o server/maps/my-
 |---|---|
 | v1 | 首版：register/state/path/permit/world；REST + SSE；地图格式 |
 | v1（补充） | 行人闯入已授权格子时紧急收回授权（permit 的 stopS 可能变小）；补充手机 App 的实际报文。消息格式不变，旧设备只要直接采用最新 stopS 即兼容 |
-| v1（补充 2） | 新增下行消息 `scan`（模拟激光雷达，可忽略）；授权也会因路障 / 感知发现的障碍而收回；快照新增感知、场景、需求字段；新增场景脚本接口与格式（第 6 节）。旧设备不受影响 |
+| v1（补充 2） | 新增下行消息 `scan`（模拟激光雷达，可忽略）；授权也会因路障 / 感知发现的障碍而收回；快照新增感知、场景、需求字段；新增场景脚本接口与格式（第 6 节）；新增图像识别接口（3.4 节）。旧设备不受影响 |

@@ -7,6 +7,7 @@ import android.os.SystemClock;
 import com.zongc.phone.core.DwConnection;
 import com.zongc.phone.core.Endpoint;
 import com.zongc.phone.core.MapClient;
+import com.zongc.phone.core.VisionResult;
 import com.zongc.phone.core.MapData;
 import com.zongc.phone.core.PdrConfig;
 import com.zongc.phone.core.PdrEngine;
@@ -142,6 +143,20 @@ final class AppCore {
         WorldPoller p = currentPoller();
         if (p == null) throw new IOException("未连接服务端");
         return p.hail(fx, fy, tx, ty);
+    }
+
+    /** 拍照识别时假设的相机水平视场角（度）：手机后置主摄一般在 60°~70° 之间。 */
+    static final double PHOTO_HFOV_DEG = 63;
+
+    /**
+     * 拍照识别（阻塞，后台线程调用）：把照片交给服务端的图像处理模块。服务端按这部手机在数字世界里的位姿
+     * 把识别出的路障换算到地图格子上并写入全局地图。
+     */
+    VisionResult detectPhoto(byte[] jpeg) throws IOException {
+        WorldPoller p = currentPoller();
+        DwConnection.Status cs = connStatus();
+        if (p == null || cs == null || cs.agentId == null) throw new IOException("未连接服务端");
+        return p.detectPhoto(cs.agentId, jpeg, PHOTO_HFOV_DEG, engine.config().mapScale);
     }
 
     private synchronized WorldPoller currentPoller() {

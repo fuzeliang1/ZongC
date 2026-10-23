@@ -12,6 +12,14 @@
     <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
+    <!-- 安卓 11 起的"软件包可见性"：声明要调用系统相机拍照（拍照识别路障），否则可能找不到相机应用。
+         只取相机返回的缩略图，所以不需要 CAMERA 和存储权限 -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- usesCleartextTraffic：允许用 http:// 访问局域网里的服务端（拉取地图和车辆位置） -->
     <application
         android:allowBackup="false"

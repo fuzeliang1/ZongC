@@ -98,7 +98,7 @@ final class TinyHttpServer {
             }
             Handler h;
             synchronized (this) {
-                h = routes.get(path);
+                h = routes.get(path.indexOf('?') >= 0 ? path.substring(0, path.indexOf('?')) : path);   // 路由不看查询串
             }
             Response r = h == null ? new Response(404, "{\"ok\":false,\"error\":\"没有这个接口\"}")
                     : h.handle(method, path, new String(body, 0, off, UTF8));
