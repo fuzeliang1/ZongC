@@ -5,7 +5,7 @@ import android.content.SharedPreferences;
 
 import com.zongc.phone.core.PdrConfig;
 
-/** 保存在手机上的设置：服务端地址、手机编号、算法参数、上次的位置。 */
+/** 保存在手机上的设置：服务端地址、是否自动连接、手机编号、算法参数、上次的位置。 */
 final class Prefs {
     private final SharedPreferences sp;
 
@@ -19,6 +19,15 @@ final class Prefs {
 
     void setHost(String host) {
         sp.edit().putString("host", host).apply();
+    }
+
+    /** 打开 App 时自动连接上次的服务端（默认开启：考核时打开 App 即可，不用再点"连接"）。 */
+    boolean autoConnect() {
+        return sp.getBoolean("autoConnect", true);
+    }
+
+    void setAutoConnect(boolean on) {
+        sp.edit().putBoolean("autoConnect", on).apply();
     }
 
     String phoneId() {

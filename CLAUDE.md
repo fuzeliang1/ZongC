@@ -115,7 +115,8 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
 5. ✅ 3D 可视化：`web/3d.html` + `web/js/view3d.js` + 自写 WebGL 渲染器 `web/js/gl/`（沙箱里 npm 被拦，
    拿不到 Three.js，所以不依赖第三方库）；四种视角，`?car=car-3&mode=follow|top|tour`；
    无头 Chromium 截图需加 `--use-angle=swiftshader --enable-unsafe-swiftshader`
-6. 全自主演示：一键启动（含 Matlab）、App 自动连接
+6. ✅ 全自主演示：`start_demo` 启动服务端 + demo 场景 + Matlab 车队（`matlab -batch` / Windows `matlab -r`，
+   没有 MATLAB 时自动改用 Python 模拟车）+ 模拟手机 + 2D/3D 浏览器；手机 App 默认打开即自动连接（Prefs.autoConnect）
 7. Gazebo 接入脚手架（无法在当前环境测试）
 8. 全流程文档（立项、需求、测试、部署、效果评估、周会纪要模板）与 UML 图
 9. 技术报告初稿、5 页 PPT、演示录屏

@@ -21,6 +21,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -124,6 +125,11 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         if (savedInstanceState == null && !core.gnss.permitted()) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
+        }
+        // 全自主运行：打开 App 就自动连接上次的服务端，考核时不需要再点任何按钮
+        if (savedInstanceState == null && core.prefs.autoConnect() && !core.active() && !core.prefs.host().isEmpty()) {
+            onConnectClicked();
+            toast("已自动连接 " + core.prefs.host() + "（可在“设置”里关闭自动连接）");
         }
     }
 
@@ -784,6 +790,10 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         final EditText decl = field(box, "磁偏角 °（东偏为正，上海约 −6.5，仅室外模式用）",
                 Fmt.show(c.declinationDeg, 1), true, true);
         final EditText smooth = field(box, "上报位置平滑时间常数 s（0 = 不平滑）", Fmt.show(c.smoothingTau, 2), true, false);
+        final CheckBox auto = new CheckBox(this);
+        auto.setText("打开 App 时自动连接上次的服务端");
+        auto.setChecked(core.prefs.autoConnect());
+        box.addView(auto);
         ScrollView sv = new ScrollView(this);
         sv.addView(box);
         new AlertDialog.Builder(this)
@@ -803,6 +813,7 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
                         double sm = parse(smooth);
                         if (!Double.isNaN(sm) && sm >= 0) n.smoothingTau = sm;
                         core.applyConfig(n);
+                        core.prefs.setAutoConnect(auto.isChecked());
                         String newId = id.getText().toString().trim();
                         if (!newId.isEmpty() && !newId.equals(core.prefs.phoneId())) {
                             core.prefs.setPhoneId(newId);

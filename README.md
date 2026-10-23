@@ -12,7 +12,7 @@
 
 只需要安装 **JDK 17 或更新版本**。演示用的模拟设备另需 Python 3。
 
-**Windows**：双击 `scripts\start_demo.bat`，会依次启动服务端（运行"期末演示"场景脚本，之后全程自动）、5 辆模拟车、1 部模拟手机，并打开浏览器。
+**Windows**：双击 `scripts\start_demo.bat`，会依次启动服务端（运行"期末演示"场景脚本，之后全程自动）、5 辆 Matlab 模拟车（没装 MATLAB 时自动改用 Python 模拟车）、1 部模拟手机，并打开 2D 和 3D 两个视图。
 
 **Linux / macOS**：
 
@@ -22,7 +22,7 @@ scripts/start_demo.sh
 
 只启动服务端用 `scripts/start_server.bat` 或 `scripts/start_server.sh`，然后浏览器打开 http://localhost:8080 （3D 视图：http://localhost:8080/3d.html ）。加 `--scenario perception`（或 `demo`、`rush-hour`）运行指定的场景脚本。
 
-接入 Matlab 模拟车：先启动服务端，然后在 MATLAB 中进入 `matlab/` 目录，运行 `run_fleet`。详见 [matlab/README.md](matlab/README.md)。
+也可以单独接入 Matlab 模拟车：先启动服务端，然后在 MATLAB 中进入 `matlab/` 目录，运行 `run_fleet`。详见 [matlab/README.md](matlab/README.md)。`start_demo.sh` 的参数：`--cars auto|matlab|python|none`、`--phones N`、`--scenario 名称`、`--no-browser`。
 
 ## 已实现的内容
 
@@ -36,7 +36,7 @@ scripts/start_demo.sh
 | 设备接入模块：UDP/TCP/RESTful | TCP 9000（注册、路线、授权、状态）、UDP 9001（状态上报）、HTTP 8080（REST + SSE） |
 | 优化与决策模块 | 贪心 / 匈牙利两种派单策略，可在界面上切换并用离线实验对比 |
 | Matlab 模拟车，至少 5 辆，与数字车同步 | `matlab/`：纯追踪 + 速度 PI 控制，遵守行驶授权，断线由数字世界接管 |
-| 启动后全自主运行 | 一键启动；场景脚本按时间自动制造路障、未知障碍、早晚高峰、订单潮并循环播放（`server/scenarios/`）；设备断线自动接管、重连自动恢复 |
+| 启动后全自主运行 | 一键启动（含 Matlab 车队）；场景脚本按时间自动制造路障、未知障碍、早晚高峰、订单潮并循环播放（`server/scenarios/`）；手机 App 打开即自动连接；设备断线自动接管、重连自动恢复 |
 | 智能：环境感知与辅助建图（第 2 页） | 每辆车 10 Hz 模拟 48 束激光雷达；系统一开始不知道的障碍由车辆发现，占据栅格确认后写入全局地图、收回授权、重规划或掉头，障碍消失后自动撤掉；按真实世界统计"车撞障碍"，长时间实验为零。详见 [架构设计说明 5.9 节](docs/architecture.md#59-环境感知与辅助建图) |
 | 优化与决策：空车调度 | 分区需求预测 + 匈牙利算法调度空车；潮汐需求下平均等待降低约 20% |
 | 手机 App 作为智能体接入、位姿估计 | `phone/`：安卓 App，行人航位推算（计步 + 步长 + 陀螺仪航向），室外可融合磁力计和卫星定位（含北斗）；出租车会给行人让路，还能在手机上叫车。详见 [phone/README.md](phone/README.md) |
