@@ -7,6 +7,7 @@
 | JDK | 17 或更新（推荐 21） | 服务端。只需要 JDK，不需要 Maven |
 | Python | 3.8 或更新 | 模拟设备、地图生成（只用标准库） |
 | MATLAB | R2020b 或更新 | Matlab 模拟车，不需要工具箱 |
+| Android Studio | 2024.2 或更新（自带 JDK） | 手机 App：打开 `phone/` 文件夹。手机需安卓 8.0 以上 |
 | 浏览器 | Chrome / Edge / Firefox 新版 | 网页前端 |
 | IntelliJ IDEA（可选） | 社区版即可 | 打开 `server/pom.xml` 导入工程 |
 
@@ -23,6 +24,8 @@
 | 一键演示（服务端 + 5 辆模拟车 + 1 部模拟手机） | `scripts\start_demo.bat` | `scripts/start_demo.sh` |
 | 离线对比实验 | `scripts\experiment.bat --minutes 30 --seeds 1,2,3` | `scripts/experiment.sh --minutes 30 --seeds 1,2,3` |
 | 单元测试 | `cd server` 后 `mvn test` | 同左 |
+| 手机 App 单元测试 | `cd phone` 后 `gradlew.bat test` | `cd phone && ./gradlew test` |
+| 手机端到端仿真（先启动服务端） | `scripts\phone_sim.bat` | `scripts/phone_sim.sh` |
 | 模拟设备 | `python tools\mock_devices.py --cars 5` | `python3 tools/mock_devices.py --cars 5` |
 | 生成地图 | `python tools\gen_map.py -o server\maps\my.json` | `python3 tools/gen_map.py -o server/maps/my.json` |
 
@@ -57,6 +60,11 @@ ZongC/
 │   └── pom.xml                       Maven / IDEA 工程文件
 ├── web/                    网页前端（原生 HTML/CSS/JS，无需构建）
 ├── matlab/                 Matlab 模拟车
+├── phone/                  安卓手机 App（Android Studio 打开此文件夹，说明见 phone/README.md）
+│   ├── app/src/main/java/com/zongc/phone/        界面、传感器、卫星定位
+│   ├── app/src/main/java/com/zongc/phone/core/   纯 Java 核心：位姿估计、网络（可在电脑上测试）
+│   ├── app/src/test/java/                        单元测试、传感器模拟器、端到端仿真 PhoneSim
+│   └── analysis/plot_phone_log.m                 MATLAB 分析手机记录的数据
 ├── tools/                  模拟设备、地图生成器
 ├── scripts/                编译、启动、演示、实验脚本
 └── docs/                   架构、协议、计划、开发指南

@@ -35,7 +35,8 @@ scripts/start_demo.sh
 | 优化与决策模块 | 贪心 / 匈牙利两种派单策略，可在界面上切换并用离线实验对比 |
 | Matlab 模拟车，至少 5 辆，与数字车同步 | `matlab/`：纯追踪 + 速度 PI 控制，遵守行驶授权，断线由数字世界接管 |
 | 启动后全自主运行 | 一键启动；设备断线自动接管、重连自动恢复 |
-| 手机 App、Gazebo、3D 可视化 | 尚未开始，见 [docs/plan.md](docs/plan.md) |
+| 手机 App 作为智能体接入、位姿估计 | `phone/`：安卓 App，行人航位推算（计步 + 步长 + 陀螺仪航向），室外可融合磁力计和卫星定位（含北斗）；出租车会给行人让路，还能在手机上叫车。详见 [phone/README.md](phone/README.md) |
+| Gazebo、3D 可视化 | 尚未开始，见 [docs/plan.md](docs/plan.md) |
 
 ## 目录
 
@@ -43,6 +44,7 @@ scripts/start_demo.sh
 server/    数字世界服务端（Java 17+，只依赖 Gson）
 web/       网页前端（原生 HTML/CSS/JS，Canvas 2D）
 matlab/    Matlab 模拟车
+phone/     安卓手机 App（Java，无第三方库；用 Android Studio 打开这个文件夹）
 tools/     模拟设备（协议参考实现）、地图生成器
 scripts/   编译、启动、演示、实验脚本（Windows .bat / Linux .sh）
 docs/      文档
@@ -58,8 +60,10 @@ docs/      文档
 ## 测试与实验
 
 ```bash
-cd server && mvn test                                    # 单元测试（10 项）
+cd server && mvn test                                    # 服务端单元测试（11 项）
+cd phone && ./gradlew test                               # 手机 App 核心算法单元测试（64 项）
 scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16   # 派单策略对比
+scripts/phone_sim.sh                                     # 模拟一部"拿着走路的手机"接入运行中的服务端
 ```
 
 接近饱和的场景（16 辆车，16 单/分钟）下，匈牙利算法派单比贪心派单的平均等待时间少约 45%（36 s 对 66 s），送达效率高约 10%。详见 [架构设计说明 5.4 节](docs/architecture.md#54-派单)。

@@ -12,6 +12,16 @@ out/
 .project
 .classpath
 
+# Android（phone/）
+phone/.gradle/
+phone/build/
+phone/app/build/
+phone/local.properties
+phone/.kotlin/
+phone/captures/
+*.apk
+*.aab
+
 # Python
 __pycache__/
 *.pyc
