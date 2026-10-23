@@ -6,6 +6,8 @@
 
 图中，每辆车前方浅色的格子是它当前获得的"行驶授权"。任意两辆车的授权格互不重叠，所以不会相撞。实线路线表示车上有乘客，虚线表示空车。琥珀色圆点是等待接驾的乘客，旗帜是目的地。车周围的扇形是模拟激光雷达的扫描范围，橙色锥桶是车辆感知发现、已写进地图的障碍，紫色虚线圆是早高峰的需求热点。顶部是正在自动运行的场景脚本和下一个事件。
 
+![3D 视图](docs/images/view3d.png)
+
 ## 快速开始
 
 只需要安装 **JDK 17 或更新版本**。演示用的模拟设备另需 Python 3。
@@ -18,7 +20,7 @@
 scripts/start_demo.sh
 ```
 
-只启动服务端用 `scripts/start_server.bat` 或 `scripts/start_server.sh`，然后浏览器打开 http://localhost:8080 。加 `--scenario perception`（或 `demo`、`rush-hour`）运行指定的场景脚本。
+只启动服务端用 `scripts/start_server.bat` 或 `scripts/start_server.sh`，然后浏览器打开 http://localhost:8080 （3D 视图：http://localhost:8080/3d.html ）。加 `--scenario perception`（或 `demo`、`rush-hour`）运行指定的场景脚本。
 
 接入 Matlab 模拟车：先启动服务端，然后在 MATLAB 中进入 `matlab/` 目录，运行 `run_fleet`。详见 [matlab/README.md](matlab/README.md)。
 
@@ -38,7 +40,8 @@ scripts/start_demo.sh
 | 智能：环境感知与辅助建图（第 2 页） | 每辆车 10 Hz 模拟 48 束激光雷达；系统一开始不知道的障碍由车辆发现，占据栅格确认后写入全局地图、收回授权、重规划或掉头，障碍消失后自动撤掉；按真实世界统计"车撞障碍"，长时间实验为零。详见 [架构设计说明 5.9 节](docs/architecture.md#59-环境感知与辅助建图) |
 | 优化与决策：空车调度 | 分区需求预测 + 匈牙利算法调度空车；潮汐需求下平均等待降低约 20% |
 | 手机 App 作为智能体接入、位姿估计 | `phone/`：安卓 App，行人航位推算（计步 + 步长 + 陀螺仪航向），室外可融合磁力计和卫星定位（含北斗）；出租车会给行人让路，还能在手机上叫车。详见 [phone/README.md](phone/README.md) |
-| Gazebo、3D 可视化 | 尚未开始，见 [docs/plan.md](docs/plan.md) |
+| 3D 可视化（挑战项） | `web/3d.html`：自己实现的 WebGL 渲染（不依赖第三方库，断网也能打开），城市、车辆、乘客、障碍、雷达扫描、路线；自由 / 俯视 / 跟随某辆车 / 自动巡游四种视角 |
+| Gazebo（进阶挑战） | 尚未开始，见 [docs/plan.md](docs/plan.md) |
 
 ## 目录
 

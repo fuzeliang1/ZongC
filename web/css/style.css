@@ -89,6 +89,18 @@ body {
 
 .status { display: flex; align-items: center; gap: 14px; }
 
+.switch-view {
+  font-size: 13px;
+  color: var(--focus);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--focus) 40%, transparent);
+  border-radius: 999px;
+}
+
+.switch-view:hover { background: color-mix(in srgb, var(--focus) 10%, transparent); }
+
 .clock {
   font-size: 22px;
   font-weight: 600;

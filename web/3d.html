@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MiniDiDi 数字世界 · 3D</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='9' width='26' height='14' rx='5' fill='%232f6bd8'/%3E%3Crect x='18' y='12' width='6' height='8' rx='1.5' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/3d.css">
+</head>
+<body class="view3d">
+  <header class="topbar">
+    <div class="brand">
+      <h1>MiniDiDi 数字世界 <span class="badge3d">3D</span></h1>
+      <a class="switch-view" href="index.html">切换到 2D 视图</a>
+    </div>
+    <div class="scenario" id="scenarioStrip" hidden>
+      <div class="row"><span class="name" id="scName"></span><span id="scLoop"></span><span class="next" id="scNext"></span></div>
+      <div class="bar"><i id="scBar"></i></div>
+    </div>
+    <div class="status">
+      <span class="clock" id="simClock" title="仿真时间">00:00</span>
+      <span class="conn" id="conn" data-state="connecting">连接中</span>
+    </div>
+  </header>
+
+  <main class="stage3d">
+    <canvas id="gl"></canvas>
+    <div id="labels" class="labels" aria-hidden="true"></div>
+    <div class="scenario-banner" id="scBanner" hidden></div>
+    <div class="glerror" id="glError" hidden></div>
+
+    <div class="camera" role="group" aria-label="视角">
+      <button type="button" data-cam="orbit" aria-pressed="true">自由</button>
+      <button type="button" data-cam="top">俯视</button>
+      <button type="button" data-cam="follow">跟随</button>
+      <button type="button" data-cam="tour">巡游</button>
+    </div>
+
+    <aside class="carcard" id="carCard" hidden></aside>
+
+    <div class="legend3d">
+      <span><i style="background:#2f6bd8"></i>出租车（顶灯绿 = 空车，橙 = 去接客，红 = 载客）</span>
+      <span><i style="background:#7b5cd6"></i>手机（行人）</span>
+      <span><i style="background:#e09b10"></i>等车的乘客</span>
+      <span><i class="tri" style="--c:#dd6f12"></i>感知发现的障碍</span>
+      <span><i class="tri ghost"></i>未知障碍（系统尚不知道）</span>
+      <span><i style="background:#cf3f36"></i>路障</span>
+    </div>
+    <p class="help3d">拖动旋转 · 右键或 Shift 拖动平移 · 滚轮缩放 · 点车辆查看并跟随</p>
+  </main>
+
+  <script type="module" src="js/view3d.js"></script>
+</body>
+</html>

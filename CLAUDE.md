@@ -25,7 +25,7 @@
 
 ```
 server/   数字世界服务端：Java 17+，只依赖 Gson（server/lib 里自带 jar），JDK 自带 HttpServer
-web/      网页前端：原生 HTML/CSS/JS（ES 模块），Canvas 2D；index.html 为 2D 主界面
+web/      网页前端：原生 HTML/CSS/JS（ES 模块）；index.html 为 2D 主界面（Canvas），3d.html 为 3D 视图（WebGL）
 matlab/   Matlab 模拟车（DwClient / SimCar / FleetView / run_fleet）——尚未在 MATLAB 中实测
 phone/    安卓 App（Android Studio 工程，Java，无第三方库，minSdk 26，compile/target 35，AGP 8.7.3，Gradle 8.9）
 tools/    mock_devices.py（协议参考实现：Python 模拟车 / 模拟手机）、gen_map.py（地图生成）
@@ -112,7 +112,9 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
    - 效果评估：`python3 tools/run_evaluation.py`（约 5 分钟）→ `docs/eval/summary.md` + 原始 CSV。
      关键数字：饱和时匈牙利比贪心平均等待 −45%；潮汐需求空车调度 −20%（4 单/分）/ −18%（5 单/分）；
      16 车高负载演示场景 6×60 分钟零碰撞（含车撞障碍）
-5. Three.js 3D 可视化
+5. ✅ 3D 可视化：`web/3d.html` + `web/js/view3d.js` + 自写 WebGL 渲染器 `web/js/gl/`（沙箱里 npm 被拦，
+   拿不到 Three.js，所以不依赖第三方库）；四种视角，`?car=car-3&mode=follow|top|tour`；
+   无头 Chromium 截图需加 `--use-angle=swiftshader --enable-unsafe-swiftshader`
 6. 全自主演示：一键启动（含 Matlab）、App 自动连接
 7. Gazebo 接入脚手架（无法在当前环境测试）
 8. 全流程文档（立项、需求、测试、部署、效果评估、周会纪要模板）与 UML 图
@@ -132,6 +134,7 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
 - 云沙箱可能被重置（未提交的代码会丢）：每完成一块就提交推送。万一丢了，可以从会话记录
   （`~/.claude/projects/*/*.jsonl`）里按顺序重放 Write / Edit 调用恢复。
 - 在 POSIX 区域设置下 Java 读命令行里的中文参数会变成"?"：运行工具前 `export LC_ALL=C.UTF-8`。
+- 云沙箱里 npm / PyPI / CDN 都无法访问（403 或 DNS 失败），不要再试；需要第三方前端库时只能自己实现或让人在本机下载后提交。
 - 服务端测试依赖工作目录（`server/`）。
 - `AndroidManifest` 里 `LocationListener` 的三个旧回调必须保留实现，否则安卓 10 及以下机型会崩溃。
 - 安卓本地单元测试编译时用的是 android.jar，测试代码不能用 `com.sun.*`、`javax.imageio` 等 JDK 专有 API。
