@@ -15,6 +15,7 @@ import com.zongc.dw.sim.SimulationEngine;
 import com.zongc.dw.sim.SnapshotHub;
 import com.zongc.dw.util.Log;
 import com.zongc.dw.world.DeviceBridge;
+import com.zongc.dw.world.Scenario;
 import com.zongc.dw.world.Task;
 
 import java.io.IOException;
@@ -34,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * HTTP 接口（可视化与人机交互模块的服务端部分），基于 JDK 自带的 HttpServer：
  * <ul>
- *   <li>REST：地图、快照、配置、订单、路障、事件（见 docs/protocol.md 第 4 节）；</li>
+ *   <li>REST：地图、快照、配置、订单、路障、事件、场景脚本（见 docs/protocol.md 第 4 节）；</li>
  *   <li>SSE（Server-Sent Events）：/api/stream 以约 10 Hz 推送世界快照，浏览器用 EventSource 接收；</li>
  *   <li>静态文件：web/ 目录下的前端页面。</li>
  * </ul>
@@ -130,6 +131,8 @@ public final class HttpApi {
                 case "POST /api/roadblocks" -> roadblock(ex);
                 case "GET /api/events" -> sendJson(ex, 200, gson.toJson(engine.events().recent(queryInt(ex, "n", 100))));
                 case "GET /api/info" -> sendJson(ex, 200, infoJson().toString());
+                case "GET /api/scenarios" -> sendJson(ex, 200, scenariosJson().toString());
+                case "POST /api/scenario" -> switchScenario(ex);
                 default -> sendJson(ex, 404, error("没有这个接口: " + method + " " + path));
             }
         } catch (BadRequest e) {
@@ -183,6 +186,13 @@ public final class HttpApi {
             if (!s.equals("GREEDY") && !s.equals("HUNGARIAN")) throw new BadRequest("strategy 只能是 GREEDY 或 HUNGARIAN");
             await(engine.call(w -> {
                 w.setStrategy(s);
+                return true;
+            }));
+        }
+        if (b.has("rebalance")) {
+            boolean on = b.get("rebalance").getAsBoolean();
+            await(engine.call(w -> {
+                w.setRebalance(on);
                 return true;
             }));
         }
@@ -250,7 +260,64 @@ public final class HttpApi {
         o.addProperty("taxis", cfg.taxis);
         o.addProperty("seed", cfg.seed);
         o.addProperty("tickHz", cfg.tickHz);
+        o.addProperty("rebalance", cfg.dispatch.rebalance);
+        Scenario sc = engine.scenario();
+        o.addProperty("scenario", sc != null ? sc.name : null);
+        o.addProperty("scenarioFile", sc != null ? engine.scenarioFile() : null);
         return o;
+    }
+
+    /** 场景目录下的全部脚本（名称、说明、事件数），以及当前正在运行的脚本。 */
+    private JsonObject scenariosJson() {
+        JsonObject o = new JsonObject();
+        o.addProperty("current", engine.scenarioFile());
+        JsonArray list = new JsonArray();
+        Path dir = cfg.resolve(cfg.scenarioDir);
+        if (Files.isDirectory(dir)) {
+            try (var files = Files.list(dir)) {
+                for (Path f : files.filter(p -> p.toString().endsWith(".json")).sorted().toList()) {
+                    JsonObject item = new JsonObject();
+                    item.addProperty("file", f.getFileName().toString());
+                    try {
+                        Scenario sc = Scenario.load(f, engine.map());
+                        item.addProperty("name", sc.name);
+                        item.addProperty("description", sc.description);
+                        item.addProperty("loop", sc.loop);
+                        item.addProperty("events", sc.actions.size());
+                        item.addProperty("durationSec", sc.duration());
+                    } catch (IOException | IllegalArgumentException e) {
+                        item.addProperty("error", e.getMessage());
+                    }
+                    list.add(item);
+                }
+            } catch (IOException e) {
+                Log.error("读取场景目录失败", e);
+            }
+        }
+        o.add("scenarios", list);
+        return o;
+    }
+
+    /** 切换场景脚本（世界重置后从头开始）；file 为空表示停止脚本。只在考核开始之前使用。 */
+    private void switchScenario(HttpExchange ex) throws IOException {
+        JsonObject b = readBody(ex);
+        String file = b.has("file") && !b.get("file").isJsonNull() ? b.get("file").getAsString().trim() : "";
+        if (file.isEmpty()) {
+            engine.switchScenario(null, null);
+            sendJson(ex, 200, ok("已停止场景脚本，世界已重置"));
+            return;
+        }
+        if (file.contains("/") || file.contains("\\") || file.contains("..")) throw new BadRequest("文件名不合法");
+        Path f = cfg.resolve(cfg.scenarioDir).resolve(file);
+        if (!Files.isRegularFile(f)) throw new BadRequest("找不到场景脚本: " + file);
+        Scenario sc;
+        try {
+            sc = Scenario.load(f, engine.map());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequest(e.getMessage());
+        }
+        engine.switchScenario(sc, file);
+        sendJson(ex, 200, ok("已切换到场景脚本：" + sc.name + "（世界已重置）"));
     }
 
     private JsonObject infoJson() {

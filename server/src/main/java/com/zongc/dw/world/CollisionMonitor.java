@@ -15,6 +15,7 @@ final class CollisionMonitor {
     private static final double TOLERANCE = 0.02;
     private Set<String> contacts = new HashSet<>();
     private Set<String> wallContacts = new HashSet<>();
+    private Set<String> barrierContacts = new HashSet<>();
 
     void check(World w) {
         List<Agent> agents = w.agents();
@@ -62,5 +63,32 @@ final class CollisionMonitor {
             }
         }
         wallContacts = nowWall;
+
+        // 路障与未知障碍：按"真实世界"判断（包括系统还没发现的障碍），所以这是对感知 + 管控的独立检验
+        Set<String> nowBarrier = new HashSet<>();
+        Perception p = w.perception();
+        for (Agent a : agents) {
+            if (!a.taxi) continue;
+            double best = Double.POSITIVE_INFINITY;
+            int hit = -1;
+            for (int c : map.cellsOverlappingCircle(a.x, a.y, r + 0.5)) {
+                if (!map.type(c).drivable() || !p.solid(c)) continue;
+                double d = map.distanceToCell(a.x, a.y, c);
+                if (d < best) {
+                    best = d;
+                    hit = c;
+                }
+            }
+            if (hit < 0) continue;
+            m.minBarrierGap = Math.min(m.minBarrierGap, best - r);
+            if (best < r - 0.05) {
+                nowBarrier.add(a.id);
+                if (!barrierContacts.contains(a.id)) {
+                    m.barrierHits++;
+                    w.events().warn(w.time(), "撞障碍：" + a.id + " 与 (" + map.cx(hit) + "," + map.cy(hit) + ") 的路障/障碍发生碰撞");
+                }
+            }
+        }
+        barrierContacts = nowBarrier;
     }
 }

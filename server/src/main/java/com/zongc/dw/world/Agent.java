@@ -54,6 +54,9 @@ public final class Agent {
     public int lastSentAuthority = -1;
     public int lastSentRouteId = -1;
 
+    /** 空车调度给它分配的区域（在该区域内就近巡游），-1 表示没有。 */
+    public int homeZone = -1;
+
     // ---------- 统计 ----------
     public double distEmpty, distLoaded;
     public int delivered;

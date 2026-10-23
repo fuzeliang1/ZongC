@@ -307,6 +307,33 @@ public final class DeviceBridge {
         a.lastSentAuthority = a.authority;
     }
 
+    /**
+     * 下发服务端为这辆车模拟的激光雷达扫描（约 5 Hz）。设备可以用它做本地安全检查（前方很近处有东西就刹车），
+     * 也可以画出来；不处理这条消息的设备直接忽略即可。格式见 docs/protocol.md 2.9 节。
+     */
+    void sendScan(Agent a, Perception.Scan s) {
+        if (a.link == null || !a.link.isOpen()) return;
+        JsonObject o = new JsonObject();
+        o.addProperty("type", "scan");
+        o.addProperty("agentId", a.id);
+        o.addProperty("t", Num.r3(s.t));
+        o.addProperty("x", Num.r3(s.x));
+        o.addProperty("y", Num.r3(s.y));
+        o.addProperty("theta", Num.r3(s.theta));
+        o.addProperty("angleMin", -Math.PI);
+        o.addProperty("angleStep", 2 * Math.PI / Perception.RAYS);
+        o.addProperty("rangeMax", Perception.RANGE);
+        JsonArray ranges = new JsonArray();
+        JsonArray kinds = new JsonArray();
+        for (int k = 0; k < Perception.RAYS; k++) {
+            ranges.add(Num.r2(s.ranges[k]));
+            kinds.add(s.kinds[k]);
+        }
+        o.add("ranges", ranges);
+        o.add("kinds", kinds);
+        a.link.send(o.toString());
+    }
+
     private JsonObject worldMessage() {
         JsonObject o = new JsonObject();
         o.addProperty("type", "world");

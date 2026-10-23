@@ -10,6 +10,11 @@ public final class Num {
         return Math.round(v * 1000.0) / 1000.0;
     }
 
+    public static double r2(double v) {
+        if (!Double.isFinite(v)) return 0;
+        return Math.round(v * 100.0) / 100.0;
+    }
+
     public static double r1(double v) {
         if (!Double.isFinite(v)) return 0;
         return Math.round(v * 10.0) / 10.0;

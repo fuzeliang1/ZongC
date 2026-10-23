@@ -8,6 +8,7 @@ import com.zongc.dw.map.MapLoader;
 import com.zongc.dw.util.Log;
 import com.zongc.dw.world.DeviceLink;
 import com.zongc.dw.world.EventLog;
+import com.zongc.dw.world.Scenario;
 import com.zongc.dw.world.World;
 
 import java.util.Map;
@@ -36,15 +37,26 @@ public final class SimulationEngine {
     private final Gson gson = new Gson();
 
     private World world;
+    /** 当前场景脚本（重置世界后自动从头再来）。 */
+    private volatile Scenario scenario;
+    private volatile String scenarioFile;
     private volatile boolean paused;
     private volatile double timeScale;
     private double stepAccumulator;
     private long tickCount;
 
+    /** 配置中会被界面 / 场景脚本在运行时改动的参数的初始值，切换场景时恢复。 */
+    private final double baseRate;
+    private final String baseStrategy;
+    private final boolean baseRebalance;
+
     public SimulationEngine(Config cfg, GridMap map) {
         this.cfg = cfg;
         this.map = map;
         this.timeScale = cfg.timeScale;
+        this.baseRate = cfg.tasks.ratePerMin;
+        this.baseStrategy = cfg.dispatch.strategy;
+        this.baseRebalance = cfg.dispatch.rebalance;
         this.world = new World(cfg, map, events);
         this.exec = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "sim");
@@ -67,6 +79,32 @@ public final class SimulationEngine {
     public GridMap map() { return map; }
     public EventLog events() { return events; }
     public boolean paused() { return paused; }
+    public Scenario scenario() { return scenario; }
+    public String scenarioFile() { return scenarioFile; }
+
+    /**
+     * 设置启动时的场景脚本（在 {@link #start()} 之前调用）。
+     *
+     * @param file 场景文件名，只用于界面显示
+     */
+    public void setInitialScenario(Scenario s, String file) {
+        scenario = s;
+        scenarioFile = file;
+        world.setScenario(s);
+    }
+
+    /** 切换场景脚本（null 表示不运行脚本）：世界会重置，脚本从头开始。 */
+    public void switchScenario(Scenario s, String file) {
+        submit(w -> {
+            scenario = s;
+            scenarioFile = file;
+            cfg.tasks.ratePerMin = baseRate;
+            cfg.dispatch.strategy = baseStrategy;
+            cfg.dispatch.rebalance = baseRebalance;
+            events.info(w.time(), s != null ? "切换场景脚本：" + s.name : "停止场景脚本");
+        });
+        reset(null);
+    }
     public double timeScale() { return timeScale; }
 
     public void setPaused(boolean p) {
@@ -105,6 +143,7 @@ public final class SimulationEngine {
             for (int i = 0; i < map.size(); i++) map.setBlocked(i, false);
             events.warn(old.time(), "仿真重置（种子 " + cfg.seed + "）");
             world = new World(cfg, map, events);
+            if (scenario != null) world.setScenario(scenario);
             stepAccumulator = 0;
             regs.forEach((link, msg) -> {
                 if (link.isOpen()) world.onDeviceMessage(link, msg);

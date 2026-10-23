@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 一键演示：启动服务端 + 5 辆模拟车（代替 Matlab）+ 1 部模拟手机，并打开浏览器。Ctrl+C 结束全部进程。
+# 一键演示：启动服务端（运行"期末演示"场景脚本，全程自动）+ 5 辆模拟车（代替 Matlab）+ 1 部模拟手机，
+# 并打开浏览器。Ctrl+C 结束全部进程。
 set -e
 cd "$(dirname "$0")/.."
-scripts/start_server.sh > server.log 2>&1 &
+scripts/start_server.sh --scenario demo "$@" > server.log 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null; kill $MOCK 2>/dev/null; exit 0' INT TERM EXIT
 echo "等待服务端启动（日志：server.log）..."

@@ -1,5 +1,6 @@
 package com.zongc.dw.plan;
 
+import com.zongc.dw.map.CellType;
 import com.zongc.dw.map.Dir;
 import com.zongc.dw.map.GridMap;
 
@@ -85,6 +86,40 @@ public final class AStarPlanner {
             }
         }
         return null;
+    }
+
+    /**
+     * 紧急掉头：前方道路被堵死、按正常规则无路可走时（例如单行车道上出现障碍），
+     * 借用左侧的对向车道掉头 —— 从 start 驶入左侧相邻格，再沿相反方向继续行驶。
+     *
+     * <p>几何上，"start 左转 90° + 左侧格再左转 90°"正好拼成一个半径半格的半圆，
+     * 圆心是两格的公共角点，车身不会越出这两格（见 {@link Route}）。
+     * 只有左侧格是与当前方向相反的车道（或路口 / 开放区域）时才允许。</p>
+     *
+     * @param start   当前路线的最后一格（车辆将在这一格里开始掉头）
+     * @param heading 驶入 start 时的方向
+     * @return 从左侧格开始（不含 start）到 goal 的格序列；无法掉头或掉头后仍不可达时返回 null
+     */
+    public int[] planUTurn(int start, Dir heading, int goal, Map<Integer, Double> penalty) {
+        if (heading == null) return null;
+        Dir left = heading.left();
+        int sx = map.cx(start) + left.dx, sy = map.cy(start) + left.dy;
+        if (!map.inBounds(sx, sy)) return null;
+        int side = map.index(sx, sy);
+        if (!map.passable(side)) return null;
+        CellType t = map.type(side);
+        if (t.laneDir != null && t.laneDir != heading.opposite()) return null;
+        // 掉头后必须沿反方向驶出左侧格
+        int nx = sx - heading.dx, ny = sy - heading.dy;
+        if (!map.inBounds(nx, ny)) return null;
+        int next = map.index(nx, ny);
+        if (!map.passable(next) || map.move(side, heading.opposite()) != next) return null;
+        int[] tail = plan(next, heading.opposite(), goal, penalty);
+        if (tail == null) return null;
+        int[] out = new int[tail.length + 1];
+        out[0] = side;
+        System.arraycopy(tail, 0, out, 1, tail.length);
+        return out;
     }
 
     private double heuristic(int cell, int gx, int gy, double res) {

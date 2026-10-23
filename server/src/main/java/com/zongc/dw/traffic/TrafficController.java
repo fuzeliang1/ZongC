@@ -23,6 +23,8 @@ import java.util.List;
  *   <li>申请顺序按"受阻时间"排序，等得最久的先申请；等待超过 priorityHoldSec 的那一辆可以
  *       先占住它需要的空闲格，防止被源源不断的车流"饿死"。</li>
  *   <li>受阻超过 stuckRerouteSec 的车交给 World 绕行重规划。</li>
+ *   <li>授权一般只增不减；例外是已授权的格子里闯进了行人、或格子变得不可通行（路障、感知发现的障碍），
+ *       这时立即收回授权（{@link #revokeBefore}）。</li>
  * </ol>
  * <p>手机等自由智能体不受管控，但它们车身覆盖的格子同样被占用，其他车会主动避让。</p>
  */
@@ -99,7 +101,7 @@ public final class TrafficController {
         List<String> yields = new ArrayList<>();
         for (Agent a : agents) {
             if (!a.taxi || a.route == null) continue;
-            yieldToPedestrian(a, agents, yields);
+            enforceAuthority(a, agents, yields);
             for (int i = a.progress; i <= a.authority; i++) {
                 int c = a.route.cell(i);
                 if (owner[c] < 0) owner[c] = a.index();
@@ -153,31 +155,50 @@ public final class TrafficController {
     }
 
     /**
-     * 行人（手机等自由智能体）走进了这辆车已获授权、但车还没开到的格子：立即把授权收回到行人前一格。
+     * 已获授权、但车还没开到的格子里出现了不能进入的东西时，立即把授权收回到它之前：
+     * <ul>
+     *   <li>行人（手机等自由智能体）走了进来；</li>
+     *   <li>格子变得不可通行（人工路障、车辆感知发现的障碍）。</li>
+     * </ul>
      * 内部仿真车会按"授权终点前刹停"的约束马上减速 / 停住，外部设备会收到新的停车点。
-     * 如果新的授权终点落在路口里、而车还没进路口，就退到路口之前，不让车停在路口中间。
      */
-    private void yieldToPedestrian(Agent a, List<Agent> agents, List<String> yields) {
+    private void enforceAuthority(Agent a, List<Agent> agents, List<String> yields) {
         Route r = a.route;
         for (int i = a.progress + 1; i <= a.authority; i++) {
             int cell = r.cell(i);
-            if (!pedestrian[cell]) continue;
-            int k = i - 1;
-            if (!map.isCross(r.cell(a.progress))) {
-                while (k > a.progress && map.isCross(r.cell(k))) k--;
-            }
-            a.authority = k;
-            a.permitDirty = true;
-            String who = "";
-            for (Agent f : agents) {
-                if (f.taxi) continue;
-                for (int c : f.bodyCells) {
-                    if (c == cell) who = " " + f.id + " ";
+            if (map.passable(cell) && !pedestrian[cell]) continue;
+            revokeBefore(a, i);
+            if (pedestrian[cell]) {
+                String who = "";
+                for (Agent f : agents) {
+                    if (f.taxi) continue;
+                    for (int c : f.bodyCells) {
+                        if (c == cell) who = " " + f.id + " ";
+                    }
                 }
+                yields.add(a.id + " 为行人" + who + "紧急停车");
             }
-            yields.add(a.id + " 为行人" + who + "紧急停车");
             return;
         }
+    }
+
+    /**
+     * 收回授权：路线第 idx 格及之后的格子不再允许进入。
+     * 如果新的授权终点落在路口里、而车还没进路口，就退到路口之前，不让车停在路口中间。
+     *
+     * @return 授权是否发生了变化
+     */
+    public boolean revokeBefore(Agent a, int idx) {
+        Route r = a.route;
+        if (r == null || idx > a.authority) return false;
+        int k = Math.max(a.progress, idx - 1);
+        if (!map.isCross(r.cell(a.progress))) {
+            while (k > a.progress && map.isCross(r.cell(k))) k--;
+        }
+        if (k >= a.authority) return false;
+        a.authority = k;
+        a.permitDirty = true;
+        return true;
     }
 
     /**

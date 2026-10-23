@@ -5,7 +5,8 @@ public final class Task {
     public enum State { WAITING, ASSIGNED, PICKED, DELIVERED, CANCELLED }
 
     public final String id;
-    public final int pickup;
+    /** 上下车点（格索引）。所在格被路障 / 障碍封闭时，会改到附近的可通行车道格。 */
+    public int pickup;
     public int dropoff;
     public final double createdAt;
     public double assignedAt = Double.NaN;

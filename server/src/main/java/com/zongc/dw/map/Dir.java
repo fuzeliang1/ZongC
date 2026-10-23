@@ -23,6 +23,16 @@ public enum Dir {
         };
     }
 
+    /** 左侧方向（逆时针转 90°）。靠右行驶时，对向车道在左侧。 */
+    public Dir left() {
+        return switch (this) {
+            case E -> N;
+            case N -> W;
+            case W -> S;
+            case S -> E;
+        };
+    }
+
     /** 该方向对应的航向角（弧度）。 */
     public double angle() {
         return Math.atan2(dy, dx);

@@ -38,8 +38,11 @@ docs/     plan.md（计划与进度）、architecture.md（架构）、protocol.
 ```bash
 scripts/build.sh                      # 编译服务端 → server/build/classes
 scripts/start_server.sh               # 启动服务端：浏览器 http://localhost:8080，设备 TCP 9000 / UDP 9001
-scripts/start_demo.sh                 # 服务端 + 5 辆 Python 模拟车 + 1 部模拟手机 + 打开浏览器
+scripts/start_demo.sh                 # 服务端（运行 demo 场景脚本）+ 5 辆 Python 模拟车 + 1 部模拟手机 + 打开浏览器
+scripts/start_server.sh --scenario perception   # 指定场景脚本（server/scenarios/*.json），none 表示不运行
 scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16   # 离线派单对比实验
+scripts/experiment.sh --minutes 30 --seeds 1,2,3,4,5,6,7,8 --strategies HUNGARIAN --rebalance off,on \
+    --rate 5 --scenario scenarios/rush-hour.json                         # 空车调度对比（潮汐需求）
 scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路"，接入运行中的服务端做端到端检查
 cd server && mvn test                 # 服务端单元测试（有网络时）
 cd phone && ./gradlew test            # 手机核心算法单元测试（需要 Android SDK）
@@ -95,10 +98,14 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
 - 服务端修复：行人走进已授权格子时紧急收回授权。
 
 ### 进行中（2026-10-23，目标："把能做的都做到较好的程度"）
-1. 场景脚本引擎（按时间自动触发：公告、到达率、策略、路障、未知障碍、订单、订单潮、需求热点、空车调度）
-2. 感知与建图挑战（模拟激光雷达、未知障碍、占据栅格、自动更新全局地图、设备 scan 消息、掉头脱困）
+1. 场景脚本引擎 —— **服务端完成**（`world/Scenario*.java`，3 个脚本 demo / perception / rush-hour，
+   `--scenario`、`GET /api/scenarios`、`POST /api/scenario`，测试 `ScenarioTest`）；网页显示待做
+2. 感知与建图 —— **服务端完成**（`world/Perception.java`：模拟激光雷达、占据栅格、发现 / 撤除、设备 scan 消息；
+   `World.applyBlock` 收回授权 + 重规划；`planUTurn` 掉头；上下车点被切断时就近改点；`barrierHits` 真实世界碰撞计数；
+   测试 `world/PerceptionTest`）；网页显示、协议文档待做
 3. 图像处理加速模块（服务端颜色分割识别路障）+ 手机拍照上报
-4. 派单优化：需求热点 + 空车调度 + 对比实验
+4. 派单优化 —— **服务端完成**（`Demand` 需求热点、`Rebalancer` 空车调度；订单用独立随机数序列保证对比公平；
+   潮汐需求、8 车 5 单/分钟下平均等待约 −18%，测试 `world/RebalanceTest`）；网页显示待做
 5. Three.js 3D 可视化
 6. 全自主演示：一键启动（含 Matlab）、App 自动连接
 7. Gazebo 接入脚手架（无法在当前环境测试）
@@ -116,6 +123,9 @@ hamcrest-core-1.3.jar）编译运行测试：服务端测试必须在 `server/` 
 - 在云沙箱里：Maven Central、Google Maven、services.gradle.org 无法访问，所以服务端不用 Spring Boot、
   Gson jar 随仓库提供；Android APK 无法在沙箱里构建。
 - `pkill -f DwServer` 会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID。
+- 云沙箱可能被重置（未提交的代码会丢）：每完成一块就提交推送。万一丢了，可以从会话记录
+  （`~/.claude/projects/*/*.jsonl`）里按顺序重放 Write / Edit 调用恢复。
+- 在 POSIX 区域设置下 Java 读命令行里的中文参数会变成"?"：运行工具前 `export LC_ALL=C.UTF-8`。
 - 服务端测试依赖工作目录（`server/`）。
 - `AndroidManifest` 里 `LocationListener` 的三个旧回调必须保留实现，否则安卓 10 及以下机型会崩溃。
 - 安卓本地单元测试编译时用的是 android.jar，测试代码不能用 `com.sun.*`、`javax.imageio` 等 JDK 专有 API。

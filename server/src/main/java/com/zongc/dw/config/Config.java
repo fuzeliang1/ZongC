@@ -27,6 +27,10 @@ public final class Config {
     public double timeScale = 1.0;
     /** 向浏览器推送快照的频率（Hz）。 */
     public int snapshotHz = 10;
+    /** 启动时运行的场景脚本（相对于配置文件目录），为 null 时不运行脚本。命令行 --scenario 可覆盖。 */
+    public String scenario = null;
+    /** 场景脚本目录（相对于配置文件目录），网页上的场景列表从这里读取。 */
+    public String scenarioDir = "../scenarios";
 
     public Vehicle vehicle = new Vehicle();
     public Traffic traffic = new Traffic();
@@ -59,6 +63,10 @@ public final class Config {
         public String strategy = "HUNGARIAN";  // GREEDY 或 HUNGARIAN
         public double intervalSec = 2.0;       // 派单周期（批量匹配需要积累一批订单）
         public double waitWeight = 0.3;        // 匈牙利算法中等待时间的权重（米/秒），防止订单"饿死"
+        public boolean rebalance = false;      // 空车调度：把空车提前调往需求高的区域
+        public double rebalanceIntervalSec = 8.0;
+        public int zoneSize = 9;               // 需求统计的区域边长（格）
+        public double demandTauSec = 180.0;    // 需求预测的衰减时间常数（秒）
     }
 
     /** 订单生成参数。 */

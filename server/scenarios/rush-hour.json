@@ -1,0 +1,23 @@
+{
+  "name": "早晚高峰（潮汐需求）",
+  "description": "前 15 分钟早高峰：乘客主要从西南居民区出发去东北商务区；后 15 分钟晚高峰反过来。用于空车调度的对比实验（Experiment --scenario scenarios/rush-hour.json --rebalance off,on），也可以在网页上直接运行。",
+  "loop": true,
+  "loopGapSec": 0,
+  "events": [
+    {"t": 0, "action": "demand", "originShare": 0.8, "destShare": 0.7,
+     "text": "早高峰：居民区 → 商务区 / 地铁站",
+     "hotspots": [
+       {"name": "居民区", "center": [5, 4], "radius": 5, "origin": 3, "dest": 0.2},
+       {"name": "商务区", "center": [46, 28], "radius": 5, "origin": 0.2, "dest": 2},
+       {"name": "地铁站", "center": [26, 12], "radius": 4, "origin": 0.6, "dest": 1}
+     ]},
+    {"t": 900, "action": "demand", "originShare": 0.8, "destShare": 0.7,
+     "text": "晚高峰：商务区 / 地铁站 → 居民区",
+     "hotspots": [
+       {"name": "居民区", "center": [5, 4], "radius": 5, "origin": 0.2, "dest": 3},
+       {"name": "商务区", "center": [46, 28], "radius": 5, "origin": 2, "dest": 0.2},
+       {"name": "地铁站", "center": [26, 12], "radius": 4, "origin": 1, "dest": 0.6}
+     ]},
+    {"t": 1800, "action": "announce", "text": "一天结束，重新开始"}
+  ]
+}

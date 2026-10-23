@@ -1,0 +1,37 @@
+{
+  "name": "期末演示（全自主循环）",
+  "description": "约 6 分钟一轮、自动循环：正常接单 → 已知路障（交通管制）→ 未知障碍（车辆感知发现并更新地图）→ 早高峰潮汐需求 + 空车调度 → 订单潮 → 恢复平峰。全程无需人工操作。",
+  "loop": true,
+  "loopGapSec": 20,
+  "events": [
+    {"t": 0, "action": "announce", "text": "演示开始：无人出租车自主接单、规划路径、管控交通，全程无需人工操作"},
+    {"t": 0, "action": "rate", "ratePerMin": 6},
+    {"t": 0, "action": "strategy", "value": "HUNGARIAN"},
+    {"t": 0, "action": "rebalance", "on": false},
+    {"t": 0, "action": "demand", "hotspots": []},
+
+    {"t": 30, "action": "roadblock", "cell": [17, 24], "text": "交通管制：(17,24) 封路（已知路障），途经车辆立即绕行"},
+    {"t": 60, "action": "obstacle", "cell": [35, 15], "text": "(35,15) 突然出现施工围挡——系统并不知道，要靠车辆的激光雷达发现"},
+    {"t": 90, "action": "obstacle", "cell": [11, 20], "text": "(11,20) 出现掉落的货物（未知障碍）"},
+
+    {"t": 120, "action": "demand", "originShare": 0.75, "destShare": 0.6,
+     "text": "早高峰：大量乘客从西南居民区出发，前往东北商务区和地铁站",
+     "hotspots": [
+       {"name": "居民区", "center": [5, 4], "radius": 5, "origin": 3, "dest": 0.3},
+       {"name": "商务区", "center": [46, 28], "radius": 5, "origin": 0.3, "dest": 2},
+       {"name": "地铁站", "center": [26, 12], "radius": 4, "origin": 0.5, "dest": 1}
+     ]},
+    {"t": 120, "action": "rate", "ratePerMin": 10},
+    {"t": 150, "action": "rebalance", "on": true, "text": "开启空车调度：根据需求预测，把空车提前调往叫车多的区域"},
+    {"t": 210, "action": "rush", "count": 8, "text": "演唱会散场：一次出现 8 个订单"},
+
+    {"t": 240, "action": "roadblock", "cell": [17, 24], "blocked": false, "text": "交通管制结束，(17,24) 恢复通行"},
+    {"t": 255, "action": "obstacle", "cell": [35, 15], "on": false, "text": "施工结束，围挡撤走——同样要等车辆看到，系统才会把它从地图上删掉"},
+    {"t": 265, "action": "obstacle", "cell": [11, 20], "on": false},
+
+    {"t": 300, "action": "demand", "hotspots": [], "text": "恢复平峰：需求均匀分布，关闭空车调度"},
+    {"t": 300, "action": "rate", "ratePerMin": 6},
+    {"t": 300, "action": "rebalance", "on": false},
+    {"t": 340, "action": "announce", "text": "本轮演示结束，20 秒后自动重新开始"}
+  ]
+}

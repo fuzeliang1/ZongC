@@ -1,0 +1,19 @@
+{
+  "name": "感知与建图",
+  "description": "真实世界里陆续出现、又陆续消失 4 处系统不知道的障碍。车辆用模拟激光雷达（48 束、3 m）扫描，占据栅格确认后自动写入全局地图并重新规划；障碍消失后同样由感知自动撤掉。约 4 分钟一轮，自动循环。",
+  "loop": true,
+  "loopGapSec": 20,
+  "events": [
+    {"t": 0, "action": "announce", "text": "感知与建图：真实世界会陆续出现系统不知道的障碍，看车辆如何发现它们"},
+    {"t": 0, "action": "rate", "ratePerMin": 8},
+    {"t": 20, "action": "obstacle", "cell": [16, 15], "text": "(16,15) 出现施工围挡（未知障碍）"},
+    {"t": 50, "action": "obstacle", "cell": [35, 16], "text": "(35,16) 出现故障车（未知障碍）"},
+    {"t": 80, "action": "obstacle", "cell": [10, 20], "text": "(10,20) 出现掉落的货物（未知障碍）"},
+    {"t": 110, "action": "obstacle", "cell": [45, 8], "text": "(45,8) 出现积水（未知障碍）"},
+    {"t": 150, "action": "obstacle", "cell": [16, 15], "on": false, "text": "(16,15) 施工结束，围挡撤走——要等车辆看到，地图才会更新"},
+    {"t": 170, "action": "obstacle", "cell": [35, 16], "on": false},
+    {"t": 190, "action": "obstacle", "cell": [10, 20], "on": false},
+    {"t": 210, "action": "obstacle", "cell": [45, 8], "on": false},
+    {"t": 240, "action": "announce", "text": "本轮结束，20 秒后重新开始"}
+  ]
+}

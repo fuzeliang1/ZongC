@@ -141,6 +141,11 @@ public final class GridMap {
         return best;
     }
 
+    /** 点到某个格子（正方形区域）的最近距离；点在格子内时为 0。 */
+    public double distanceToCell(double wx, double wy, int idx) {
+        return distToCell(wx, wy, cx(idx), cy(idx));
+    }
+
     private double distToCell(double wx, double wy, int x, int y) {
         double minX = x * res, maxX = (x + 1) * res, minY = y * res, maxY = (y + 1) * res;
         double dx = Math.max(Math.max(minX - wx, 0), wx - maxX);
