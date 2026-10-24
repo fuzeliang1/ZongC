@@ -160,8 +160,12 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | 3d39eb2 / 198794f | 答辩 PPT；演示录屏工具与视频 |
 | 198794f 之后 | 组员上手指南 `docs/onboarding.md`；填写成员与分工；改为只用 GitHub、删除周会纪要模板；封面与个人总结 |
 | 669688c / a6bcf21 | GitHub Actions 持续集成（Linux / Windows / Android / MATLAB），第一次运行全部通过；`run_fleet` 的 duration 参数、`system_test.py --fleet external`；修复 `start_demo.bat` 的 timeout 问题 |
+| 87589f7 | 文档同步 CI 结果：测试报告 4.6 节、上手指南 6.6 节、README 徽章；"Matlab 没跑过 / 只做过编译检查"的说法按实测改掉 |
+| cb2a700 | CI 在 main 上发现的缺陷 D12：外部设备来不及响应授权收回被误记为越权 → `REVOKE_GRACE_SEC` + `revokeOverruns`，新增回归测试（服务端 30 项） |
 
-以上提交已全部合并到 main。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main。
+以上提交已全部合并到 main（当前 `cb2a700`），main 上最近一次 CI 四个任务全部通过。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main；合并前分支上的 CI 要先变绿，合并后再看一次 main 上的 CI。
+
+**2026-10-24 的决定**：调研同类项目后提出过几项改进（录制回放 + 指标曲线、报告补"相关工作"一节、动态改派、拼车、时空预约 / 路口细化、拥堵感知规划、感知加噪声等），用户只要求做 CI，**其他都不做**。除非用户再提，不要主动去做这些。
 
 效果评估关键数字（`docs/eval/summary.md`）：接近饱和时匈牙利比贪心平均等待 −45%；潮汐需求下空车调度 −20%
 （4 单/分）/ −18%（5 单/分）；感知场景零误检、零碰撞；16 车高负载演示场景 6 × 60 分钟零碰撞（含撞障碍）。
@@ -169,7 +173,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 ### 待做（按优先级，AI 可以继续做）
 
 1. ~~全流程文档 + UML~~ ✅ 已完成：索引 `docs/README.md`；UML 用 PlantUML（`docs/uml/*.puml`，18 张，共用 `_style.iuml`），
-   改了源文件跑 `tools/render_uml.py`。Matlab / 真机 / Gazebo 实测后要补 `docs/test-report.md` 第 7 节和 `docs/evaluation.md` 4.6 节。
+   改了源文件跑 `tools/render_uml.py`。真机 / Matlab 本地图窗 / 带界面 Gazebo 实测后要补 `docs/test-report.md` 第 7 节和 `docs/evaluation.md` 4.6、4.8 节。
 2. ~~提交物~~ ✅ 已完成（`deliverables/`，生成方法见 `docs/README.md`"提交物"一节）：技术报告 docx/pdf、
    答辩 PPT（`tools/build_slides.js`，pptxgenjs）、演示录屏（`tools/record_demo.py`）。封面信息与个人总结已填写；
    改了实验数据要同步报告、PPT 里的数字并重新生成。
@@ -180,8 +184,10 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
    `LIBGL_ALWAYS_SOFTWARE=1 xvfb-run gz sim -s -r <带相机传感器的世界>`，用 `gz topic -e --json-output` 取图（conda 里的
    Python protobuf 版本与 gz-msgs 不匹配，不能用 Python 绑定订阅图像）。带界面的 Gazebo 仍待人在 Ubuntu 上实测。
 4. ~~更新 `docs/plan.md` 第 2 节进度表~~ ✅ 已更新。
-5. 以上 AI 能做的都已完成，并已合并到 main。可选的后续：真机 / MATLAB / 带界面 Gazebo 实测后
-   补测试报告第 7 节、评估报告 4.6 节和技术报告；挑战项 D（时空预约 / CBS）、拼车等见 `docs/plan.md` 第 5 节。
+5. ~~持续集成~~ ✅ 已完成（`.github/workflows/ci.yml`，说明见 `docs/onboarding.md` 6.6 节、`docs/test-report.md` 4.6 节）。
+   CI 红了要找根因：先看失败步骤的日志和 `*-logs` 附件里 system_test 的"关键事件"，修代码并补回归测试，不要靠重跑或删检查变绿。
+6. 以上 AI 能做的都已完成，并已合并到 main。剩下的是组员实测（见下一小节）；实测结果回来后帮忙补测试报告第 7 节、
+   评估报告 4.6 / 4.8 节和技术报告，并重新生成报告 / PPT。其他改进按上面的决定不做。
 
 ### 需要人来做（AI 在云端做不了）
 
@@ -198,6 +204,8 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 - 安卓层在沙箱里只能对照手写的安卓 API 桩做编译检查，桩没有提交进仓库；改了安卓代码以 CI 的 Android 任务（真实 SDK）为准。
 - `.bat` 里不要用 `timeout /t N` 等待：输入被重定向时（CI、部分 IDE 终端）会直接报错退出，用 `ping -n N+1 127.0.0.1 >nul`。
 - GitHub Actions 的同一分支并发组会取消正在跑的运行：等一轮 CI 结果时不要推送会触发 CI 的提交（只改文档的可以）。
+- CI 的 MATLAB / 系统测试任务里有真实的时序（设备延迟、模拟手机随机横穿），同一份代码在不同运行里可能碰到不同情况：
+  D12 就是分支上通过、main 上才出现的。偶发的红灯也要找原因，不要当成"运气不好"。
 - `pkill -f DwServer`（以及任何 `pkill -f <命令行里也出现的字符串>`）会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID。
   `kill` 掉 `ros2 run` / `xvfb-run` / `timeout` 等包装进程时子进程会残留（同名 Gazebo 话题出现多个发布者，车辆位置乱跳）：
   用 `setsid` 启动、`kill -- -<pgid>` 结束，或用 ros2 launch。
