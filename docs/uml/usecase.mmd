@@ -1,0 +1,51 @@
+%% 用例图（mermaid 没有原生用例图，用 flowchart 按 UML 用例图画法表示：小人=参与者，椭圆=用例，方框=系统边界）
+flowchart LR
+    P(("👤<br/>乘客")):::actor
+    O(("👤<br/>运营管理员<br/>（演示者）")):::actor
+    W(("👤<br/>手机持有者<br/>（行人）")):::actor
+    M(("⚙<br/>Matlab<br/>模拟车")):::sys
+    G(("⚙<br/>Gazebo<br/>小车")):::sys
+    T(("⏱<br/>场景脚本<br/>/仿真时钟")):::sys
+
+    subgraph S["MiniDiDi 数字世界系统"]
+        direction TB
+        UC1([叫车 / 生成运输任务])
+        UC2([派单])
+        UC3([路径规划])
+        UC4([交通管控：移动授权])
+        UC5([车辆运动仿真])
+        UC6([数字孪生同步])
+        UC7([断线接管])
+        UC8([环境感知与辅助建图])
+        UC9([拍照识别路障<br/>图像处理加速])
+        UC10([位姿估计 PDR 上报])
+        UC11([空车调度])
+        UC12([2D / 3D 动态显示])
+        UC13([配置策略与参数])
+        UC14([设置路障 / 切换场景])
+        UC15([碰撞监测与指标统计])
+    end
+
+    P --- UC1
+    W --- UC1
+    W --- UC10
+    W --- UC9
+    O --- UC12
+    O --- UC13
+    O --- UC14
+    T --- UC1
+    T --- UC14
+    M --- UC6
+    G --- UC6
+    UC1 -.->|«include»| UC2
+    UC2 -.->|«include»| UC3
+    UC5 -.->|«include»| UC4
+    UC6 -.->|«include»| UC4
+    UC7 -.->|«extend»| UC6
+    UC11 -.->|«extend»| UC2
+    UC8 -.->|«include»| UC3
+    UC9 -.->|«include»| UC8
+    UC5 -.->|«include»| UC15
+
+    classDef actor fill:#fff,stroke:#333,stroke-width:1.5px
+    classDef sys fill:#f4f4f4,stroke:#666,stroke-dasharray:4 2

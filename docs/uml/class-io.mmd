@@ -1,0 +1,67 @@
+%% 类图：接入层（网络、HTTP、图像识别），它们都不直接修改 World，而是经 SimulationEngine 排队
+classDiagram
+    direction LR
+    class DwServer {
+        +main(String[] args)$
+    }
+    class HttpApi {
+        +start()
+        +stop()
+        -handle(HttpExchange ex)
+        -stream(HttpExchange ex)
+        -visionDetect(HttpExchange ex)
+        -switchScenario(HttpExchange ex)
+        -serveStatic(HttpExchange ex, String path)
+    }
+    class DeviceGateway {
+        +start()
+        +stop()
+        -acceptLoop()
+        -udpLoop()
+    }
+    class DeviceSession {
+        -Socket socket
+        +send(String json)
+        +close(String reason)
+        +isOpen() boolean
+        -readLoop()
+        -writeLoop()
+    }
+    class DeviceLink {
+        <<interface>>
+    }
+    class SimulationEngine {
+        +submit(Consumer~World~ cmd)
+        +call(Function~World,T~ fn)
+        +hub() SnapshotHub
+    }
+    class VisionService {
+        +process(byte[] img, Params p) Report
+        +mappedCells(Report r) int[]
+        +last() Report
+    }
+    class ColorBlobDetector {
+        +detect(int[] argb, int w, int h, boolean parallel) Result
+    }
+    class Config
+    class MapLoader {
+        +load(Path file)$ GridMap
+        +validate(GridMap map)$ List~String~
+    }
+    class ScenarioLoader["Scenario"] {
+        +load(Path file, GridMap map)$ Scenario
+        +parse(String json, GridMap map)$ Scenario
+    }
+
+    DwServer ..> Config
+    DwServer ..> MapLoader
+    DwServer --> SimulationEngine
+    DwServer --> HttpApi
+    DwServer --> DeviceGateway
+    HttpApi --> SimulationEngine
+    HttpApi *-- VisionService
+    VisionService *-- ColorBlobDetector
+    DeviceGateway --> SimulationEngine
+    DeviceGateway *-- "0..*" DeviceSession
+    DeviceLink <|.. DeviceSession
+    HttpApi ..> ScenarioLoader

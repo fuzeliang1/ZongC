@@ -1,0 +1,32 @@
+%% 时序图：一个订单的完整生命周期（内部仿真车）
+sequenceDiagram
+    autonumber
+    actor P as 乘客 / 场景脚本
+    participant API as HttpApi
+    participant E as SimulationEngine
+    participant W as World
+    participant D as Dispatcher（匈牙利）
+    participant A as AStarPlanner
+    participant T as TrafficController
+    participant V as InternalDriver
+    P->>API: POST /api/tasks {from, to}（或泊松过程自动生成）
+    API->>E: call(w → w.createTask(...))
+    E->>W: 仿真线程执行 createTask
+    W-->>API: Task（WAITING）
+    loop 每 2 s（dispatch.intervalSec）
+        W->>W: 收集空车 × 等待订单，DistanceField 求接驾距离矩阵
+        W->>D: assign(cost, waitSec)
+        D-->>W: 最优匹配 [(车 i, 单 j)]
+        W->>A: plan(授权终点, 驶入方向, 上车点)
+        A-->>W: 格子序列 → Route（平滑路点）
+        W->>W: 车 TO_PICKUP，订单 ASSIGNED
+    end
+    loop 每个仿真步 50 ms
+        W->>V: advance(车, dt, stopS)
+        V-->>W: 新位姿（不越过授权终点）
+        W->>T: update(agents, t, dt)
+        T-->>W: 延伸授权 / 收回授权 / 受阻 12 s 的车（→ 绕行）
+    end
+    W->>W: 到达上车点 → BOARDING 2 s → 规划去目的地（TO_DROPOFF，PICKED）
+    W->>W: 到达目的地 → ALIGHTING 2 s → 订单 DELIVERED，车 CRUISING
+    E-->>P: SSE 快照（10 Hz）：网页上看到车辆接送全过程

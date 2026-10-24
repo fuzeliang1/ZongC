@@ -1,0 +1,90 @@
+%% 类图：安卓 App。core 包是纯 Java（不引用 android.*），可在电脑上单元测试
+classDiagram
+    direction LR
+    namespace 安卓层 {
+        class MainActivity
+        class AppCore {
+            <<singleton>>
+            +get(Context ctx)$ AppCore
+            +hail(fx, fy, tx, ty) String
+            +detectPhoto(byte[] jpeg) VisionResult
+            +setPosition(x, y)
+        }
+        class SensorSource {
+            +start()
+            +onSensorChanged(SensorEvent e)
+        }
+        class GnssSource {
+            +onLocationChanged(Location l)
+        }
+        class MiniMapView
+        class Prefs
+    }
+    namespace core {
+        class PdrEngine {
+            +onAccel(t, ax, ay, az)
+            +onGyro(t, wx, wy, wz)
+            +onGravity(t, gx, gy, gz)
+            +onMag(t, mx, my, mz)
+            +onLocation(t, lat, lon, accuracy)
+            +setPosition(mx, my)
+            +alignHeading(thetaM)
+            +startCalibration()
+            +finishCalibration(realMeters) double
+            +state(now) PdrState
+        }
+        class StepDetector {
+            +update(t, ax, ay, az, List~Step~ out) int
+            +isStill(t, seconds) boolean
+        }
+        class HeadingEstimator {
+            +onGyro(t, wx, wy, wz, still)
+            +onMag(t, mx, my, mz)
+            +yaw() double
+            +biasUp() double
+        }
+        class MapFrame {
+            +anchor(px, py, mx, my)
+            +toMap(px, py) double[]
+            +toMapHeading(thetaP) double
+        }
+        class PdrConfig
+        class DwConnection {
+            +start()
+            +stop()
+            +status() Status
+            +sendEvent(text)
+        }
+        class MapClient {
+            +fetchMap() MapData
+            +fetchSnapshot() WorldSnapshot
+            +hail(fx, fy, tx, ty) String
+            +detectPhoto(src, jpeg, hfov, ...) VisionResult
+        }
+        class WorldPoller
+        class MapData
+        class WorldSnapshot
+        class Geo
+        class Json
+        class CsvLog
+    }
+    MainActivity --> AppCore
+    MainActivity --> MiniMapView
+    AppCore *-- PdrEngine
+    AppCore *-- SensorSource
+    AppCore *-- GnssSource
+    AppCore *-- DwConnection
+    AppCore *-- WorldPoller
+    AppCore --> Prefs
+    SensorSource --> PdrEngine
+    GnssSource --> PdrEngine
+    PdrEngine *-- StepDetector
+    PdrEngine *-- HeadingEstimator
+    PdrEngine *-- MapFrame
+    PdrEngine --> PdrConfig
+    PdrEngine ..> Geo
+    WorldPoller --> MapClient
+    MapClient ..> MapData
+    MapClient ..> WorldSnapshot
+    DwConnection ..> Json
+    AppCore --> CsvLog

@@ -1,0 +1,29 @@
+%% 时序图：未知障碍被车辆激光雷达发现 → 写入全局地图 → 车辆让行、绕行或掉头
+sequenceDiagram
+    autonumber
+    participant SC as ScenarioRunner
+    participant PE as Perception
+    participant W as World
+    participant G as GridMap（系统认知）
+    participant T as TrafficController
+    participant A as AStarPlanner
+    participant D as 外部设备（若有）
+    SC->>PE: setHidden(cell, true)（2.5 m 内无车、无人才放置）
+    Note over PE: 只存在于"真实世界"，规划不知道
+    loop 10 Hz，每辆车
+        PE->>PE: scan：48 束 × 3 m 光线投射
+        PE->>PE: 命中格 log-odds +0.85，穿过格 −0.4
+    end
+    PE->>PE: log-odds ≥ 1.4（约连续 2 次命中）
+    PE->>W: discover → applyBlock(cell, true)
+    W->>G: setBlocked(cell, true)
+    W->>T: revokeBefore(车, 障碍前一格)（不停在路口里）
+    T-->>D: permit（stopS 变小，立即减速）
+    W->>A: plan / planUTurn（借对向车道掉头）
+    A-->>W: 新路线
+    W-->>D: path（绕行或掉头路线）
+    Note over SC,PE: 之后场景脚本撤掉障碍
+    SC->>PE: setHidden(cell, false)
+    PE->>PE: 射线持续穿过该格，log-odds ≤ −1.4
+    PE->>W: clear → applyBlock(cell, false)
+    W->>G: setBlocked(cell, false)，道路恢复通行

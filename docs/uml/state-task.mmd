@@ -1,0 +1,12 @@
+%% 状态图：订单（Task.State）
+stateDiagram-v2
+    [*] --> WAITING: createTask（泊松生成 / 手动 / 手机叫车 / 场景订单潮）
+    WAITING --> ASSIGNED: 派单（匈牙利 / 贪心）
+    ASSIGNED --> WAITING: 车辆到不了上车点
+    WAITING --> WAITING: 上车点被障碍切断 / 就近改点
+    ASSIGNED --> PICKED: 乘客上车
+    PICKED --> DELIVERED: 乘客下车
+    WAITING --> CANCELLED: 上车点被封闭且附近没有可用车道格
+    ASSIGNED --> CANCELLED: 同上
+    DELIVERED --> [*]
+    CANCELLED --> [*]

@@ -1,0 +1,15 @@
+%% 状态图：出租车状态（AgentStatus）
+stateDiagram-v2
+    [*] --> CRUISING: 生成 / 设备注册
+    CRUISING --> TO_PICKUP: 派单成功 / planRoute(上车点)
+    TO_PICKUP --> BOARDING: 到达上车点并停稳
+    BOARDING --> TO_DROPOFF: 停留 2 s / planRoute(目的地)
+    TO_DROPOFF --> ALIGHTING: 到达目的地并停稳
+    ALIGHTING --> CRUISING: 停留 2 s / 订单 DELIVERED
+    TO_PICKUP --> CRUISING: 上车点不可达 / 订单退回 WAITING
+    CRUISING --> CRUISING: 到达巡游目的地 / 换一个目的地；空车调度改派区域
+    state CRUISING {
+        [*] --> 巡游
+        巡游 --> 调往热点: Rebalancer 指派
+        调往热点 --> 巡游: 到达分区
+    }

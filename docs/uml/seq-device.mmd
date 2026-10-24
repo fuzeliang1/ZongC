@@ -1,0 +1,28 @@
+%% 时序图：Matlab 模拟车接入、同步与断线接管（数字孪生）
+sequenceDiagram
+    autonumber
+    participant M as Matlab SimCar（car-1）
+    participant S as DeviceSession（TCP 读/写线程）
+    participant E as SimulationEngine
+    participant B as DeviceBridge（仿真线程）
+    participant W as World / TrafficController
+    M->>S: TCP 连接 :9000
+    M->>S: {"type":"register","kind":"matlab","agentId":"car-1"}
+    S->>E: submit(onDeviceMessage)
+    E->>B: onRegister：绑定 car-1，driver = MATLAB
+    B-->>M: welcome（当前位姿、车辆参数、地图尺寸）
+    B-->>M: path（从当前格开始的路线 + 平滑路点）
+    B-->>M: permit（routeId, until, stopS）
+    loop 10 Hz
+        M->>M: 纯追踪转向 + v ≤ √(2a(stopS − s))
+        M->>S: state（x, y, θ, v）
+        S->>E: submit → B.applyState：数字车位姿 = 上报值
+        W->>W: 交通管控按真实位姿延伸授权
+        B-->>M: permit（stopS 变大；遇行人 / 障碍时变小）
+    end
+    B-->>M: world（周边车辆，5 Hz）、scan（模拟激光雷达，5 Hz）
+    Note over M,S: MATLAB 关闭或网络中断
+    B->>B: 3 s 无消息 → 判定离线，关闭连接
+    B->>W: driver = INTERNAL，车辆吸附回路线，内部仿真继续驾驶
+    M->>S: 重新连接并 register
+    B-->>M: welcome（最新位姿）→ 设备接管，继续同步

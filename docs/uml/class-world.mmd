@@ -1,0 +1,177 @@
+%% 类图：数字世界核心（server/src/main/java/com/zongc/dw）
+classDiagram
+    direction LR
+    class SimulationEngine {
+        -World world
+        -SnapshotHub hub
+        -ConcurrentLinkedQueue inbox
+        +start()
+        +submit(Consumer~World~ cmd)
+        +call(Function~World,T~ fn) CompletableFuture~T~
+        +reset(Long seed)
+        +switchScenario(Scenario s, String file)
+        -tick()
+    }
+    class SnapshotHub {
+        +publish(String json)
+        +latest() String
+        +awaitNewer(long ver, long ms)
+    }
+    class World {
+        -double time
+        -List~Agent~ agents
+        -List~Task~ activeTasks
+        +step()
+        +createTask(int pickup, int dropoff) Task
+        +setRoadblock(int cell, boolean on)
+        +setStrategy(String s)
+        +setScenario(Scenario s)
+        +onDeviceMessage(DeviceLink l, JsonObject m)
+        +reportVision(...)
+        +snapshot(boolean paused, double scale) Snapshot
+        -dispatch()
+        ~planRoute(Agent a, int goal, Purpose p, Map penalty) boolean
+        ~applyBlock(int cell, boolean on)
+    }
+    class Agent {
+        +String id
+        +boolean taxi
+        +DriverKind driver
+        +double x, y, theta, v
+        +AgentStatus status
+        +Route route
+        +int authority
+        +double s
+        +Task task
+    }
+    class Task {
+        +String id
+        +int pickup
+        +int dropoff
+        +double createdAt
+        +State state
+        +active() boolean
+    }
+    class GridMap {
+        -CellType[] cells
+        -boolean[] blocked
+        +passable(int idx) boolean
+        +setBlocked(int idx, boolean v)
+        +move(int from, Dir d) int
+        +cellAt(double x, double y) int
+    }
+    class AStarPlanner {
+        +plan(int start, Dir heading, int goal, Map penalty) int[]
+        +planUTurn(int start, Dir heading, int goal, Map penalty) int[]
+    }
+    class Route {
+        -int[] cells
+        +sStart(int i) double
+        +sEnd(int i) double
+        +poseAt(double s) Pose
+        +project(double x, double y, int from, int to) double
+        +devicePolyline() double[][]
+    }
+    class TrafficController {
+        +update(List~Agent~ agents, double t, double dt, Metrics m) Result
+        +revokeBefore(Agent a, int idx) boolean
+        +stopS(Agent a) double
+        +ownerOf(int cell) int
+    }
+    class Dispatcher {
+        <<interface>>
+        +name() String
+        +assign(double[][] cost, double[] waitSec) List~int[]~
+        +of(String strategy, Dispatch cfg)$ Dispatcher
+    }
+    class GreedyDispatcher
+    class HungarianDispatcher {
+        -double waitWeight
+    }
+    class Hungarian {
+        +solve(double[][] cost)$ int[]
+    }
+    class DistanceField
+    class Rebalancer
+    class Demand
+    class Perception {
+        ~boolean[] hidden
+        ~double[] logOdds
+        +setHidden(World w, int cell, boolean on)
+        +observeObstacle(World w, int cell, double wt, String src)
+        +visionObstacle(World w, int cell, double wt, String src, double ttl)
+        ~update(World w, double dt)
+        ~scan(Agent a, List agents, double t) Scan
+    }
+    class ScenarioRunner {
+        +ScenarioRunner(Scenario s)
+        ~update(World w)
+    }
+    class Scenario
+    class DeviceBridge {
+        ~onMessage(DeviceLink l, JsonObject m)
+        ~onClosed(DeviceLink l)
+        ~update()
+        -onRegister(...)
+        -sendPath(Agent a)
+        -sendPermit(Agent a)
+    }
+    class DeviceLink {
+        <<interface>>
+        +send(String json)
+        +close(String reason)
+        +isOpen() boolean
+    }
+    class InternalDriver
+    class CollisionMonitor
+    class Metrics
+    class TaskGenerator
+    class AgentStatus {
+        <<enumeration>>
+        CRUISING
+        TO_PICKUP
+        BOARDING
+        TO_DROPOFF
+        ALIGHTING
+    }
+    class DriverKind {
+        <<enumeration>>
+        INTERNAL
+        MATLAB
+        GAZEBO
+        PHONE
+        GENERIC
+    }
+
+    SimulationEngine *-- World
+    SimulationEngine *-- SnapshotHub
+    World *-- "1..*" Agent
+    World o-- "0..*" Task
+    World --> GridMap
+    World *-- AStarPlanner
+    World *-- TrafficController
+    World *-- Perception
+    World *-- DeviceBridge
+    World *-- InternalDriver
+    World *-- CollisionMonitor
+    World *-- Metrics
+    World *-- TaskGenerator
+    World o-- "0..1" ScenarioRunner
+    World o-- Demand
+    World *-- Rebalancer
+    World --> Dispatcher
+    ScenarioRunner --> Scenario
+    Dispatcher <|.. GreedyDispatcher
+    Dispatcher <|.. HungarianDispatcher
+    HungarianDispatcher ..> Hungarian
+    Rebalancer ..> Hungarian
+    World ..> DistanceField : 派单代价
+    Agent --> "0..1" Route
+    Agent --> "0..1" Task
+    Agent --> AgentStatus
+    Agent --> DriverKind
+    Agent --> "0..1" DeviceLink
+    AStarPlanner --> GridMap
+    TrafficController --> GridMap
+    Perception --> GridMap
+    DeviceBridge ..> DeviceLink

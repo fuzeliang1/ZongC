@@ -1,0 +1,34 @@
+%% 部署图：现场演示的物理部署（自带路由器组成局域网）
+flowchart LR
+    subgraph PC1["«device» 演示电脑（Windows / Linux，JDK 17+）"]
+        direction TB
+        subgraph JVM["«execution environment» JVM"]
+            SRV["«artifact» 数字世界服务端<br/>com.zongc.dw.DwServer<br/>:8080 HTTP · :9000 TCP · :9001 UDP"]
+        end
+        subgraph BR["«execution environment» 浏览器 Chrome / Edge"]
+            UI2["«artifact» index.html（2D）"]
+            UI3["«artifact» 3d.html（3D）"]
+        end
+        subgraph ML["«execution environment» MATLAB R2020b+"]
+            FLEET["«artifact» run_fleet.m<br/>5 × SimCar"]
+        end
+        PY["«artifact» mock_devices.py<br/>（无 MATLAB 时的后备车队）"]
+    end
+
+    subgraph PH["«device» 安卓手机（Android 8.0+）"]
+        APK["«artifact» MiniDiDi.apk<br/>加速度计 · 陀螺 · 磁力计 · GNSS/北斗 · 相机"]
+    end
+
+    subgraph PC2["«device» Gazebo 电脑（Ubuntu 24.04，可选）"]
+        ROS["«artifact» ROS 2 Jazzy + Gazebo Harmonic<br/>minididi_bridge"]
+    end
+
+    RT{{"«device» 无线路由器<br/>局域网 192.168.x.x"}}
+
+    UI2 -- "HTTP/SSE localhost" --- SRV
+    UI3 -- "HTTP/SSE localhost" --- SRV
+    FLEET -- "TCP localhost:9000" --- SRV
+    PY -. "TCP localhost:9000" .- SRV
+    PC1 === RT
+    APK -- "Wi-Fi：TCP 9000 + HTTP 8080" --- RT
+    ROS -. "TCP 9000" .- RT

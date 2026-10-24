@@ -1,0 +1,17 @@
+%% 活动图：为一辆车延伸移动授权（TrafficController，每个仿真步按"受阻时间"从长到短依次处理）
+flowchart TD
+    S((●)) --> A[取路线上授权终点的下一格 c]
+    A --> B{authority ≥ progress + 3<br/>（horizonCells）或已到终点?}
+    B -- 是 --> Z((◉))
+    B -- 否 --> C{c 是路口格?}
+    C -- 是 --> C1[整段路口格 + 出口第一格<br/>组成一组 G]
+    C -- 否 --> C2["G = {c}"]
+    C1 --> D
+    C2 --> D{G 中每格都可通行<br/>且无主 / 属于自己<br/>且无行人覆盖?}
+    D -- 是 --> E[G 全部归该车<br/>authority 前移，stopS 更新]
+    E --> A
+    D -- 否 --> F{受阻 > 3 s 且本步还没有<br/>车用过优先权?}
+    F -- 是 --> F1[先占住 G 中空闲的格<br/>防止被车流饿死]
+    F -- 否 --> G1[记为受阻，停在授权终点前<br/>bodyRadius + stopMargin<br/>受阻 > 12 s 交给 World 绕行]
+    F1 --> G1
+    G1 --> Z

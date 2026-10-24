@@ -1,0 +1,22 @@
+%% 活动图：一个仿真步 World.step()（20 Hz，dt = 0.05 s）
+flowchart TD
+    S((●)) --> A[time += dt]
+    A --> B{有场景脚本?}
+    B -- 是 --> B1[执行到期事件<br/>路障·未知障碍·热点·订单潮]
+    B -- 否 --> C
+    B1 --> C[泊松过程生成订单]
+    C --> D[内部车 InternalDriver.advance<br/>v 受 vMax、转弯限速、stopS 约束]
+    D --> E[里程统计 · 到站处理<br/>上车 / 下车 / 巡游换目的地]
+    E --> F{距上次派单 ≥ 2 s?}
+    F -- 是 --> F1[dispatch：距离场代价矩阵 → 匈牙利匹配 → A* 规划]
+    F -- 否 --> G
+    F1 --> G{空车调度开启?}
+    G -- 是 --> G1[Rebalancer：分区需求预测 → 调空车]
+    G -- 否 --> H
+    G1 --> H[Perception.update：10 Hz 激光雷达 → 占据栅格 → 发现 / 撤除障碍]
+    H --> I[TrafficController.update<br/>收回不安全授权 → 按受阻时间排序延伸授权]
+    I --> J{有受阻 ≥ 12 s 的车?}
+    J -- 是 --> J1[给挡路格加惩罚，重规划绕行]
+    J -- 否 --> K
+    J1 --> K[CollisionMonitor：按真实几何计数碰撞]
+    K --> Z((◉))

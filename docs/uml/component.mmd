@@ -1,0 +1,42 @@
+%% 组件图：服务端内部组件与外部设备之间的接口（圆点表示提供的接口）
+flowchart TB
+    subgraph Clients["客户端"]
+        WEB["«component»<br/>网页前端 web/<br/>2D Canvas · 3D WebGL"]
+        MAT["«component»<br/>Matlab 模拟车 ×5<br/>SimCar · DwClient"]
+        APP["«component»<br/>安卓 App phone/<br/>PDR · 拍照 · 叫车"]
+        GZ["«component»<br/>Gazebo 桥接（进阶）"]
+    end
+
+    subgraph Server["«subsystem» 数字世界服务端 server/"]
+        direction TB
+        API["«component» api<br/>HttpApi"]
+        DEV["«component» device<br/>DeviceGateway · DeviceSession"]
+        SIM["«component» sim<br/>SimulationEngine · SnapshotHub"]
+        WLD["«component» world<br/>World · Agent · Task · DeviceBridge<br/>ScenarioRunner · Metrics · CollisionMonitor"]
+        PER["«component» 感知<br/>Perception"]
+        DIS["«component» dispatch<br/>Greedy · Hungarian · Rebalancer"]
+        PLN["«component» plan<br/>AStarPlanner · Route · DistanceField"]
+        TRF["«component» traffic<br/>TrafficController"]
+        MAP["«component» map<br/>GridMap · MapLoader"]
+        VIS["«component» vision<br/>VisionService · ColorBlobDetector"]
+    end
+
+    WEB -- "REST + SSE :8080" --> API
+    APP -- "REST :8080（地图、快照、叫车、照片）" --> API
+    APP -- "TCP :9000 JSON 行协议" --> DEV
+    MAT -- "TCP :9000 / UDP :9001" --> DEV
+    GZ -- "TCP :9000" --> DEV
+
+    API -- "submit / call" --> SIM
+    DEV -- "submit" --> SIM
+    API --> VIS
+    SIM --> WLD
+    WLD --> DIS
+    WLD --> PLN
+    WLD --> TRF
+    WLD --> PER
+    DIS --> PLN
+    PLN --> MAP
+    TRF --> MAP
+    PER --> MAP
+    VIS --> MAP

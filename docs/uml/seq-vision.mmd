@@ -1,0 +1,31 @@
+%% 时序图：端云互动——手机拍照，服务端图像处理加速模块识别路障并写入地图
+sequenceDiagram
+    autonumber
+    actor U as 手机持有者
+    participant APP as 手机 App（AppCore / MapClient）
+    participant API as HttpApi（HTTP 线程）
+    participant VS as VisionService
+    participant CB as ColorBlobDetector
+    participant FJ as ForkJoin 线程池
+    participant E as SimulationEngine
+    participant W as World / Perception
+    U->>APP: 点"拍照"
+    APP->>API: POST /api/vision/detect?source=phone-1&hfov=63（JPEG）
+    API->>E: call：读取 phone-1 在地图上的位姿
+    E-->>API: (x, y, θ)
+    API->>VS: process(照片, 参数)
+    VS->>VS: 解码，缩到 640 宽
+    VS->>CB: detect(argb, w, h, parallel=true)
+    par 按行并行
+        CB->>FJ: RGB→HSV 阈值分割
+        CB->>FJ: 3×3 开运算
+    end
+    CB->>CB: 连通域标记、合并反光条切开的块（串行）
+    CB-->>VS: 色块列表
+    VS->>VS: 针孔模型：方位角 β、距离 d → 地图格子
+    VS-->>API: Report（检测框、方位、距离、格子）
+    API->>E: call(w → w.reportVision(..., 权重 2.0))
+    E->>W: visionObstacle：并入占据栅格（一次确认），登记真实世界 120 s
+    W->>W: applyBlock → 收回授权、重规划
+    API-->>APP: JSON 结果（ok, objects, summary）
+    APP-->>U: 显示"识别到 1 个路障，已写入地图"
