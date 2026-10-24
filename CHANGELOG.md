@@ -22,6 +22,9 @@
 - **技术报告**：源文件 `docs/report/report.md`，`tools/build_report.py` 生成 `deliverables/MiniDiDi_report.docx` / `.pdf`
   （宋体 / 黑体、三线表、页眉页码、自动目录、公式）。
 - 手机位姿估计数据流图（`docs/uml/pdr.puml`）；数字世界类图改为纵向布局。
+- **答辩 PPT**：`tools/build_slides.js` 生成 `deliverables/MiniDiDi_slides.pptx`（封面 + 正文 5 页 + 结尾，原生图表、演讲备注）。
+- **演示录屏**：`tools/record_demo.py` + `tools/record_demo.js` 自动启动系统、录制 2D / 3D 画面并加片头片尾，
+  生成 `deliverables/MiniDiDi_demo.mp4`。
 
 ## 2026-10-23（开发版本，未打标签）
 

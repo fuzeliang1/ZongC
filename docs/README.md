@@ -23,6 +23,16 @@
 
 各模块自己的说明：[手机 App](../phone/README.md)、[Matlab 模拟车](../matlab/README.md)、[Gazebo 接入](../gazebo/README.md)。
 
+## 提交物（`deliverables/`）
+
+| 文件 | 内容 | 重新生成 |
+|---|---|---|
+| `MiniDiDi_report.docx` / `.pdf` | 技术报告（45 页：立项 → 需求 → 设计 → 算法 → 实现 → 测试 → 部署 → 评估 → 总结） | 改 `docs/report/report.md`，运行 `python3 tools/build_report.py --pdf`（需要 pandoc、python-docx，PDF 需要 LibreOffice） |
+| `MiniDiDi_slides.pptx` | 答辩介绍 PPT：封面 + 正文 5 页 + 结尾，每页有演讲备注 | 改 `tools/build_slides.js`，`npm install pptxgenjs react-icons react react-dom sharp` 后 `NODE_PATH=…/node_modules node tools/build_slides.js` |
+| `MiniDiDi_demo.mp4` | 演示录屏（4 分 57 秒，1280×720）：片头 → 2D 主界面 → 3D 巡游 → 3D 跟车，全程无人操作 | `python3 tools/record_demo.py`（需要 Node.js + Playwright、ffmpeg） |
+
+报告封面的组号、成员和第 9.3 节个人总结、PPT 封面的成员需要组员自己填写；真机、MATLAB 实测后的照片和视频可以补进报告第 5、6 章。
+
 ## UML 图
 
 源文件在 [`uml/`](uml/)（PlantUML 文本），图片在 [`images/uml/`](images/uml/)。修改源文件后运行：

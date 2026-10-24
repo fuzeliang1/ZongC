@@ -44,9 +44,12 @@ server/            数字世界服务端：Java 17+，只依赖 Gson（server/li
 web/               网页：index.html（2D，Canvas）、3d.html（3D，自写 WebGL 渲染器 js/gl/）
 matlab/            Matlab 模拟车（DwClient / SimCar / FleetView / run_fleet）——尚未在 MATLAB 中实测
 phone/             安卓 App（Android Studio 工程，Java，零第三方库，minSdk 26，compile/target 35，AGP 8.7.3，Gradle 8.9）
-tools/             mock_devices.py（协议参考实现）、gen_map.py、run_evaluation.py（一键跑全部评估实验）
+gazebo/            gen_world.py（地图 → Gazebo 世界）、minididi_bridge/（ROS 2 桥接包，含纯 Python 运动学后端与测试）
+tools/             mock_devices.py（协议参考实现）、gen_map.py、run_evaluation.py（一键跑全部评估实验）、system_test.py、
+                   plot_eval.py、render_uml.py、build_report.py、build_slides.js、record_demo.py/.js
 scripts/           build / start_server / start_demo / experiment / phone_sim（.sh 与 .bat 成对）
-docs/              plan.md、architecture.md、protocol.md、dev-guide.md、eval/（实验结果）、images/（截图）
+docs/              全流程文档（索引 docs/README.md）、uml/（PlantUML 源）、report/report.md（技术报告源）、eval/、images/
+deliverables/      提交物：技术报告 docx/pdf、答辩 PPT、演示视频（都由 tools/ 下的脚本生成）
 ```
 
 ## 3. 常用命令
@@ -138,6 +141,11 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | 1a70ac4 | 图像处理加速模块（服务端识别 + 网页面板 + 手机"拍照"按钮）、VisionBench |
 | a8b4047 | 3D 视图（自写 WebGL，四种视角） |
 | c6450d4 | 全自主一键演示（含 Matlab 车队自动启动、无 MATLAB 时回退）；手机 App 打开即自动连接 |
+| 03b5da1 / 738d994 | 全流程文档（立项、需求、设计、测试、部署、评估、周会模板、CHANGELOG）+ PlantUML 图 18 张 + 评估图表；`tools/system_test.py` 系统集成测试 |
+| f5b8976 | Gazebo 接入（世界生成器 + ROS 2 桥接包，无界面模式实测 5 车零碰撞）；技术报告 docx/pdf |
+| 3d39eb2 及之后 | 答辩 PPT；演示录屏工具与视频 |
+
+以上自 03b5da1 起的提交在分支 `claude/fervent-maxwell-q06bmm` 上，尚未合并到 main。
 
 效果评估关键数字（`docs/eval/summary.md`）：接近饱和时匈牙利比贪心平均等待 −45%；潮汐需求下空车调度 −20%
 （4 单/分）/ −18%（5 单/分）；感知场景零误检、零碰撞；16 车高负载演示场景 6 × 60 分钟零碰撞（含撞障碍）。
@@ -146,16 +154,18 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 1. ~~全流程文档 + UML~~ ✅ 已完成：索引 `docs/README.md`；UML 用 PlantUML（`docs/uml/*.puml`，18 张，共用 `_style.iuml`），
    改了源文件跑 `tools/render_uml.py`。Matlab / 真机 / Gazebo 实测后要补 `docs/test-report.md` 第 7 节和 `docs/evaluation.md` 4.6 节。
-2. **提交物**：技术报告初稿 ✅（`docs/report/report.md` → `python3 tools/build_report.py --pdf` → `deliverables/`；
-   封面成员、个人总结待组员填写）；介绍 PPT（正文 ≤5 页，建议：系统总体 →
-   数字世界与调度（带数据）→ Matlab 孪生车与感知避障 → 手机与端云互动 → 挑战亮点与评估）、演示录屏
-   （Playwright 录 2D + 3D，≤5 分钟；无头 Chromium 打开 WebGL 要加 `--use-angle=swiftshader --enable-unsafe-swiftshader`）。
+2. ~~提交物~~ ✅ 已完成（`deliverables/`，生成方法见 `docs/README.md`"提交物"一节）：技术报告 docx/pdf、
+   答辩 PPT（`tools/build_slides.js`，pptxgenjs）、演示录屏（`tools/record_demo.py`）。报告和 PPT 封面的组号、成员、
+   报告 9.3 节个人总结待组员填写；改了实验数据要同步报告、PPT 里的数字并重新生成。
+   沙箱里 pptxgenjs 没有预装：`npm install` 到临时目录后用 `NODE_PATH=<目录>/node_modules` 运行。
 3. ~~Gazebo 接入~~ ✅ 已完成（`gazebo/`，见其 README）：世界生成器 + ROS 2 桥接包 + launch，无界面模式实测 5 车零碰撞。
    云端复现方法：`micromamba create -n ros -c conda-forge -c robostack-jazzy python=3.11 ros-jazzy-ros-base ros-jazzy-ros-gz
    colcon-common-extensions`（约 6 GB，conda.anaconda.org 可访问时）；渲染截图要 `apt-get install` Xvfb/Mesa 已有，
    `LIBGL_ALWAYS_SOFTWARE=1 xvfb-run gz sim -s -r <带相机传感器的世界>`，用 `gz topic -e --json-output` 取图（conda 里的
    Python protobuf 版本与 gz-msgs 不匹配，不能用 Python 绑定订阅图像）。带界面的 Gazebo 仍待人在 Ubuntu 上实测。
-4. ~~更新 `docs/plan.md` 第 2 节进度表~~ ✅ 已更新（Gazebo 一行等脚手架完成后再改）。
+4. ~~更新 `docs/plan.md` 第 2 节进度表~~ ✅ 已更新。
+5. 以上 AI 能做的都已完成。可选的后续：把分支合并到 main（需要组员同意）；真机 / MATLAB / 带界面 Gazebo 实测后
+   补测试报告第 7 节、评估报告 4.6 节和技术报告；挑战项 D（时空预约 / CBS）、拼车等见 `docs/plan.md` 第 5 节。
 
 ### 需要人来做（AI 在云端做不了）
 
