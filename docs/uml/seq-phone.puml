@@ -1,0 +1,42 @@
+@startuml seq-phone
+' 时序图（五）：手机作为行人智能体接入，出租车给行人让路；手机叫车。
+!include _style.iuml
+autonumber "<b>0."
+
+actor "手机用户" as U
+participant "安卓 App\n(PdrEngine / DwConnection)" as App
+participant "服务端\nDeviceBridge" as Br
+participant "World" as W
+participant "TrafficController" as TC
+participant "HttpApi" as Http
+participant "出租车 car-3" as Car
+
+U -> App : 打开 App（自动连接上次的服务端）
+App -> Br : register（kind=phone, x, y, θ）
+Br -> W : addFree("phone-1")
+Br --> App : welcome（agentId = phone-1）
+
+loop 10 Hz
+  U -> App : 走路（加速度、陀螺、磁力）
+  App -> App : 计步 + Weinberg 步长 + 陀螺航向\n→ 换算到地图坐标（锚点·旋转·比例尺）
+  App -> Br : state（x, y, θ, v）
+  Br -> W : 更新 phone-1 位姿
+end
+
+W -> TC : update()
+TC -> TC : 行人车身（0.45 m）覆盖的格子\n标记为"行人"，任何车都申请不到
+alt 行人走进 car-3 已授权、车还没开到的格子
+  TC -> TC : revokeBefore(car-3, 行人之前)
+  TC --> Car : 授权收回，停在行人前
+  note right of Car : 行人离开后授权照常延伸；\n12 s 不走则绕行
+end
+
+== 叫车 ==
+U -> App : 在小地图上点目的地，"叫车"
+App -> Http : POST /api/tasks {from: 手机旁最近的车道格, to}
+Http -> W : engine.call(w.createTask(...))
+W --> Http : Task T012
+Http --> App : {"ok":true,"id":"T012"}
+App -> Br : event "叫车 T012"
+note over W : 之后与普通订单相同：派单 → 接驾 → 送达（见 seq-order）
+@enduml

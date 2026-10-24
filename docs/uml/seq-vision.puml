@@ -1,0 +1,35 @@
+@startuml seq-vision
+' 时序图（四）：端云互动——手机拍照，服务端做图像识别（重型计算在服务端），结果写入全局地图。
+!include _style.iuml
+autonumber "<b>0."
+
+actor "手机用户" as U
+participant "安卓 App\n(MainActivity / MapClient)" as App
+participant "HttpApi\n(HTTP 线程)" as Http
+participant "VisionService" as VS
+participant "ColorBlobDetector" as Det
+participant "ForkJoin 线程池" as FJ
+participant "SimulationEngine\n(仿真线程)" as Eng
+participant "World / Perception" as W
+
+U -> App : 点"拍照识别"
+App -> App : 拍摄缩略图，JPEG 编码
+App -> Http : POST /api/vision/detect?source=phone-1&hfov=63&scale=3\n（请求体：JPEG）
+Http -> Eng : call(w → 取 phone-1 当前位姿)
+Eng --> Http : 相机位姿 (x, y, θ)
+Http -> VS : process(bytes, params)
+VS -> VS : 解码，缩到 640 像素宽
+VS -> Det : detect(argb, w, h, parallel = true)
+Det -> FJ : 按行并行：RGB→HSV 颜色分割
+Det -> FJ : 按行并行：3×3 开运算（腐蚀 + 膨胀）
+Det -> Det : 连通域标记（串行），\n合并被反光条切开的锥桶
+Det --> VS : 目标框列表
+VS -> VS : 针孔模型：方位角 β、距离 d\n沿视线找到目标所在的可行驶格
+VS --> Http : Report（目标、格子、耗时）
+Http -> Eng : call(w → w.reportVision(...))
+Eng -> W : visionObstacle(cell)：并入占据栅格（一次即确认），\n登记到"真实世界" 120 s
+W -> W : applyBlock → 收回授权、车辆绕行
+Http --> App : JSON：识别结果 + 已写入地图的格子
+App --> U : 显示"识别到 1 个路障，已写入地图"
+note over W : 120 s 内再拍到会续期；过期后视为已搬走，\n由车辆激光雷达观测为空后撤掉
+@enduml

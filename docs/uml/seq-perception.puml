@@ -1,0 +1,46 @@
+@startuml seq-perception
+' 时序图（三）：场景脚本放出一个系统不知道的障碍，车辆模拟激光雷达发现它、写入全局地图、收回授权、重规划或掉头；
+' 障碍消失后自动撤掉。
+!include _style.iuml
+autonumber "<b>0."
+
+participant "ScenarioRunner" as Scn
+participant "Perception" as P
+participant "World" as W
+participant "GridMap" as Map
+participant "TrafficController" as TC
+participant "AStarPlanner" as Plan
+participant "DeviceBridge" as Br
+actor "外部设备\n(若该车由设备驱动)" as Dev
+
+Scn -> P : setHidden(cell, true)\n（obstacle 事件：只进入"真实世界"）
+note right of P : 2.5 m 内有车或行人时推迟出现
+
+loop 10 Hz，每辆出租车
+  P -> P : scan()：48 束 × 3 m 光线投射\n（建筑、路障、未知障碍、车、行人）
+  P -> P : 命中点按"已知信息"分类：\n已知建筑/路障 → 忽略；靠近车/人 → 动态目标；\n其余 → 命中格 log-odds +0.85，穿过格 −0.4
+end
+
+P -> P : 命中格 log-odds ≥ 1.4（p ≈ 0.8）
+P -> W : applyBlock(cell, true)
+W -> Map : setBlocked(cell, true)
+W -> TC : revokeBefore(a, idx)\n（已授权未到达的车：收回到障碍前；\n会停在路口里则退到路口前）
+TC --> W : 新的 stopS（变小）
+alt 路线经过该格
+  W -> Plan : plan(..., 惩罚该格)
+  alt 前方无路（单行道被堵死）
+    W -> Plan : planUTurn(...)：借对向车道掉头
+  end
+  Plan --> W : 新 Route
+end
+W -> W : 上下车点在该格的订单就近改点
+Br --> Dev : permit（更小的 stopS）+ path（绕行 / 掉头）
+
+== 障碍消失 ==
+Scn -> P : setHidden(cell, false)
+loop 车辆经过时持续观测
+  P -> P : 被射线穿过，log-odds 下降
+end
+P -> W : log-odds ≤ −1.4：applyBlock(cell, false)
+W -> Map : setBlocked(cell, false)，道路恢复通行
+@enduml

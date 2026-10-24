@@ -1,0 +1,29 @@
+@startuml state-task
+' 状态图（二）：订单状态（Task.state）与设备连接状态。
+!include _style.iuml
+
+state "订单 Task" as Order {
+  [*] --> WAITING : 生成 / 手动下单 / 手机叫车
+  WAITING --> ASSIGNED : 派单
+  ASSIGNED --> WAITING : 车辆到不了上车点（退回）
+  ASSIGNED --> PICKED : 乘客上车
+  PICKED --> DELIVERED : 送达
+  WAITING --> CANCELLED : 上车点被封且附近无可用车道
+  DELIVERED --> [*]
+  CANCELLED --> [*]
+  WAITING : do / 等待时间计入派单代价
+  WAITING : 所有空车都到不了时\n就近改上车点
+}
+
+state "设备连接（服务端视角）" as Conn {
+  state "未注册" as New
+  state "已绑定\n（设备驱动数字车）" as Bound
+  state "离线\n（内部仿真接管）" as Off
+  [*] --> New : TCP 连接建立
+  New --> Bound : register / welcome + path + permit
+  New --> New : 其他消息 / error
+  Bound --> Bound : state（10 Hz，同时是心跳）
+  Bound --> Off : 断开 或 3 s 无消息
+  Off --> Bound : 重连并 register / welcome 同步位姿
+}
+@enduml

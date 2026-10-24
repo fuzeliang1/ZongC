@@ -1,0 +1,31 @@
+@startgantt gantt
+' 甘特图：16 周进度安排（与 docs/plan.md 第 4 节一致）。第 n 周 = 第 (n−1)×7 天起的 7 天。
+language zh
+printscale weekly
+hide resources footbox
+skinparam backgroundColor white
+
+-- 立项与设计 --
+[立项、分工、熟悉现有代码] as [T1] starts at D+0 and lasts 14 days
+[需求分析与需求规格说明] as [T2] starts at D+0 and lasts 14 days
+[概要设计与接口协议确认] as [T3] starts at D+7 and lasts 14 days
+-- 打通骨架 --
+[Matlab 5 车接入并稳定运行] as [T4] starts at D+14 and lasts 14 days
+[手机 App 读传感器并上报] as [T5] starts at D+14 and lasts 14 days
+[第一次全系统联调] as [M6] happens at D+27
+-- 完成必做 --
+[手机位姿估计（行人航位推算）] as [T7] starts at D+28 and lasts 21 days
+[一键启动与现场全自主演练] as [T8] starts at D+28 and lasts 21 days
+[中期检查] as [M9] happens at D+55
+-- 冲优（挑战项） --
+[3D 可视化] as [T10] starts at D+56 and lasts 28 days
+[感知建图与图像识别] as [T11] starts at D+56 and lasts 28 days
+[空车调度与对比实验] as [T12] starts at D+56 and lasts 28 days
+[Gazebo 接入（进阶）] as [T13] starts at D+56 and lasts 28 days
+-- 加固与评估 --
+[长时间运行、断线测试、评估实验] as [T14] starts at D+84 and lasts 14 days
+[录制视频素材，测试报告] as [T15] starts at D+84 and lasts 14 days
+-- 收尾与答辩 --
+[技术报告、PPT、视频定稿，彩排 2 次] as [T16] starts at D+98 and lasts 7 days
+[期末答辩] as [M17] happens at D+111
+@endgantt

@@ -1,0 +1,63 @@
+' 全部 UML 图共用的样式：黑白为主、少量强调色，打印和投影都清楚。
+' 不指定字体：PlantUML 会用 Java 的默认字体并自动回退到系统中文字体（Windows 雅黑 / Linux 文泉驿等）。
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontSize 13
+skinparam roundCorner 6
+skinparam ArrowColor #37474F
+skinparam ArrowFontSize 12
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #FAFAFA
+  BorderColor #37474F
+  HeaderBackgroundColor #E3EAF2
+}
+skinparam component {
+  BackgroundColor #F5F7FA
+  BorderColor #37474F
+}
+skinparam node {
+  BackgroundColor #F5F7FA
+  BorderColor #37474F
+}
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #546E7A
+}
+skinparam usecase {
+  BackgroundColor #F5F7FA
+  BorderColor #37474F
+}
+skinparam actor {
+  BorderColor #37474F
+  BackgroundColor #FFFFFF
+}
+skinparam sequence {
+  LifeLineBorderColor #78909C
+  ParticipantBackgroundColor #F5F7FA
+  ParticipantBorderColor #37474F
+  ActorBorderColor #37474F
+  ActorBackgroundColor #FFFFFF
+  GroupBorderColor #90A4AE
+  GroupBackgroundColor #ECEFF1
+}
+skinparam activity {
+  BackgroundColor #F5F7FA
+  BorderColor #37474F
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #37474F
+}
+skinparam state {
+  BackgroundColor #F5F7FA
+  BorderColor #37474F
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #BCAAA4
+}
+hide circle
+hide empty members
+set separator none

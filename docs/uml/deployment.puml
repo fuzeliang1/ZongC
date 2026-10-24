@@ -1,0 +1,48 @@
+@startuml deployment
+' 部署图：考核现场的硬件节点、执行环境和部署的制品。Gazebo 工作站为进阶（可选）。
+!include _style.iuml
+skinparam linetype polyline
+
+node "无线路由器（自带，固定 IP 段\n192.168.x.0/24，关闭终端隔离）" as Router <<device>>
+
+node "演示笔记本（Windows 10/11 或 Linux）" as Laptop <<device>> {
+  node "JDK 17+" as Jvm <<executionEnvironment>> {
+    artifact "数字世界服务端\nserver/build/classes\n+ lib/gson-2.13.1.jar" as Srv
+  }
+  node "MATLAB R2020b+" as Mat <<executionEnvironment>> {
+    artifact "run_fleet.m\n（5 × SimCar）" as Fleet
+  }
+  node "Python 3.8+（备用）" as Py <<executionEnvironment>> {
+    artifact "mock_devices.py\n（无 MATLAB 时代替车队）" as MockArt
+  }
+  node "Chrome / Edge" as Browser <<executionEnvironment>> {
+    artifact "index.html（2D）" as P2D
+    artifact "3d.html（3D）" as P3D
+  }
+  artifact "start_demo.bat / .sh\n一键启动全部程序" as Start
+}
+
+node "安卓手机（Android 8.0+）" as Phone <<device>> {
+  artifact "MiniDiDi.apk\n行人航位推算 · 拍照" as Apk
+}
+
+node "Gazebo 工作站（可选，Ubuntu 24.04）" as Ws <<device>> {
+  node "ROS 2 Jazzy" as Ros <<executionEnvironment>> {
+    artifact "minididi_bridge\n（每车一条 TCP）" as BridgeArt
+  }
+  node "Gazebo Harmonic" as Gz <<executionEnvironment>> {
+    artifact "minicity.sdf\n+ 5 辆差速小车" as World
+  }
+}
+
+Fleet --> Srv : TCP 9000\n（本机回环）
+MockArt --> Srv : TCP 9000 / UDP 9001
+P2D --> Srv : HTTP 8080（SSE）
+P3D --> Srv : HTTP 8080（SSE）
+Laptop -- Router : Wi-Fi / 网线
+Phone -- Router : Wi-Fi
+Ws -- Router : 网线
+Apk ..> Srv : TCP 9000（位姿 10 Hz）\nHTTP 8080（叫车、拍照）
+BridgeArt ..> Srv : TCP 9000
+BridgeArt -- World : ros_gz_bridge\n/odom · /cmd_vel
+@enduml

@@ -1,0 +1,119 @@
+@startuml class-algo
+' 类图（二）：优化与决策、感知相关的算法类（plan / traffic / dispatch / map 包与 world 中的感知、调度）。
+!include _style.iuml
+
+package "plan" {
+  class AStarPlanner {
+    - turnCost : double
+    + plan(start : int, heading : Dir, goal : int, penalty) : int[]
+    + planUTurn(start : int, heading : Dir, goal : int, penalty) : int[]
+  }
+  class Route {
+    - cells : int[]
+    - entryDir : Dir
+    - length : double
+    + sStart(i : int) : double
+    + sEnd(i : int) : double
+    + isArc(i : int) : boolean
+    + indexOf(cell, from, to) : int
+  }
+  class DistanceField {
+    + {static} toGoal(map : GridMap, goal : int) : int[]
+  }
+}
+
+package "traffic" {
+  class TrafficController {
+    - owner : int[]
+    - pedestrian : boolean[]
+    + update(agents, time, dt, metrics) : Result
+    + revokeBefore(a : Agent, idx : int) : boolean
+    + stopS(a : Agent) : double
+    + ownerOf(cell : int) : int
+    - extend(a : Agent, target : int) : int[]
+  }
+}
+
+package "dispatch" {
+  interface Dispatcher <<interface>> {
+    + name() : String
+    + assign(cost : double[][], waitSec : double[]) : List<int[]>
+    + {static} of(strategy, cfg) : Dispatcher
+  }
+  class GreedyDispatcher
+  class HungarianDispatcher {
+    - waitWeight : double
+  }
+  class Hungarian {
+    + {static} solve(cost : double[][]) : int[]
+  }
+}
+
+package "map" {
+  class GridMap {
+    - width, height : int
+    - res : double
+    + isLane(idx : int) : boolean
+    + passable(idx : int) : boolean
+    + setBlocked(idx : int, value : boolean) : void
+    + move(from : int, d : Dir) : int
+    + cellAt(x : double, y : double) : int
+  }
+  enum CellType {
+    BUILDING  '#'
+    FREE  '.'
+    CROSS  '+'
+    LANE_E  '>'
+    LANE_W  '<'
+    LANE_N  '^'
+    LANE_S  'v'
+    + laneDir : Dir
+  }
+  enum Dir {
+    E
+    N
+    W
+    S
+  }
+}
+
+package "world" {
+  class Perception {
+    + {static} RAYS = 48
+    + {static} RANGE = 3.0
+    ~ hidden : boolean[]
+    ~ logOdds : double[]
+    ~ discovered : boolean[]
+    ~ update(w : World, dt : double) : void
+    ~ scan(a, agents, t) : Scan
+    + setHidden(w, cell, on) : void
+    + visionObstacle(w, cell, weight, source, ttl) : void
+  }
+  class Rebalancer {
+    - zoneSize : int
+    - tau : double
+    - demand : double[]
+    ~ onTask(pickup : int, now : double) : void
+    ~ update(w : World, dt, period) : void
+  }
+  class World
+  class Agent
+}
+hide World members
+hide Agent members
+
+Dispatcher <|.. GreedyDispatcher
+Dispatcher <|.. HungarianDispatcher
+HungarianDispatcher ..> Hungarian
+Rebalancer ..> Hungarian : 空车指派
+World ..> DistanceField : 派单代价
+AStarPlanner ..> GridMap
+AStarPlanner ..> Route : 生成
+TrafficController ..> GridMap
+TrafficController ..> Agent : 授权 authority
+Perception ..> GridMap
+Perception ..> World : applyBlock
+GridMap ..> CellType
+CellType ..> Dir
+Route ..> Dir
+@enduml

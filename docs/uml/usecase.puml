@@ -1,0 +1,58 @@
+@startuml usecase
+' 用例图（总体）：参与者与系统用例。人类参与者在左，设备与时间参与者在右。
+!include _style.iuml
+left to right direction
+
+actor "观察者\n（评委 / 观众）" as Viewer
+actor "演示操作员" as Operator
+actor "乘客" as Passenger
+actor "手机用户\n（行人智能体）" as PhoneUser
+Operator -|> Viewer
+
+rectangle "MiniDiDi 数字世界服务端（系统超脑）" {
+  usecase "UC01 一键启动全自主演示" as UC01
+  usecase "UC02 查看 2D / 3D 实时画面" as UC02
+  usecase "UC03 查看运行指标与事件日志" as UC03
+  usecase "UC04 调整派单策略 / 到达率 / 空车调度" as UC04
+  usecase "UC05 设置 / 解除路障" as UC05
+  usecase "UC06 手动下单" as UC06
+  usecase "UC07 切换场景脚本" as UC07
+  usecase "UC08 叫车" as UC08
+  usecase "UC09 接入数字世界并上报位姿" as UC09
+  usecase "UC10 拍照识别路障" as UC10
+  usecase "UC11 注册并接管数字车" as UC11
+  usecase "UC12 接收路线与行驶授权" as UC12
+  usecase "UC13 上报车辆状态" as UC13
+  usecase "UC14 自动生成订单" as UC14
+  usecase "UC15 按时间触发场景事件" as UC15
+  usecase "UC16 车辆感知未知障碍" as UC16
+}
+
+actor "车辆设备" as Vehicle
+actor "Matlab 模拟车" as Matlab
+actor "Gazebo 小车" as Gazebo
+actor "实体小车 / 其他设备" as Generic
+actor "时钟与场景脚本" as Clock <<时间>>
+Matlab -|> Vehicle
+Gazebo -|> Vehicle
+Generic -|> Vehicle
+
+Viewer -- UC02
+Viewer -- UC03
+Operator -- UC01
+Operator -- UC04
+Operator -- UC05
+Operator -- UC06
+Operator -- UC07
+Passenger -- UC08
+PhoneUser -- UC08
+PhoneUser -- UC09
+PhoneUser -- UC10
+
+UC11 -- Vehicle
+UC12 -- Vehicle
+UC13 -- Vehicle
+UC14 -- Clock
+UC15 -- Clock
+UC16 -- Clock
+@enduml

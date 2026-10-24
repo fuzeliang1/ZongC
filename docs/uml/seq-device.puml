@@ -1,0 +1,51 @@
+@startuml seq-device
+' 时序图（二）：外部设备（Matlab / Gazebo）注册、接管数字车、按授权行驶、断线后由数字世界接管。
+!include _style.iuml
+autonumber "<b>0."
+
+participant "Matlab 模拟车\n(SimCar + DwClient)" as Dev
+participant "DeviceGateway\n(设备读写线程)" as Gw
+participant "SimulationEngine\n(命令队列)" as Eng
+participant "DeviceBridge" as Br
+participant "World" as W
+participant "TrafficController" as TC
+
+Dev -> Gw : TCP 连接 :9000
+Dev -> Gw : {"type":"register","kind":"matlab","agentId":"car-1"}
+Gw -> Eng : submit(w → w.onDeviceMessage(link, msg))
+Eng -> Br : onMessage(link, register)
+Br -> W : 绑定 car-1，setDriver(MATLAB, link)
+Br --> Dev : welcome（初始位姿、车辆参数、地图尺寸）
+Br --> Dev : path（routeId、cells、waypoints，从当前格开始）
+Br --> Dev : permit（routeId、until、stopS）
+
+loop 每 0.1 s
+  Dev -> Dev : 纯追踪转向 + 速度 PI\n保证投影长度 s ≤ stopS
+  Dev -> Gw : state（x, y, θ, v）
+  Gw -> Eng : submit
+  Eng -> Br : onMessage(state)
+  Br -> W : 写入 car-1 位姿（数字孪生镜像）
+end
+
+loop 每个墙钟节拍
+  W -> TC : update(...)
+  TC --> W : 授权延伸（或因行人 / 障碍收回）
+  Br --> Dev : permit（stopS 变化时）
+  Br --> Dev : world（周边车辆，5 Hz）
+  Br --> Dev : scan（模拟激光雷达，5 Hz，可忽略）
+end
+
+alt 到站 / 派单 / 绕行
+  W -> Br : routeDirty
+  Br --> Dev : path（新 routeId）
+  Br --> Dev : permit（同一 routeId）
+end
+
+== 断线或 3 s 无消息 ==
+Br -> Br : update()：心跳超时
+Br -> Gw : link.close("heartbeat timeout")
+Br -> W : setDriver(INTERNAL)，车吸附回路线
+note over W : 内部仿真继续驾驶 car-1，系统不停摆
+Dev -> Gw : 重连后再次 register
+Br --> Dev : welcome（同步最新位姿）
+@enduml

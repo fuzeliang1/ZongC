@@ -1,0 +1,73 @@
+@startuml component
+' 组件图：服务端是一个大组件，对外的三个接口画成边框上的端口（portin）；
+' 外部组件通过端口使用服务端，内部组件之间是依赖关系（虚线箭头）。
+!include _style.iuml
+skinparam componentStyle uml2
+skinparam linetype polyline
+
+component "2D 网页\n(web/index.html)" as Web2D
+component "3D 网页\n(web/3d.html，自写 WebGL)" as Web3D
+component "安卓 App\n(phone/)" as Phone
+component "Matlab 车队\n(matlab/run_fleet)" as Matlab
+component "Gazebo 桥接\n(gazebo/minididi_bridge)" as Gazebo
+component "Python 模拟设备\n(tools/mock_devices.py)" as Mock
+
+component "数字世界服务端 (server/，Java 17)" as Server {
+  portin "HTTP 8080\nREST + SSE" as PHttp
+  portin "TCP 9000\n设备协议" as PTcp
+  portin "UDP 9001\n状态上报" as PUdp
+
+  component "HttpApi\nREST · SSE · 静态文件" as Http
+  component "DeviceGateway\nTCP / UDP 收发" as Gw
+  component "VisionService\n图像识别（并行）" as Vision
+  component "SimulationEngine\n仿真线程 · 命令队列" as Engine
+  component "SnapshotHub\n最新快照" as Hub
+
+  component "World\n数字世界 · 仿真步" as World
+  component "DeviceBridge\n协议语义 · 断线接管" as Bridge
+  component "Perception\n模拟激光雷达 · 占据栅格" as Perc
+  component "ScenarioRunner\n场景脚本" as Scn
+  component "Rebalancer\n需求预测 · 空车调度" as Reb
+  component "Dispatcher\n贪心 / 匈牙利" as Disp
+  component "AStarPlanner\nA* · 掉头" as Plan
+  component "TrafficController\n格子预约 · 移动授权" as Traffic
+  component "GridMap\n栅格地图" as Map
+}
+
+Web2D ..> PHttp
+Web3D ..> PHttp
+Phone ..> PHttp
+Phone ..> PTcp : 位姿 10 Hz
+Matlab ..> PTcp
+Gazebo ..> PTcp
+Mock ..> PTcp
+Mock ..> PUdp
+
+PHttp --> Http
+PTcp --> Gw
+PUdp --> Gw
+
+Http ..> Vision
+Http ..> Engine : submit / call
+Http ..> Hub : 取快照（SSE）
+Gw ..> Engine : submit
+Engine ..> World : step()
+Engine ..> Hub : publish
+World ..> Bridge
+World ..> Perc
+World ..> Scn
+World ..> Reb
+World ..> Disp
+World ..> Plan
+World ..> Traffic
+Plan ..> Map
+Traffic ..> Map
+Perc ..> Map
+
+artifact "config/default.json" as Cfg
+artifact "maps/*.json" as MapFile
+artifact "scenarios/*.json" as ScnFile
+Engine ..> Cfg : 读取
+Map ..> MapFile : 加载
+Scn ..> ScnFile : 加载
+@enduml

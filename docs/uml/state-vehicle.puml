@@ -1,0 +1,33 @@
+@startuml state-vehicle
+' 状态图（一）：出租车状态（Agent.status）。手机等自由智能体始终为 FREE。
+!include _style.iuml
+
+[*] --> CRUISING : 生成 / 设备接管
+
+state "CRUISING\n空车巡游（可接单）" as CRUISING
+state "TO_PICKUP\n去接客" as TO_PICKUP
+state "BOARDING\n乘客上车" as BOARDING
+state "TO_DROPOFF\n送客中" as TO_DROPOFF
+state "ALIGHTING\n乘客下车" as ALIGHTING
+
+CRUISING : entry / 规划到随机目的地\n（开启空车调度时到待命区域）
+CRUISING --> CRUISING : 到达巡游终点 / 换一个目的地
+CRUISING --> TO_PICKUP : 派单 [匹配到订单] / 规划去上车点
+TO_PICKUP --> BOARDING : 到达上车点并停稳
+TO_PICKUP --> CRUISING : 上车点不可达 / 订单退回等待
+BOARDING --> TO_DROPOFF : 停留 2 s / 规划去目的地
+TO_DROPOFF --> ALIGHTING : 到达目的地并停稳
+ALIGHTING --> CRUISING : 停留 2 s / 计入送达
+
+state "行驶中（TO_PICKUP、TO_DROPOFF、CRUISING 共有的行为）" as Driving {
+  state "按授权行驶" as Go
+  state "受阻等待" as Wait
+  state "重规划 / 掉头" as Replan
+  [*] --> Go
+  Go --> Wait : 前方格子申请不到
+  Wait --> Go : 授权延伸
+  Wait --> Replan : 受阻 > 12 s
+  Go --> Replan : 前方出现路障 / 感知发现障碍
+  Replan --> Go : 新路线
+}
+@enduml

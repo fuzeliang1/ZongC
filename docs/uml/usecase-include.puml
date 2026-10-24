@@ -1,0 +1,38 @@
+@startuml usecase-include
+' 用例图（细化）：用例之间的包含与扩展关系。
+!include _style.iuml
+left to right direction
+
+rectangle "MiniDiDi 数字世界服务端" {
+  usecase "UC06 手动下单" as UC06
+  usecase "UC08 叫车" as UC08
+  usecase "UC14 自动生成订单" as UC14
+  usecase "UC05 设置 / 解除路障" as UC05
+  usecase "UC10 拍照识别路障" as UC10
+  usecase "UC16 车辆感知未知障碍" as UC16
+  usecase "UC12 接收路线与行驶授权" as UC12
+  usecase "UC13 上报车辆状态" as UC13
+
+  usecase "派单\n（贪心 / 匈牙利）" as Dispatch
+  usecase "图像识别\n（颜色分割 + 连通域）" as Vision
+  usecase "更新全局地图\n（收回授权、改上下车点）" as MapUpd
+  usecase "路径规划\n（A*，含掉头）" as Plan
+  usecase "交通管控\n（格子预约 + 移动授权）" as Permit
+  usecase "断线接管\n（内部仿真驾驶）" as Takeover
+  usecase "绕行 / 掉头" as Reroute
+}
+
+UC06 ..> Dispatch : <<include>>
+UC08 ..> Dispatch : <<include>>
+UC14 ..> Dispatch : <<include>>
+Dispatch ..> Plan : <<include>>
+UC10 ..> Vision : <<include>>
+Vision ..> MapUpd : <<include>>
+UC05 ..> MapUpd : <<include>>
+UC16 ..> MapUpd : <<include>>
+MapUpd ..> Plan : <<include>>
+UC12 ..> Permit : <<include>>
+Reroute .> Permit : <<extend>>\n受阻 12 s
+Reroute ..> Plan : <<include>>
+Takeover .> UC13 : <<extend>>\n3 s 无上报
+@enduml

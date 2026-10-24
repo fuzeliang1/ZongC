@@ -1,0 +1,50 @@
+@startuml seq-order
+' 时序图（一）：一个订单的完整生命周期——生成、派单、接驾、送达（内部仿真车；外部设备驱动时见 seq-device）。
+!include _style.iuml
+autonumber "<b>0."
+
+participant "SimulationEngine\n(仿真线程)" as Eng
+participant "World" as W
+participant "TaskGenerator" as Gen
+participant "Dispatcher\n(匈牙利)" as Disp
+participant "AStarPlanner" as Plan
+participant "TrafficController" as TC
+participant "InternalDriver" as Drv
+participant "Metrics" as M
+
+== 每个仿真步（20 Hz） ==
+Eng -> W : step()
+W -> Gen : update(w, dt)
+Gen -> Gen : 以 1 − e^(−λ·dt) 概率生成订单\n起终点按需求模型抽样
+Gen -> W : createTask(pickup, dropoff)
+note right of W : Task.state = WAITING
+
+== 每 2 s 派单一次 ==
+W -> W : dispatch()：收集空车 × 等待订单
+loop 每个等待订单 j
+  W -> W : DistanceField.toGoal(map, pickup_j)\n反向 BFS 得到所有车的接驾距离
+end
+W -> Disp : assign(cost, waitSec)
+Disp --> W : 最优匹配 [(车 i, 单 j)]
+W -> Plan : plan(授权终点, 驶入方向, pickup, 惩罚)
+Plan --> W : 格子序列 → Route（平滑路点）
+note right of W : Agent.status = TO_PICKUP\nTask.state = ASSIGNED
+
+== 行驶（每步） ==
+W -> TC : update(agents, t, dt, metrics)
+TC -> TC : 按受阻时间排序依次申请；\n路口整段 + 出口格一次性申请
+TC --> W : 各车 authority / stopS
+W -> Drv : advance(a, dt, stopS)
+Drv -> Drv : v ≤ min(vMax, 转弯限速, √(2·a·(stopS − s)))
+
+== 到达上车点 ==
+W -> W : status = BOARDING（停留 2 s）
+W -> M : onPicked(task)
+W -> Plan : plan(..., dropoff)
+note right of W : status = TO_DROPOFF\nTask.state = PICKED
+...行驶过程同上...
+W -> W : 到达目的地，status = ALIGHTING（2 s）
+W -> M : onDelivered(task)
+note right of W : Task.state = DELIVERED\nstatus = CRUISING（重新可接单）
+Eng -> Eng : 发布快照（10 Hz）→ 浏览器
+@enduml

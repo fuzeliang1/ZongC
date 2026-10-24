@@ -1,0 +1,146 @@
+@startuml class-world
+' 类图（一）：数字世界领域模型（world 包）。算法类只画类名，详见类图（二）class-algo。
+' + 公有，- 私有，~ 包内可见；只列出理解设计所需的主要属性和操作。
+!include _style.iuml
+
+package "world" {
+  class World {
+    - time : double
+    - agents : List<Agent>
+    - activeTasks : List<Task>
+    - dispatcher : Dispatcher
+    - scenario : ScenarioRunner
+    - demand : Demand
+    - rebalanceOn : boolean
+    + step() : void
+    + createTask(pickup : int, dropoff : int) : Task
+    + setRoadblock(cell : int, on : boolean) : void
+    + setStrategy(name : String) : void
+    + setScenario(s : Scenario) : void
+    + setRebalance(on : boolean) : void
+    + snapshot(paused, timeScale) : Snapshot
+    ~ planRoute(a, goal, purpose, penalty) : boolean
+    ~ applyBlock(cell : int, on : boolean) : void
+    - dispatch() : void
+    - reroute(a : Agent, blockingCell : int) : void
+  }
+  class Agent {
+    + id : String
+    + taxi : boolean
+    + driver : DriverKind
+    + x, y, theta, v : double
+    + status : AgentStatus
+    + routeId : int
+    + authority : int
+    + s : double
+    + online() : boolean
+  }
+  class Task {
+    + id : String
+    + pickup : int
+    + dropoff : int
+    + state : State
+    + createdAt : double
+    + agentId : String
+  }
+  enum AgentStatus {
+    CRUISING
+    TO_PICKUP
+    BOARDING
+    TO_DROPOFF
+    ALIGHTING
+    FREE
+  }
+  enum DriverKind {
+    INTERNAL
+    MATLAB
+    GAZEBO
+    PHONE
+    GENERIC
+  }
+  enum "Task.State" as TaskState {
+    WAITING
+    ASSIGNED
+    PICKED
+    DELIVERED
+    CANCELLED
+  }
+  class InternalDriver {
+    ~ advance(a, dt, sStop) : void
+  }
+  class TaskGenerator {
+    ~ update(w : World, dt : double) : void
+  }
+  class CollisionMonitor {
+    ~ check(w : World) : void
+  }
+  class Metrics {
+    + onPicked(t : Task) : void
+    + onDelivered(t : Task) : void
+  }
+  class ScenarioRunner {
+    ~ update(w : World) : void
+  }
+  class Scenario {
+    + name : String
+    + loop : boolean
+    + actions : List<Action>
+  }
+  class Demand {
+    + hotspots : List<Hotspot>
+  }
+  class DeviceBridge {
+    - bound : Map<DeviceLink, Agent>
+    ~ onMessage(link, msg) : void
+    ~ onClosed(link) : void
+    ~ update() : void
+  }
+  interface DeviceLink <<interface>> {
+    + id() : String
+    + send(json : String) : void
+    + close(reason : String) : void
+    + isOpen() : boolean
+  }
+  class Perception
+  class Rebalancer
+}
+class "device.DeviceSession" as DeviceSession
+class "plan.Route" as Route
+class "plan.AStarPlanner" as AStarPlanner
+class "traffic.TrafficController" as TrafficController
+interface "dispatch.Dispatcher" as Dispatcher <<interface>>
+class "map.GridMap" as GridMap
+hide Perception members
+hide Rebalancer members
+hide DeviceSession members
+hide Route members
+hide AStarPlanner members
+hide TrafficController members
+hide Dispatcher members
+hide GridMap members
+
+World "1" *-- "0..*" Agent : agents
+World "1" *-- "0..*" Task : activeTasks
+World *-- "1" InternalDriver
+World *-- "1" TaskGenerator
+World *-- "1" CollisionMonitor
+World *-- "1" Metrics
+World *-- "1" DeviceBridge
+World *-- "1" Perception
+World *-- "1" Rebalancer
+World *-- "1" TrafficController
+World *-- "1" AStarPlanner
+World --> "1" Dispatcher
+World o-- "1" GridMap
+World --> "0..1" ScenarioRunner
+World --> "1" Demand
+ScenarioRunner --> "1" Scenario
+Agent --> "0..1" Task : task
+Agent --> "0..1" Route : route
+Agent --> "0..1" DeviceLink : link
+Agent ..> AgentStatus
+Agent ..> DriverKind
+Task ..> TaskState
+DeviceBridge --> "0..*" DeviceLink : bound
+DeviceLink <|.. DeviceSession
+@enduml

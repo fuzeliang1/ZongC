@@ -1,0 +1,52 @@
+@startuml activity-permit
+' 活动图（二）：交通管控的授权延伸 TrafficController.update / extend。
+' 核心不变量：任意两车的授权格不相交，车只在授权格内运动 ⇒ 不会相撞。
+!include _style.iuml
+
+start
+:计算每个智能体车身覆盖的格子;
+:重建占用表 owner[]：先车身，再已有授权;
+:行人车身覆盖的格子标为 pedestrian;
+partition "收回不安全的授权" {
+  while (每辆车已授权、未到达的格子 i) is (还有)
+    if (格子 i 不可通行或有行人？) then (是)
+      :revokeBefore(a, i)：授权收回到 i 之前;
+      if (新终点落在路口里？) then (是)
+        :退到路口之前;
+      endif
+      break
+    endif
+  endwhile (检查完)
+}
+:按"受阻开始时间"排序（等得最久的先申请）;
+partition "依次延伸每辆车的授权（至多前视 horizonCells 格）" {
+  repeat
+    if (下一格是路口？) then (是)
+      :一次性申请"整段路口 + 出口第一格";
+      if (全部空闲？) then (是)
+        :占用这些格子;
+      else (否)
+        :停在路口前（不堵路口）;
+        break
+      endif
+    else (否)
+      if (下一格空闲且可通行、无行人？) then (是)
+        :占用这一格;
+      else (否)
+        :授权停在这一格之前;
+        break
+      endif
+    endif
+  repeat while (未到前视终点？) is (是)
+}
+if (申请失败且车已停下？) then (是)
+  if (受阻 > 3 s 且本步还没有车用过优先权？) then (是)
+    :优先占住它需要的空闲格（防"饿死"）;
+  endif
+  if (受阻 > 12 s？) then (是)
+    :给挡路的格子加惩罚后重新规划（绕行）;
+  endif
+endif
+:下发 permit（stopS = 授权终点 − 车身半径 − 余量）;
+stop
+@enduml

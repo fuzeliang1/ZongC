@@ -1,0 +1,125 @@
+@startuml class-phone
+' 类图（四）：安卓手机 App。core 包是纯 Java（不引用 android.*），可以在电脑上单元测试；
+' 外层（com.zongc.phone）负责界面、传感器和卫星定位的读取。
+!include _style.iuml
+
+package "com.zongc.phone（安卓层）" {
+  class MainActivity <<Activity>> {
+    - core : AppCore
+    - mapView : MiniMapView
+    # onCreate(state : Bundle) : void
+  }
+  class AppCore {
+    ~ prefs : Prefs
+    ~ engine : PdrEngine
+    ~ sensors : SensorSource
+    ~ gnss : GnssSource
+    - conn : DwConnection
+    - poller : WorldPoller
+    ~ map() : MapData
+    ~ snapshot() : WorldSnapshot
+  }
+  class SensorSource <<SensorEventListener>> {
+    + onSensorChanged(e : SensorEvent) : void
+  }
+  class GnssSource <<LocationListener>>
+  class MiniMapView <<View>> {
+    # onDraw(c : Canvas) : void
+  }
+  class Prefs
+  class LogFiles
+}
+
+package "com.zongc.phone.core（纯 Java）" {
+  class PdrEngine {
+    + onAccel(t, ax, ay, az) : void
+    + onGyro(t, wx, wy, wz) : void
+    + onMag(t, mx, my, mz) : void
+    + onLocation(t, lat, lon, accuracy) : void
+    + state(now : long) : PdrState
+    + setPosition(mx, my) : void
+    + alignHeading(thetaM) : void
+    + startCalibration() : void
+    + finishCalibration(realMeters) : double
+  }
+  class StepDetector {
+    + update(t, ax, ay, az, out : List<Step>) : int
+    + isWalking(t : long) : boolean
+  }
+  class HeadingEstimator {
+    + onGyro(t, wx, wy, wz, still) : void
+    + onMag(t, mx, my, mz) : void
+    + yaw() : double
+    + biasUp() : double
+  }
+  class MapFrame {
+    + anchor(px, py, mx, my) : void
+    + toMap(px, py) : double[]
+    + toMapHeading(thetaP) : double
+    + setScaleKeeping(px, py, s) : void
+  }
+  class PdrConfig {
+    + weinbergK : double
+    + mapScale : double
+    + outdoor : boolean
+    + copy() : PdrConfig
+  }
+  class PdrState
+  class DwConnection {
+    + start() : void
+    + stop() : void
+    + status() : Status
+    + sendEvent(text : String) : void
+  }
+  interface "DwConnection.PoseSource" as PoseSource <<interface>> {
+    + pose() : double[]
+  }
+  class MapClient {
+    + fetchMap() : MapData
+    + fetchSnapshot() : WorldSnapshot
+    + hail(fromX, fromY, toX, toY) : String
+    + detectPhoto(source, jpeg, hfov, scale) : VisionResult
+  }
+  class WorldPoller {
+    + start() : void
+    + map() : MapData
+    + snapshot() : WorldSnapshot
+  }
+  class MapData
+  class WorldSnapshot
+  class VisionResult
+  class Json
+  class CsvLog
+  class Geo
+  class Endpoint
+}
+
+MainActivity *-- "1" AppCore
+MainActivity *-- "1" MiniMapView
+MiniMapView --> AppCore
+AppCore *-- "1" PdrEngine
+AppCore *-- "1" SensorSource
+AppCore *-- "1" GnssSource
+AppCore *-- "1" Prefs
+AppCore *-- "0..1" DwConnection
+AppCore *-- "0..1" WorldPoller
+AppCore ..> LogFiles
+SensorSource --> PdrEngine : 加速度·陀螺·磁力
+GnssSource --> PdrEngine : 经纬度
+PdrEngine *-- "1" StepDetector
+PdrEngine *-- "1" HeadingEstimator
+PdrEngine *-- "1" MapFrame
+PdrEngine --> "1" PdrConfig
+PdrEngine ..> PdrState : 生成
+PdrEngine ..> Geo
+DwConnection --> "1" PoseSource
+AppCore ..> PoseSource : 匿名类实现\n（10 Hz 取位姿）
+DwConnection ..> Json
+WorldPoller --> "1" MapClient
+MapClient ..> MapData
+MapClient ..> WorldSnapshot
+MapClient ..> VisionResult
+MapClient ..> Json
+AppCore ..> Endpoint : 解析服务端地址
+LogFiles *-- "2" CsvLog
+@enduml
