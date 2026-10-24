@@ -57,10 +57,16 @@ docs/      文档
 
 ## 文档
 
-- [项目计划](docs/plan.md)：进度、分工、时间安排、挑战项、待向老师确认的问题
-- [架构设计说明](docs/architecture.md)：模块划分、线程模型、交通管控与派单算法、实验数据
-- [接口协议说明](docs/protocol.md)：设备接入（TCP/UDP）、浏览器接口（REST/SSE）、地图格式
-- [开发指南](docs/dev-guide.md)：环境、命令、配置、代码约定、Git 协作、常见问题
+全流程文档的索引见 [docs/README.md](docs/README.md)（按立项 → 需求 → 设计 → 测试 → 部署 → 评估组织，UML 图齐全）。常用的几份：
+
+- [立项申请书](docs/proposal.md)、[项目计划](docs/plan.md)：目标、分工、16 周进度、风险
+- [需求规格说明](docs/requirements.md)：用例图、功能与非功能需求、验收标准、需求追踪
+- [软件设计说明](docs/design.md)：组件图、部署图、类图、时序图、状态图、活动图
+- [架构设计说明](docs/architecture.md)：交通管控、规划、派单、感知建图等算法细节
+- [接口协议说明](docs/protocol.md)：设备接入（TCP/UDP）、浏览器接口（REST/SSE）、地图与场景格式
+- [测试计划与测试报告](docs/test-report.md)、[效果评估报告](docs/evaluation.md)
+- [部署与使用手册](docs/deployment.md)：一键演示、现场网络、考核当天检查单
+- [开发指南](docs/dev-guide.md)、[版本记录](CHANGELOG.md)
 
 ## 测试与实验
 
@@ -69,6 +75,7 @@ cd server && mvn test                                    # 服务端单元测试
 cd phone && ./gradlew test                               # 手机 App 核心算法单元测试（65 项）
 scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16   # 派单策略对比
 python3 tools/run_evaluation.py                          # 跑完全部效果评估实验，结果写到 docs/eval/summary.md
+python3 tools/system_test.py                             # 系统集成测试：服务端 + 5 车 + 手机，断线接管、图像识别，断言零碰撞
 scripts/phone_sim.sh                                     # 模拟一部"拿着走路的手机"接入运行中的服务端
 ```
 

@@ -61,6 +61,9 @@ scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16     # 派�
 scripts/experiment.sh --minutes 30 --seeds 1,2,3,4,5,6,7,8 --strategies HUNGARIAN \
     --rebalance off,on --rate 5 --scenario rush-hour                     # 空车调度对比
 python3 tools/run_evaluation.py       # 全部效果评估实验（约 5 分钟）→ docs/eval/summary.md + CSV
+python3 tools/plot_eval.py            # 评估 CSV → docs/images/eval/*.png（需要 matplotlib）
+python3 tools/system_test.py          # 系统集成测试（约 4 分钟）：服务端 + 5 车 + 手机、断线接管、图像识别，断言零碰撞
+python3 tools/render_uml.py           # docs/uml/*.puml → docs/images/uml/*.png（PlantUML，自动下载；有 Graphviz 更好）
 scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路"，接入运行中的服务端
 cd server && mvn test                 # 服务端单元测试 29 项（需要能访问 Maven Central）
 cd phone && ./gradlew test            # 手机核心算法单元测试 65 项（需要 Android SDK）
@@ -139,10 +142,8 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 ### 待做（按优先级，AI 可以继续做）
 
-1. **全流程文档 + UML**（`docs/` 下，Markdown + mermaid，必要时用 mmdc 渲染 PNG）：立项申请书、需求规格说明
-   （用例图）、设计说明（类图、组件图、部署图、时序图，可从 architecture.md 提炼）、测试计划与测试报告
-   （汇总 29 + 65 项单元测试、端到端测试、`docs/eval` 实验）、部署与使用手册、效果评估报告（基于 `docs/eval/summary.md`）、
-   周会纪要模板、CHANGELOG。PPT 要求"图符专业"。
+1. ~~全流程文档 + UML~~ ✅ 已完成：索引 `docs/README.md`；UML 用 PlantUML（`docs/uml/*.puml`，17 张，共用 `_style.iuml`），
+   改了源文件跑 `tools/render_uml.py`。Matlab / 真机 / Gazebo 实测后要补 `docs/test-report.md` 第 7 节和 `docs/evaluation.md` 4.6 节。
 2. **提交物**：技术报告初稿（格式参考综设 A，可做成 Docs 文档或 docx）、介绍 PPT（正文 ≤5 页，建议：系统总体 →
    数字世界与调度（带数据）→ Matlab 孪生车与感知避障 → 手机与端云互动 → 挑战亮点与评估）、演示录屏
    （Playwright 录 2D + 3D，≤5 分钟；无头 Chromium 打开 WebGL 要加 `--use-angle=swiftshader --enable-unsafe-swiftshader`）。
@@ -152,7 +153,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
    `tools/mock_devices.py` 的 SimCar）；仿真后端抽象成接口，另做一个纯 Python 运动学后端，可以不装 ROS 直接接到
    服务端验证协议与控制；③ launch 文件（gz sim + ros_gz_bridge + 桥接节点）；④ README（Ubuntu 24.04 + ROS 2 Jazzy +
    Gazebo Harmonic 的安装与运行步骤）。
-4. 更新 `docs/plan.md` 第 2 节进度表（目前还停留在早期状态）。
+4. ~~更新 `docs/plan.md` 第 2 节进度表~~ ✅ 已更新（Gazebo 一行等脚手架完成后再改）。
 
 ### 需要人来做（AI 在云端做不了）
 
@@ -163,7 +164,8 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 ## 7. 已知坑
 
-- 云沙箱里 Maven Central、Google Maven、Gradle 下载、npm、PyPI、CDN 都访问不了（403 或 DNS 失败），不要反复重试：
+- 云沙箱的网络权限因环境而异：有的会话里 Maven Central、Google Maven、Gradle、npm、PyPI、CDN 都访问不了（403 或 DNS 失败），
+  不要反复重试；有的会话可以访问（2026-10-24 那次可以 `pip install matplotlib`、`apt-get install graphviz`、下载 PlantUML）。无论如何：
   服务端不用 Spring Boot、Gson jar 随仓库提供；网页不用 Three.js；Android APK 无法在沙箱里构建。
 - 安卓层在沙箱里只能对照手写的安卓 API 桩做编译检查，桩没有提交进仓库；改了安卓代码请用 Android Studio 编译确认。
 - `pkill -f DwServer` 会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID（`kill $(cat pidfile)`）。
