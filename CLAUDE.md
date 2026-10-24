@@ -145,7 +145,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | f5b8976 | Gazebo 接入（世界生成器 + ROS 2 桥接包，无界面模式实测 5 车零碰撞）；技术报告 docx/pdf |
 | 3d39eb2 及之后 | 答辩 PPT；演示录屏工具与视频 |
 
-以上自 03b5da1 起的提交在分支 `claude/fervent-maxwell-q06bmm` 上，尚未合并到 main。
+以上提交已全部合并到 main（2026-10-24，快进合并）。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main。
 
 效果评估关键数字（`docs/eval/summary.md`）：接近饱和时匈牙利比贪心平均等待 −45%；潮汐需求下空车调度 −20%
 （4 单/分）/ −18%（5 单/分）；感知场景零误检、零碰撞；16 车高负载演示场景 6 × 60 分钟零碰撞（含撞障碍）。
@@ -164,7 +164,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
    `LIBGL_ALWAYS_SOFTWARE=1 xvfb-run gz sim -s -r <带相机传感器的世界>`，用 `gz topic -e --json-output` 取图（conda 里的
    Python protobuf 版本与 gz-msgs 不匹配，不能用 Python 绑定订阅图像）。带界面的 Gazebo 仍待人在 Ubuntu 上实测。
 4. ~~更新 `docs/plan.md` 第 2 节进度表~~ ✅ 已更新。
-5. 以上 AI 能做的都已完成。可选的后续：把分支合并到 main（需要组员同意）；真机 / MATLAB / 带界面 Gazebo 实测后
+5. 以上 AI 能做的都已完成，并已合并到 main。可选的后续：真机 / MATLAB / 带界面 Gazebo 实测后
    补测试报告第 7 节、评估报告 4.6 节和技术报告；挑战项 D（时空预约 / CBS）、拼车等见 `docs/plan.md` 第 5 节。
 
 ### 需要人来做（AI 在云端做不了）
