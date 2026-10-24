@@ -46,7 +46,8 @@ matlab/            Matlab 模拟车（DwClient / SimCar / FleetView / run_fleet�
 phone/             安卓 App（Android Studio 工程，Java，零第三方库，minSdk 26，compile/target 35，AGP 8.7.3，Gradle 8.9）
 tools/             mock_devices.py（协议参考实现）、gen_map.py、run_evaluation.py（一键跑全部评估实验）
 scripts/           build / start_server / start_demo / experiment / phone_sim（.sh 与 .bat 成对）
-docs/              plan.md、architecture.md、protocol.md、dev-guide.md、eval/（实验结果）、images/（截图）
+docs/              plan.md、architecture.md、protocol.md、dev-guide.md、eval/（实验结果）、images/（截图）、
+                   uml/（15 张 UML 图：*.mmd 源文件 + png/ 渲染结果）
 ```
 
 ## 3. 常用命令
@@ -64,6 +65,7 @@ python3 tools/run_evaluation.py       # 全部效果评估实验（约 5 分钟�
 scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路"，接入运行中的服务端
 cd server && mvn test                 # 服务端单元测试 29 项（需要能访问 Maven Central）
 cd phone && ./gradlew test            # 手机核心算法单元测试 65 项（需要 Android SDK）
+tools/render_uml.sh [文件.mmd]        # docs/uml/*.mmd → docs/uml/png/*.png（需要 mermaid-cli，见第 7 节）
 ```
 
 没有 Maven / Android SDK 时（例如受限的云沙箱）直接用 javac + JUnit 4（junit-4.13.2.jar、hamcrest-core-1.3.jar，
@@ -121,7 +123,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 ## 6. 进度
 
-### 已完成（全部已推送到 GitHub main）
+### 已完成（c6450d4 及以前已在 GitHub main；之后的提交在分支 `claude/friendly-hamilton-wh1893`，尚未合并）
 
 | 提交 | 内容 |
 |---|---|
@@ -133,16 +135,22 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | 1a70ac4 | 图像处理加速模块（服务端识别 + 网页面板 + 手机"拍照"按钮）、VisionBench |
 | a8b4047 | 3D 视图（自写 WebGL，四种视角） |
 | c6450d4 | 全自主一键演示（含 Matlab 车队自动启动、无 MATLAB 时回退）；手机 App 打开即自动连接 |
+| 83fa262 | UML 图 15 张（`docs/uml/`）：用例、组件、部署、类图 ×3（服务端核心 / 接入层 / 安卓）、时序图 ×4（订单、Matlab 接入与接管、感知绕行、拍照识别）、状态图 ×3（车辆、订单、感知格子）、活动图 ×2（仿真步、授权延伸）；方法签名已与代码核对；`tools/render_uml.sh` 渲染 |
 
 效果评估关键数字（`docs/eval/summary.md`）：接近饱和时匈牙利比贪心平均等待 −45%；潮汐需求下空车调度 −20%
 （4 单/分）/ −18%（5 单/分）；感知场景零误检、零碰撞；16 车高负载演示场景 6 × 60 分钟零碰撞（含撞障碍）。
 
 ### 待做（按优先级，AI 可以继续做）
 
-1. **全流程文档 + UML**（`docs/` 下，Markdown + mermaid，必要时用 mmdc 渲染 PNG）：立项申请书、需求规格说明
-   （用例图）、设计说明（类图、组件图、部署图、时序图，可从 architecture.md 提炼）、测试计划与测试报告
-   （汇总 29 + 65 项单元测试、端到端测试、`docs/eval` 实验）、部署与使用手册、效果评估报告（基于 `docs/eval/summary.md`）、
-   周会纪要模板、CHANGELOG。PPT 要求"图符专业"。
+1. **全流程文档**（UML 图已完成，见 `docs/uml/`；文档正文还没开始）：计划放在 `docs/process/`，引用 `docs/uml/png/` 的图：
+   `README.md`（文档索引，对应 GB/T 8567 各阶段）、`01-立项申请书`（背景、目标、方案、分工、风险，甘特图可用 mermaid gantt，
+   技巧：dateFormat 以 2026-01-05（周一）为第 1 周、axisFormat "第%W周"）、`02-需求规格说明书`（用例图 + 用例说明、
+   FR/NFR 编号并追溯到 PPT 页码、验收标准）、`03-设计说明书`（概要 + 详细设计，组件 / 部署 / 类 / 时序 / 状态 / 活动图，
+   设计决策：不用 Spring Boot、格子预约、自写 WebGL）、`04-测试计划与测试报告`（29 + 65 项单元测试逐项列表、端到端、
+   `docs/eval` 实验、缺陷记录：行人闯入已授权格、雷达擦建筑转角误检、锥桶被反光条切开等；如实写明 Matlab / 真机未实测）、
+   `05-部署与使用手册`、`06-效果评估报告`（基于 `docs/eval/summary.md`，需要数据图）、`07-周会纪要模板`，以及根目录 `CHANGELOG.md`。
+   **数据图**：沙箱没有 matplotlib，用户拒绝了 `pip install`，不要再装；改用 mermaid `xychart-beta` 柱状图或手写 SVG。
+   PPT 要求"图符专业"。
 2. **提交物**：技术报告初稿（格式参考综设 A，可做成 Docs 文档或 docx）、介绍 PPT（正文 ≤5 页，建议：系统总体 →
    数字世界与调度（带数据）→ Matlab 孪生车与感知避障 → 手机与端云互动 → 挑战亮点与评估）、演示录屏
    （Playwright 录 2D + 3D，≤5 分钟；无头 Chromium 打开 WebGL 要加 `--use-angle=swiftshader --enable-unsafe-swiftshader`）。
@@ -163,7 +171,10 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 ## 7. 已知坑
 
-- 云沙箱里 Maven Central、Google Maven、Gradle 下载、npm、PyPI、CDN 都访问不了（403 或 DNS 失败），不要反复重试：
+- 2026-10-24 起 npm 可以访问：mermaid-cli 装在会话草稿目录（`PUPPETEER_SKIP_DOWNLOAD=1 npm install @mermaid-js/mermaid-cli@11.4.2`），
+  渲染时 `MMDC=<草稿目录>/node_modules/.bin/mmdc PUPPETEER_EXECUTABLE_PATH=/opt/pw-browsers/chromium tools/render_uml.sh`；
+  mermaid 节点文字里有 `{}` 等符号时要加双引号。不要用 pip 装包（用户拒绝过）。
+- 云沙箱里 Maven Central、Google Maven、Gradle 下载、CDN 访问不了（403 或 DNS 失败），不要反复重试：
   服务端不用 Spring Boot、Gson jar 随仓库提供；网页不用 Three.js；Android APK 无法在沙箱里构建。
 - 安卓层在沙箱里只能对照手写的安卓 API 桩做编译检查，桩没有提交进仓库；改了安卓代码请用 Android Studio 编译确认。
 - `pkill -f DwServer` 会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID（`kill $(cat pidfile)`）。
