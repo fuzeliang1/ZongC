@@ -3,6 +3,7 @@ package com.zongc.dw;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.zongc.dw.config.Config;
+import com.zongc.dw.traffic.TrafficController;
 import com.zongc.dw.world.Agent;
 import com.zongc.dw.world.DeviceLink;
 import com.zongc.dw.world.DriverKind;
@@ -132,6 +133,71 @@ public class WorldTest {
             }
             return null;
         }
+    }
+
+    /**
+     * 外部设备在授权被收回时来不及反应（CI 中 Matlab 车队发现的问题）：行人走进车前方已授权的格子，
+     * 服务端收回授权，但设备在收到新停车点之前已经越过了新的授权终点一格。这不是设备违规，记入 revokeOverruns；
+     * 收回之后过了宽限时间仍越界才算违规。
+     */
+    @Test
+    public void lateReactionToRevocationIsNotAViolation() throws Exception {
+        Config cfg = TestSupport.config();
+        World w = TestSupport.world(cfg);
+        run(w, 5);
+        Agent car = null;
+        FakeLink link = new FakeLink();
+        for (int attempt = 0; attempt < 40 && car == null; attempt++) {
+            for (Agent a : w.agents()) {
+                if (!a.taxi || a.route == null || a.route.last() < a.progress + 4) continue;
+                boolean straight = true;                     // 前方几格都不是路口，收回时不会退到路口前
+                for (int i = a.progress; i <= a.progress + 3; i++) straight &= !w.map().isCross(a.route.cell(i));
+                if (straight && a.authority >= a.progress + 2) {
+                    car = a;
+                    break;
+                }
+            }
+            if (car == null) run(w, 0.5);
+        }
+        assertNotNull("应能找到前方有直道授权的车", car);
+        w.onDeviceMessage(link, JsonParser.parseString("{\"type\":\"register\",\"kind\":\"matlab\",\"agentId\":\""
+                + car.id + "\"}").getAsJsonObject());
+        reportAt(w, link, car, car.route.cell(car.progress));
+        for (int i = 0; i < 5 && car.authority < car.progress + 2; i++) w.step();
+        assertTrue("接管后授权应延伸到前方两格（且不是路口）", car.authority >= car.progress + 2
+                && !w.map().isCross(car.route.cell(car.progress + 1)) && !w.map().isCross(car.route.cell(car.progress + 2)));
+
+        // 行人走进车前方第 2 格：授权收回到第 1 格
+        int p = car.progress;
+        int pedCell = car.route.cell(p + 2);
+        FakeLink phone = new FakeLink();
+        w.onDeviceMessage(phone, JsonParser.parseString("{\"type\":\"register\",\"kind\":\"phone\",\"x\":"
+                + w.map().centerX(pedCell) + ",\"y\":" + w.map().centerY(pedCell) + "}").getAsJsonObject());
+        w.step();
+        assertEquals("授权应收回到行人之前", p + 1, car.authority);
+
+        // 设备还没收到新停车点，已经开进了行人所在的格子（原先已授权的范围内）
+        reportAt(w, link, car, pedCell);
+        w.step();
+        assertEquals("来不及反应不算违规", 0, w.metrics().authorityViolations);
+        assertEquals(1, w.metrics().revokeOverruns);
+
+        // 宽限时间过后仍越过授权终点：算违规
+        w.onDeviceClosed(phone);
+        run(w, TrafficController.REVOKE_GRACE_SEC + 0.5);
+        reportAt(w, link, car, car.route.cell(car.progress));     // 设备一直停在原地（保持在线）
+        int beyond = Math.min(car.route.last(), car.authority + 2);
+        if (beyond > car.authority) {
+            reportAt(w, link, car, car.route.cell(beyond));
+            w.step();
+            assertEquals("宽限之后越界应算违规", 1, w.metrics().authorityViolations);
+        }
+    }
+
+    /** 让外部设备上报自己停在某一格的中心。 */
+    private static void reportAt(World w, FakeLink link, Agent car, int cell) {
+        w.onDeviceMessage(link, JsonParser.parseString("{\"type\":\"state\",\"x\":" + w.map().centerX(cell) + ",\"y\":"
+                + w.map().centerY(cell) + ",\"theta\":" + car.theta + ",\"v\":0}").getAsJsonObject());
     }
 
     @Test

@@ -5,7 +5,7 @@
 | 被测版本 | `main` 分支，提交 `4bd075a` 之后（含本报告所在提交） |
 | 测试日期 | 2026-10-24（评估实验数据生成于 2026-10-23） |
 | 测试环境 | Linux 云主机，4 核（评估实验时 2 核）；OpenJDK 21；Python 3.12；Chromium（Playwright 无头模式）；GitHub Actions（ubuntu-latest、windows-latest，Temurin JDK 17，MATLAB R2024b） |
-| 结论 | 服务端 29 项、手机核心 65 项、Gazebo 桥接 9 项单元测试全部通过；系统集成测试、手机端到端仿真、网页冒烟测试、Gazebo 联调（无界面模式）全部通过；持续集成中 Windows 一键脚本、安卓 APK 编译、Matlab 车队（MATLAB R2024b，5 车接入）全部通过；安卓真机、带界面的 Gazebo 尚未实测 |
+| 结论 | 服务端 30 项、手机核心 65 项、Gazebo 桥接 9 项单元测试全部通过；系统集成测试、手机端到端仿真、网页冒烟测试、Gazebo 联调（无界面模式）全部通过；持续集成中 Windows 一键脚本、安卓 APK 编译、Matlab 车队（MATLAB R2024b，5 车接入）全部通过；安卓真机、带界面的 Gazebo 尚未实测 |
 
 ## 1. 测试计划
 
@@ -47,7 +47,7 @@ python3 tools/run_evaluation.py          # 评估实验（约 5 分钟）
 
 没有 Maven / Android SDK 时可以直接用 javac + JUnit 运行，命令见仓库根目录 `CLAUDE.md` 第 3 节。
 
-## 2. 服务端单元测试（29 项，全部通过）
+## 2. 服务端单元测试（30 项，全部通过）
 
 | 测试类 | 用例 | 验证内容 | 结果 |
 |---|---|---|---|
@@ -61,6 +61,7 @@ python3 tools/run_evaluation.py          # 评估实验（约 5 分钟）
 | `WorldTest` | `denseTrafficRunsWithoutCollisionsOrDeadlock` | 16 车、16 单/分，贪心和匈牙利各运行 15 分钟：零碰撞、零撞墙、离墙 > 0.15 m、受阻不超过绕行阈值、送达 > 150 单 | ✅ |
 | | `carsNeverEnterRoadblocks` | 繁忙道路上设两处路障，5 分钟内没有车进入路障格 | ✅ |
 | | `taxisStopForPedestriansInsideTheirAuthority` | 行人突然走进出租车已授权的格子：车在行人前停下，行人离开后继续行驶 | ✅ |
+| | `lateReactionToRevocationIsNotAViolation` | 外部设备的授权因行人被收回，设备收到新停车点前多走进一格：记为 revokeOverruns，不算违规；宽限时间过后仍越界才算违规（D12） | ✅ |
 | | `deviceTakesOverAndFallsBack` | 设备注册后接管数字车并收到 welcome / path / permit；断开后内部仿真接管 | ✅ |
 | `ScenarioTest` | `shippedScenariosAreValid` | 仓库中的全部场景脚本都能通过校验 | ✅ |
 | | `invalidScenariosAreRejectedWithReasons` | 错误脚本（格子越界、不可通行、缺字段……）被拒绝并指出第几个事件、什么问题 | ✅ |
@@ -81,7 +82,7 @@ python3 tools/run_evaluation.py          # 评估实验（约 5 分钟）
 | | `rejectsGarbage` | 非图片数据被拒绝，给出原因 | ✅ |
 | | `phonePhotoUpdatesTheMapAndExpires` | 手机拍到的路障写进地图、车辆绕行；120 s 后过期，由感知撤掉 | ✅ |
 
-运行结果（`mvn test`）：`Tests run: 29, Failures: 0, Errors: 0, Skipped: 0`。耗时最长的是 `RebalanceTest`（约 10 s）和 `WorldTest`（约 7 s），都是长时间仿真。
+运行结果（`mvn test`）：`Tests run: 30, Failures: 0, Errors: 0, Skipped: 0`。耗时最长的是 `RebalanceTest`（约 10 s）和 `WorldTest`（约 7 s），都是长时间仿真。
 
 ## 3. 手机核心单元测试（65 项，全部通过）
 
@@ -270,6 +271,7 @@ CI 没有覆盖的：MATLAB 的"Matlab 模拟车视图"图窗（CI 里不显示�
 | 编号 | 发现方式 | 现象 | 原因 | 修复 | 验证 |
 |---|---|---|---|---|---|
 | D10 | CI（Windows） | `start_demo.bat` 输出"Input redirection is not supported"，没有等服务端启动就启动了模拟车（靠模拟车自动重连才恢复） | `timeout` 命令在输入被重定向时（CI、部分 IDE 终端）直接报错退出 | 改用 `ping -n 7 127.0.0.1 >nul` 等待 6 s | CI 中无报错，5 车 + 1 手机正常接入 |
+| D12 | CI（`main` 上的 Matlab 任务） | Matlab 车队接入的系统测试报告"越权行驶 1 次"，其余全为 0；同样的代码在分支上的那次运行没有出现 | 行人走进 Matlab 车前方已授权的格子，服务端立即收回授权；但设备要等下一条授权到达（10 Hz 上报间隔 + 仿真步 + 网络往返）才知道新停车点，车身中心已越过新的授权终点一格。服务端把它当成"设备不遵守授权"计数——内部仿真车没有延迟，所以以前从未出现 | 收回授权后 1 s 内（`TrafficController.REVOKE_GRACE_SEC`）、在收回前已授权的范围内多走进一格，单独记为 `revokeOverruns`，不计违规；超过宽限时间或超出原授权范围仍算违规。设备端行为不变（收到新授权立即停车） | 新增 `lateReactionToRevocationIsNotAViolation`（修复前失败、修复后通过）；CI 重新运行 |
 | D11 | 开发 CI 的外部车队模式时 | 服务端刚启动时 `system_test.py` 读取快照报 `KeyError: 'agents'` | 第一帧快照发布前接口返回 `{}` | 读取快照时等到第一帧发布 | 外部车队模式与默认模式都通过 |
 
 ## 7. 已知限制与未覆盖项
@@ -286,7 +288,7 @@ CI 没有覆盖的：MATLAB 的"Matlab 模拟车视图"图窗（CI 里不显示�
 
 ## 8. 结论
 
-- 单元测试 103 项（服务端 29 + 手机核心 65 + Gazebo 桥接 9）全部通过，覆盖规划、派单、交通管控、设备协议、场景脚本、感知建图、空车调度、图像识别、手机位姿估计和 Gazebo 小车控制。
+- 单元测试 104 项（服务端 30 + 手机核心 65 + Gazebo 桥接 9）全部通过，覆盖规划、派单、交通管控、设备协议、场景脚本、感知建图、空车调度、图像识别、手机位姿估计和 Gazebo 小车控制。
 - 系统集成测试在无人操作的情况下完成了设备接入、场景事件、感知发现障碍、掉头脱困、断线接管、图像识别全流程，零碰撞、零越权。
 - 长时间高负载实验（6 × 60 分钟）零碰撞，满足必做要求中"不与静态 / 动态障碍碰撞"。
 - 5 辆 Gazebo 物理仿真小车接入后同样零碰撞、零越权，联调中发现的延迟与执行滞后问题已修复。

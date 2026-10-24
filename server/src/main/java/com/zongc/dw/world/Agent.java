@@ -53,6 +53,10 @@ public final class Agent {
     public boolean routeDirty, permitDirty;
     public int lastSentAuthority = -1;
     public int lastSentRouteId = -1;
+    /** 最近一次收回授权的仿真时间、当时的路线、收回前的授权终点（判断外部设备越界是否算违规，见 TrafficController）。 */
+    public double revokedAt = Double.NEGATIVE_INFINITY;
+    public Route revokedRoute;
+    public int authorityBeforeRevoke = -1;
 
     /** 空车调度给它分配的区域（在该区域内就近巡游），-1 表示没有。 */
     public int homeZone = -1;

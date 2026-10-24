@@ -30,7 +30,7 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE = 'http://127.0.0.1:8080'
 KEYS = ['created', 'delivered', 'avgWait', 'collisions', 'obstacleHits', 'barrierHits', 'freeContacts',
-        'authorityViolations', 'minCarGap', 'minWallGap', 'discoveries', 'obstacleClears', 'uturns',
+        'authorityViolations', 'revokeOverruns', 'minCarGap', 'minWallGap', 'discoveries', 'obstacleClears', 'uturns',
         'rebalanceMoves', 'maxBlocked', 'externalTaxis', 'freeAgents']
 
 
@@ -216,7 +216,7 @@ def main():
     print('|---|---|')
     for k, label in [('sim', '仿真时间 (s)'), ('created', '生成订单'), ('delivered', '送达订单'), ('avgWait', '平均等待 (s)'),
                      ('collisions', '车车碰撞'), ('obstacleHits', '撞墙'), ('barrierHits', '撞路障 / 障碍'),
-                     ('authorityViolations', '越权行驶'), ('freeContacts', '行人接触（行人从侧面走进车身）'),
+                     ('authorityViolations', '越权行驶'), ('revokeOverruns', '收回授权时来不及停下（设备收到新停车点前多走一格，不算违规）'), ('freeContacts', '行人接触（行人从侧面走进车身）'),
                      ('minCarGap', '最小车距 (m)'), ('minWallGap', '最小离墙 (m)'), ('discoveries', '感知发现障碍'),
                      ('obstacleClears', '障碍撤除'), ('uturns', '掉头'), ('maxBlocked', '最长连续受阻 (s)')]:
         print(f'| {label} | {final[k]} |')

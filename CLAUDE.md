@@ -7,7 +7,7 @@
 ## 0. 接手第一步
 
 1. 读本文件第 6 节：已完成什么、还剩什么（按优先级排好了，每项写了做法）。
-2. 跑一遍测试确认环境正常（第 3 节）：服务端 29 项、手机核心 65 项，应全部通过。
+2. 跑一遍测试确认环境正常（第 3 节）：服务端 30 项、手机核心 65 项，应全部通过。
 3. 起服务端看看效果：`scripts/start_demo.sh --no-browser`，浏览器打开 http://localhost:8080 和 /3d.html。
 4. 用户（项目组成员）用中文交流；文档、注释、界面、提交信息也都用中文。
 
@@ -78,7 +78,7 @@ python3 tools/render_uml.py           # docs/uml/*.puml → docs/images/uml/*.pn
 python3 tools/build_report.py --pdf   # 技术报告 docs/report/report.md → deliverables/*.docx / *.pdf（pandoc + LibreOffice）
 python3 gazebo/gen_world.py           # 地图 → Gazebo 世界 + ros_gz_bridge 配置；桥接包测试：cd gazebo/minididi_bridge && python3 -m unittest discover -s test
 scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路"，接入运行中的服务端
-cd server && mvn test                 # 服务端单元测试 29 项（需要能访问 Maven Central）
+cd server && mvn test                 # 服务端单元测试 30 项（需要能访问 Maven Central）
 cd phone && ./gradlew test            # 手机核心算法单元测试 65 项（需要 Android SDK）
 python3 tools/system_test.py --fleet external --bind-timeout 300   # 不起模拟车，等外部车队（如 MATLAB run_fleet）接入
 ```
@@ -111,6 +111,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   处停车；路口整段 + 出口格一次性申请（不堵路口）；受阻 3 s 优先、12 s 绕行。授权通常只向前延伸，
   **例外**：行人走进、或格子变得不可通行（路障 / 感知发现的障碍）时立即收回（`TrafficController.revokeBefore`，
   停在路口里时退到路口前）。设备端必须直接采用最新 permit 的 `stopS`（不要取历史最大值）。
+  外部设备有延迟：收回后 `REVOKE_GRACE_SEC`（1 s）内、在收回前已授权范围内多走进一格记为 `revokeOverruns`，不算 `authorityViolations`。
 - **规划**：A*，状态 = (格, 驶入方向)，禁止原地掉头；前方无路时 `AStarPlanner.planUTurn` 借对向车道掉头，
   车已停在格内时回到格中心原地转向；上下车点被障碍切断（任何车都到不了）时就近改点（`World.planToNearby`、
   派单时 `dispatch()` 里改上车点）。

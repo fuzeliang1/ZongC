@@ -33,7 +33,7 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - name: 服务端单元测试（29 项）
+      - name: 服务端单元测试（30 项）
         working-directory: server
         run: mvn -B -ntp test
       - name: Gazebo 桥接包单元测试（9 项，不需要 ROS）

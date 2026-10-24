@@ -61,7 +61,7 @@
 | 设计 | [architecture.md](architecture.md) | 交通管控、规划、派单、感知建图、空车调度、图像识别、3D 的算法细节 |
 | 设计 | [protocol.md](protocol.md) | 设备协议（TCP / UDP）、浏览器接口（REST / SSE）、地图与场景脚本格式 |
 | 实现 | [dev-guide.md](dev-guide.md) | 开发环境、常用命令、目录结构、配置、代码约定、Git 协作 |
-| 测试 | [test-report.md](test-report.md) | 测试计划、103 项单元测试清单、集成测试、缺陷记录 D01–D09、已知限制 |
+| 测试 | [test-report.md](test-report.md) | 测试计划、104 项单元测试清单、集成测试、缺陷记录 D01–D12、已知限制 |
 | 部署 | [deployment.md](deployment.md) | 软硬件要求、一键演示、现场网络、**考核当天检查单**、常见问题 |
 | 评估 | [evaluation.md](evaluation.md)、[eval/summary.md](eval/summary.md) | 指标、实验方法、结果与分析；原始数据 CSV |
 | 发布 | [CHANGELOG.md](../CHANGELOG.md) | 版本记录 |
@@ -73,7 +73,7 @@ UML 图共 18 张（用例图 2、组件图、部署图、类图 3、时序图 5
 
 | 命令 | 做什么 | 时间 |
 |---|---|---|
-| `cd server && mvn test` | 服务端单元测试 29 项 | 约 1 分钟 |
+| `cd server && mvn test` | 服务端单元测试 30 项 | 约 1 分钟 |
 | `cd phone && ./gradlew test` | 手机核心算法单元测试 65 项（需要 Android SDK） | 约 1 分钟 |
 | `cd gazebo/minididi_bridge && python3 -m unittest discover -s test` | Gazebo 桥接包测试 9 项（不需要 ROS） | 几秒 |
 | `python3 tools/system_test.py` | 系统集成测试：服务端 + 5 车 + 手机，跑演示场景、断线接管、图像识别，断言零碰撞 | 约 4 分钟 |
@@ -251,7 +251,7 @@ cd ZongC
 
 | 任务 | 验证什么 | 失败时先看 |
 |---|---|---|
-| 服务端与系统测试（Linux） | 服务端 29 项、Gazebo 桥接 9 项单元测试；离线实验；系统集成测试（服务端 + 5 车 + 手机，零碰撞） | 樊宇泽 |
+| 服务端与系统测试（Linux） | 服务端 30 项、Gazebo 桥接 9 项单元测试；离线实验；系统集成测试（服务端 + 5 车 + 手机，零碰撞） | 樊宇泽 |
 | Windows 一键脚本 | `build.bat`、`experiment.bat`、`start_server.bat`、`phone_sim.bat`、`start_demo.bat` 在 Windows 上能用 | 樊宇泽 |
 | 手机 App | 65 项单元测试；用真实安卓 SDK 编译 APK | 付泽亮 |
 | Matlab 模拟车 | `test_simcar_offline`；`run_fleet` 的 5 辆 Matlab 车接入服务端 200 s，零碰撞、零越权 | 李昊博 |
@@ -269,7 +269,7 @@ cd ZongC
 | 阮飞翔 | 问老师 | `docs/plan.md` 第 8 节的四个问题 | `docs/plan.md` |
 | 阮飞翔 | 组织现场彩排 | 按 `docs/deployment.md` 第 5、6 节：自带路由器、关 AP 隔离、防火墙放行 8080 / 9000 / 9001；在答辩教室完整跑 10 分钟，碰撞全为 0 | `docs/test-report.md` 第 7 节 |
 | 樊宇泽 | 在自己的 Windows 笔记本上跑一次 `start_demo.bat` | CI 已在英文版 Windows 上验证 5 个 `.bat`；这里确认中文系统的控制台、浏览器里 2D / 3D 页面的显示，以及防火墙弹窗 | `docs/test-report.md` 第 7 节 |
-| 樊宇泽 | 在自己电脑上跑全部测试 | IDEA 或 `mvn test` 跑服务端 29 项；`python3 tools/system_test.py`；熟悉 `World.java`、`TrafficController.java` | `docs/test-report.md` 第 7 节（实测结果） |
+| 樊宇泽 | 在自己电脑上跑全部测试 | IDEA 或 `mvn test` 跑服务端 30 项；`python3 tools/system_test.py`；熟悉 `World.java`、`TrafficController.java` | `docs/test-report.md` 第 7 节（实测结果） |
 | 李昊博 | Matlab 车队本地运行 | CI 已用 MATLAB R2024b 跑通离线测试和 5 车接入；在自己电脑上启动服务端、跑带"Matlab 模拟车视图"的 `run_fleet`，网页上 car-1 … car-5 显示为 Matlab 驱动；再跑一次 `start_demo`，确认它会自动拉起 MATLAB | `matlab/README.md`、`docs/test-report.md` 第 7 节 |
 | 李昊博 | 用真 MATLAB 重录演示视频 | Matlab 车队跑通后运行 `python3 tools/record_demo.py`（需要 Node.js + Playwright、ffmpeg），片头文字在 `tools/record_demo.py` 里改 | `deliverables/MiniDiDi_demo.mp4` |
 | 付泽亮 | 加协作者 | GitHub → Settings → Collaborators，邀请另外三位 | — |

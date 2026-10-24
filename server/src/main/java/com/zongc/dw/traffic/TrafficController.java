@@ -38,11 +38,20 @@ public final class TrafficController {
     public record Result(List<Agent> stuck, List<Integer> stuckBlockingCells, List<Agent> offRoute,
                          List<String> yields) {}
 
+    /**
+     * 授权被收回后，外部设备要等下一条授权到达才知道新的停车点：最多差一个上报周期（10 Hz）
+     * + 一个仿真步 + 网络往返 + 设备控制周期，再加上刹车。这段时间里设备在原先已授权的范围内
+     * 多走进一格不算违规（记入 Metrics#revokeOverruns），超过这个时间仍越界才算设备不遵守授权。
+     */
+    public static final double REVOKE_GRACE_SEC = 1.0;
+
     private final GridMap map;
     private final Config cfg;
     private final int[] owner;
     /** 被行人（手机等自由智能体）车身覆盖的格子。 */
     private final boolean[] pedestrian;
+    /** 最近一次 update 的仿真时间（revokeBefore 也会在两次 update 之间被 World 调用）。 */
+    private double now;
 
     public TrafficController(GridMap map, Config cfg) {
         this.map = map;
@@ -76,6 +85,7 @@ public final class TrafficController {
     }
 
     public Result update(List<Agent> agents, double time, double dt, Metrics metrics) {
+        now = time;
         List<Agent> offRoute = new ArrayList<>();
 
         // 1. 车身覆盖的格子 & 路线进度
@@ -196,6 +206,10 @@ public final class TrafficController {
             while (k > a.progress && map.isCross(r.cell(k))) k--;
         }
         if (k >= a.authority) return false;
+        boolean recent = a.revokedRoute == r && now - a.revokedAt <= REVOKE_GRACE_SEC;
+        a.authorityBeforeRevoke = recent ? Math.max(a.authorityBeforeRevoke, a.authority) : a.authority;
+        a.revokedAt = now;
+        a.revokedRoute = r;
         a.authority = k;
         a.permitDirty = true;
         return true;
@@ -263,8 +277,13 @@ public final class TrafficController {
             a.progress = found;
             a.offRouteTime = 0;
             if (a.progress > a.authority) {
-                // 设备越过了授权终点：记一次违规，并承认既成事实（车身所在格已被占用）
-                metrics.authorityViolations++;
+                // 设备越过了授权终点。如果授权刚被收回（REVOKE_GRACE_SEC 内）、设备只是在收回前已授权的范围内
+                // 多走进了一格，说明它还没收到新停车点，记为 revokeOverruns；否则是设备不遵守授权，记一次违规。
+                // 两种情况都承认既成事实（车身所在格已被占用）
+                boolean late = a.revokedRoute == r && now - a.revokedAt <= REVOKE_GRACE_SEC
+                        && a.progress <= Math.min(a.authorityBeforeRevoke, a.authority + 1);
+                if (late) metrics.revokeOverruns++;
+                else metrics.authorityViolations++;
                 a.authority = a.progress;
                 a.permitDirty = true;
             }

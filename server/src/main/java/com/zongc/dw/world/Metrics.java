@@ -17,8 +17,13 @@ public final class Metrics {
     public int reroutes;
     /** 掉头次数（前方道路被堵死、无路可走时借对向车道掉头）。 */
     public int uturns;
-    /** 外部设备越过授权终点的次数。 */
+    /** 外部设备越过授权终点的次数（设备不遵守授权，必须为 0）。 */
     public int authorityViolations;
+    /**
+     * 授权刚被收回、外部设备还没收到新停车点时，在原先已授权的范围内多走进的格子数。
+     * 设备来不及反应，不算违规（见 TrafficController#REVOKE_GRACE_SEC）。
+     */
+    public int revokeOverruns;
     public int dispatchRounds;
     public double lastDispatchMs;
     public double distEmpty, distLoaded;
@@ -58,7 +63,7 @@ public final class Metrics {
                        int waiting, double avgWait, double maxWait, double avgRide, double avgTotal,
                        double deliveredPerMin, double emptyRatio, double distEmpty, double distLoaded,
                        int collisions, int obstacleHits, int barrierHits, int freeContacts, int reroutes,
-                       int authorityViolations, int dispatchRounds, double lastDispatchMs,
+                       int authorityViolations, int revokeOverruns, int dispatchRounds, double lastDispatchMs,
                        Double minCarGap, Double minWallGap, Double minBarrierGap, double maxBlocked,
                        int taxis, int externalTaxis, int freeAgents,
                        int discoveries, int obstacleClears, double avgDiscoverySec, double coverage,
@@ -76,7 +81,7 @@ public final class Metrics {
                 waiting, Num.r1(avgWait), Num.r1(maxWait), Num.r1(avgRide), Num.r1(avgTotal),
                 Math.round(perMin * 100) / 100.0, Math.round(emptyRatio * 1000) / 1000.0,
                 Num.r1(distEmpty), Num.r1(distLoaded), collisions, obstacleHits, barrierHits, freeContacts, reroutes,
-                authorityViolations, dispatchRounds, Math.round(lastDispatchMs * 100) / 100.0,
+                authorityViolations, revokeOverruns, dispatchRounds, Math.round(lastDispatchMs * 100) / 100.0,
                 gap(minCarGap), gap(minWallGap), gap(minBarrierGap), Num.r1(maxBlocked),
                 taxis, externalTaxis, freeAgents,
                 p.discoveries, p.clears, Num.r1(p.avgDiscoverySec()), Math.round(coverage * 1000) / 1000.0,
