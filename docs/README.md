@@ -28,7 +28,7 @@
 
 | 文件 | 内容 | 重新生成 |
 |---|---|---|
-| `MiniDiDi_report.docx` / `.pdf` | 技术报告（45 页：立项 → 需求 → 设计 → 算法 → 实现 → 测试 → 部署 → 评估 → 总结） | 改 `docs/report/report.md`，运行 `python3 tools/build_report.py --pdf`（需要 pandoc、python-docx，PDF 需要 LibreOffice） |
+| `MiniDiDi_report.docx` / `.pdf` | 技术报告（46 页：立项 → 需求 → 设计 → 算法 → 实现 → 测试 → 部署 → 评估 → 总结） | 改 `docs/report/report.md`，运行 `python3 tools/build_report.py --pdf`（需要 pandoc、python-docx，PDF 需要 LibreOffice） |
 | `MiniDiDi_slides.pptx` | 答辩介绍 PPT：封面 + 正文 5 页 + 结尾，每页有演讲备注 | 改 `tools/build_slides.js`，`npm install pptxgenjs react-icons react react-dom sharp` 后 `NODE_PATH=…/node_modules node tools/build_slides.js` |
 | `MiniDiDi_demo.mp4` | 演示录屏（4 分 57 秒，1280×720）：片头 → 2D 主界面 → 3D 巡游 → 3D 跟车，全程无人操作 | `python3 tools/record_demo.py`（需要 Node.js + Playwright、ffmpeg） |
 

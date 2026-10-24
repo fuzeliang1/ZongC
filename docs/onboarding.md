@@ -83,7 +83,7 @@ UML 图共 18 张（用例图 2、组件图、部署图、类图 3、时序图 5
 
 | 文件 | 内容 | 源文件 / 重新生成 |
 |---|---|---|
-| `MiniDiDi_report.docx` / `.pdf` | 技术报告 45 页：1 概述、2 需求、3 设计、4 关键算法、5 实现、6 测试、7 部署、8 评估、9 总结，参考文献，附录（源码结构、复现方法） | 改 `docs/report/report.md`，运行 `python3 tools/build_report.py --pdf` |
+| `MiniDiDi_report.docx` / `.pdf` | 技术报告 46 页：1 概述、2 需求、3 设计、4 关键算法、5 实现、6 测试、7 部署、8 评估、9 总结，参考文献，附录（源码结构、复现方法） | 改 `docs/report/report.md`，运行 `python3 tools/build_report.py --pdf` |
 | `MiniDiDi_slides.pptx` | 答辩 PPT：封面 + 正文 5 页 + 结尾，每页带演讲备注 | 改 `tools/build_slides.js` 后重新生成（见第 8 节） |
 | `MiniDiDi_demo.mp4` | 演示视频 4 分 57 秒：片头 → 2D 主界面 → 3D 巡游 → 3D 跟车 → 片尾，全程无人操作 | `python3 tools/record_demo.py` |
 
