@@ -41,7 +41,7 @@ scripts/start_demo.sh
 | 优化与决策：空车调度 | 分区需求预测 + 匈牙利算法调度空车；潮汐需求下平均等待降低约 20% |
 | 手机 App 作为智能体接入、位姿估计 | `phone/`：安卓 App，行人航位推算（计步 + 步长 + 陀螺仪航向），室外可融合磁力计和卫星定位（含北斗）；出租车会给行人让路，还能在手机上叫车。详见 [phone/README.md](phone/README.md) |
 | 3D 可视化（挑战项） | `web/3d.html`：自己实现的 WebGL 渲染（不依赖第三方库，断网也能打开），城市、车辆、乘客、障碍、雷达扫描、路线；自由 / 俯视 / 跟随某辆车 / 自动巡游四种视角 |
-| Gazebo（进阶挑战） | 尚未开始，见 [docs/plan.md](docs/plan.md) |
+| Gazebo（进阶挑战） | `gazebo/`：由地图自动生成 Gazebo Harmonic 世界和 5 辆差速小车；ROS 2 桥接节点把每辆车注册为 `gazebo` 设备（数字孪生），纯追踪 + 授权限速 + 延迟补偿。已在 ROS 2 Jazzy + Gazebo Harmonic 的无界面模式下实测零碰撞，带界面版本待在 Ubuntu 上实测。详见 [gazebo/README.md](gazebo/README.md) |
 
 ## 目录
 
@@ -50,7 +50,8 @@ server/    数字世界服务端（Java 17+，只依赖 Gson）
 web/       网页前端（原生 HTML/CSS/JS，Canvas 2D）
 matlab/    Matlab 模拟车
 phone/     安卓手机 App（Java，无第三方库；用 Android Studio 打开这个文件夹）
-tools/     模拟设备（协议参考实现）、地图生成器
+gazebo/    Gazebo 世界生成器与 ROS 2 桥接包（进阶）
+tools/     模拟设备（协议参考实现）、地图生成器、评估与系统测试脚本
 scripts/   编译、启动、演示、实验脚本（Windows .bat / Linux .sh）
 docs/      文档
 ```

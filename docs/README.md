@@ -42,6 +42,7 @@ python3 tools/render_uml.py --svg      # 同时输出矢量图（放进 Word 不
 | 类图：数字世界领域模型 | `class-world` | 设计 4.1 |
 | 类图：算法类 | `class-algo` | 设计 4.2 |
 | 类图：手机 App | `class-phone` | 设计 4.3 |
+| 数据流图：手机位姿估计 | `pdr` | 设计 4.3 |
 | 时序图：订单生命周期 | `seq-order` | 设计 5.1 |
 | 时序图：设备接入与断线接管 | `seq-device` | 设计 5.2 |
 | 时序图：感知未知障碍 | `seq-perception` | 设计 5.3 |

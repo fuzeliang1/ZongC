@@ -324,4 +324,4 @@ MiniDiDi 是一个在缩微城市中运行的多智能体无人出租车系统�
 | FR-60 – FR-63 | `scripts/start_demo.*`、`world/Scenario*`、`phone/.../AppCore` | `ScenarioTest`（4 项）；集成测试 |
 | FR-70 – FR-73 | `matlab/` | `test_simcar_offline.m`（**待在 MATLAB 中实测**） |
 | FR-80 – FR-84 | `phone/app/.../core/*` | 手机核心 65 项单元测试；`PhoneSim` 端到端；真机实验（**待实测**） |
-| FR-90、FR-91 | `gazebo/` | 纯 Python 后端接入服务端的协议测试（**Gazebo 中待实测**） |
+| FR-90、FR-91 | `gazebo/` | 桥接包单元测试 9 项；ROS 2 Jazzy + Gazebo Harmonic 无界面模式联调（测试报告 4.5 节）；带界面版本待测 |

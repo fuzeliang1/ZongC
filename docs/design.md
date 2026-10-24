@@ -96,6 +96,8 @@ Matlab 车队和服务端在同一台笔记本上时走本机回环（127.0.0.1�
 
 ![类图：安卓手机 App](images/uml/class-phone.png)
 
+![数据流图：手机位姿估计](images/uml/pdr.png)
+
 App 分两层：`com.zongc.phone.core` 是纯 Java（不引用任何 `android.*` 类），包含位姿估计、坐标换算、网络协议、JSON，
 可以在电脑上做单元测试和端到端仿真；外层只负责界面、读取传感器和卫星定位，再把数据交给核心层。
 

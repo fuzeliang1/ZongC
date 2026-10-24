@@ -15,6 +15,13 @@
 - `tools/plot_eval.py`：把评估实验 CSV 画成报告用的图表（`docs/images/eval/`）。
 - `tools/system_test.py`：系统集成测试——自动启动服务端、5 辆模拟车和模拟手机，运行演示场景，断开车队检查接管，
   调用图像识别，断言零碰撞。
+- **Gazebo 接入**（`gazebo/`）：`gen_world.py` 由地图生成 Gazebo Harmonic 世界（格子合并成矩形）和 N 辆差速小车；
+  ROS 2 桥接包 `minididi_bridge`（每车一条 TCP 连接注册为 `gazebo` 设备，纯追踪 + 授权限速，延迟补偿与提前刹车，
+  传送失败自动重试；车辆后端抽象成接口，附纯 Python 运动学后端）；launch 文件；9 项单元测试。
+  在 ROS 2 Jazzy + Gazebo Harmonic 无界面模式下实测 5 车 240 s 零碰撞、零越权。
+- **技术报告**：源文件 `docs/report/report.md`，`tools/build_report.py` 生成 `deliverables/MiniDiDi_report.docx` / `.pdf`
+  （宋体 / 黑体、三线表、页眉页码、自动目录、公式）。
+- 手机位姿估计数据流图（`docs/uml/pdr.puml`）；数字世界类图改为纵向布局。
 
 ## 2026-10-23（开发版本，未打标签）
 

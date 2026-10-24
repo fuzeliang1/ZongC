@@ -1,0 +1,34 @@
+@startuml pdr
+' 数据流图：手机 App 的位姿估计（行人航位推算 + 室外融合），全部在手机上完成，10 Hz 上报地图坐标。
+!include _style.iuml
+left to right direction
+skinparam linetype polyline
+
+rectangle "传感器（安卓）" as S {
+  card "加速度计" as ACC
+  card "陀螺仪" as GYR
+  card "重力（虚拟传感器）" as GRV
+  card "磁力计（室外）" as MAG
+  card "卫星定位 GPS / 北斗（室外）" as GNSS
+}
+
+rectangle "core 包（纯 Java，可在电脑上测试）" as C {
+  component "StepDetector\n模长 → 两级低通 → 峰谷检测\n自适应回滞" as SD
+  component "Weinberg 步长\nL = K·⁴√(a_max − a_min)" as SL
+  component "HeadingEstimator\nω·up 积分得航向\n静止估计零偏\n磁力计 PI 修正（室外）" as HE
+  component "PdrEngine\n每步：P += L·(cosψ, sinψ)\n卫星标量卡尔曼修正（室外）" as PE
+  component "MapFrame\n锚点 · 旋转 · 比例尺\n手机坐标 → 地图坐标" as MF
+  component "DwConnection\n平滑后 10 Hz 上报 state" as DC
+}
+
+ACC --> SD
+SD --> SL : 一步的加速度幅值
+GYR --> HE
+GRV --> HE : 竖直方向 up
+MAG --> HE
+SL --> PE : 步长 L
+HE --> PE : 航向 ψ
+GNSS --> PE : 经纬度 → 东北坐标
+PE --> MF : 手机坐标系位置
+MF --> DC : 地图坐标 (x, y, θ)
+@enduml

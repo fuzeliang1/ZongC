@@ -289,5 +289,5 @@ flowchart LR
 | 换地图 / 真实校园地图 | `tools/gen_map.py` 生成，或手工编辑地图 JSON |
 | 3D 可视化改进（阴影、纹理、Unity / Three.js 版本） | `web/js/view3d.js`（数据处理）与 `web/js/gl/`（渲染）；其他引擎订阅同一个 `/api/stream` 即可 |
 | 更真实的感知（噪声、漏检、动态障碍跟踪） | `world/Perception.java` 的 `scan`（加噪声）和 `integrate`（改观测模型）；`PerceptionTest` 验证不误检、不漏检 |
-| Gazebo / 实体车接入 | 写一个桥接程序，按 `docs/protocol.md` 注册为 `gazebo` 设备即可 |
+| Gazebo / 实体车接入 | Gazebo 已有桥接包（`gazebo/minididi_bridge`），控制器与车辆后端分离；实体车只要再写一个后端（读位姿、发速度），或另写桥接程序按 `docs/protocol.md` 注册为 `generic` 设备 |
 | 手机 App 改进（扩展卡尔曼滤波融合、手机"接单"、鸿蒙版） | 算法在 `phone/app/src/main/java/com/zongc/phone/core/`（纯 Java，先在电脑上用 `PhoneSim` 和单元测试验证）；其他平台按协议以 `phone` 类型注册、上报地图坐标即可 |

@@ -64,6 +64,8 @@ python3 tools/run_evaluation.py       # 全部效果评估实验（约 5 分钟�
 python3 tools/plot_eval.py            # 评估 CSV → docs/images/eval/*.png（需要 matplotlib）
 python3 tools/system_test.py          # 系统集成测试（约 4 分钟）：服务端 + 5 车 + 手机、断线接管、图像识别，断言零碰撞
 python3 tools/render_uml.py           # docs/uml/*.puml → docs/images/uml/*.png（PlantUML，自动下载；有 Graphviz 更好）
+python3 tools/build_report.py --pdf   # 技术报告 docs/report/report.md → deliverables/*.docx / *.pdf（pandoc + LibreOffice）
+python3 gazebo/gen_world.py           # 地图 → Gazebo 世界 + ros_gz_bridge 配置；桥接包测试：cd gazebo/minididi_bridge && python3 -m unittest discover -s test
 scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路"，接入运行中的服务端
 cd server && mvn test                 # 服务端单元测试 29 项（需要能访问 Maven Central）
 cd phone && ./gradlew test            # 手机核心算法单元测试 65 项（需要 Android SDK）
@@ -142,17 +144,17 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 ### 待做（按优先级，AI 可以继续做）
 
-1. ~~全流程文档 + UML~~ ✅ 已完成：索引 `docs/README.md`；UML 用 PlantUML（`docs/uml/*.puml`，17 张，共用 `_style.iuml`），
+1. ~~全流程文档 + UML~~ ✅ 已完成：索引 `docs/README.md`；UML 用 PlantUML（`docs/uml/*.puml`，18 张，共用 `_style.iuml`），
    改了源文件跑 `tools/render_uml.py`。Matlab / 真机 / Gazebo 实测后要补 `docs/test-report.md` 第 7 节和 `docs/evaluation.md` 4.6 节。
-2. **提交物**：技术报告初稿（格式参考综设 A，可做成 Docs 文档或 docx）、介绍 PPT（正文 ≤5 页，建议：系统总体 →
+2. **提交物**：技术报告初稿 ✅（`docs/report/report.md` → `python3 tools/build_report.py --pdf` → `deliverables/`；
+   封面成员、个人总结待组员填写）；介绍 PPT（正文 ≤5 页，建议：系统总体 →
    数字世界与调度（带数据）→ Matlab 孪生车与感知避障 → 手机与端云互动 → 挑战亮点与评估）、演示录屏
    （Playwright 录 2D + 3D，≤5 分钟；无头 Chromium 打开 WebGL 要加 `--use-angle=swiftshader --enable-unsafe-swiftshader`）。
-3. **Gazebo 接入脚手架**（无法在云端测试，要标明"未实测"）：`gazebo/` 下 ① `gen_world.py` 读地图 JSON 生成 SDF 世界
-   （地面、道路、楼房）和小车模型（差速驱动插件 + 里程计）；② ROS 2 Python 包 `minididi_bridge`：每辆车一条 TCP 连接，
-   按协议注册为 `kind=gazebo`，订阅里程计上报 `state`，纯追踪 + stopS 限速发布 `cmd_vel`（逻辑照搬
-   `tools/mock_devices.py` 的 SimCar）；仿真后端抽象成接口，另做一个纯 Python 运动学后端，可以不装 ROS 直接接到
-   服务端验证协议与控制；③ launch 文件（gz sim + ros_gz_bridge + 桥接节点）；④ README（Ubuntu 24.04 + ROS 2 Jazzy +
-   Gazebo Harmonic 的安装与运行步骤）。
+3. ~~Gazebo 接入~~ ✅ 已完成（`gazebo/`，见其 README）：世界生成器 + ROS 2 桥接包 + launch，无界面模式实测 5 车零碰撞。
+   云端复现方法：`micromamba create -n ros -c conda-forge -c robostack-jazzy python=3.11 ros-jazzy-ros-base ros-jazzy-ros-gz
+   colcon-common-extensions`（约 6 GB，conda.anaconda.org 可访问时）；渲染截图要 `apt-get install` Xvfb/Mesa 已有，
+   `LIBGL_ALWAYS_SOFTWARE=1 xvfb-run gz sim -s -r <带相机传感器的世界>`，用 `gz topic -e --json-output` 取图（conda 里的
+   Python protobuf 版本与 gz-msgs 不匹配，不能用 Python 绑定订阅图像）。带界面的 Gazebo 仍待人在 Ubuntu 上实测。
 4. ~~更新 `docs/plan.md` 第 2 节进度表~~ ✅ 已更新（Gazebo 一行等脚手架完成后再改）。
 
 ### 需要人来做（AI 在云端做不了）
@@ -168,7 +170,9 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   不要反复重试；有的会话可以访问（2026-10-24 那次可以 `pip install matplotlib`、`apt-get install graphviz`、下载 PlantUML）。无论如何：
   服务端不用 Spring Boot、Gson jar 随仓库提供；网页不用 Three.js；Android APK 无法在沙箱里构建。
 - 安卓层在沙箱里只能对照手写的安卓 API 桩做编译检查，桩没有提交进仓库；改了安卓代码请用 Android Studio 编译确认。
-- `pkill -f DwServer` 会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID（`kill $(cat pidfile)`）。
+- `pkill -f DwServer`（以及任何 `pkill -f <命令行里也出现的字符串>`）会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID。
+  `kill` 掉 `ros2 run` / `xvfb-run` / `timeout` 等包装进程时子进程会残留（同名 Gazebo 话题出现多个发布者，车辆位置乱跳）：
+  用 `setsid` 启动、`kill -- -<pgid>` 结束，或用 ros2 launch。
 - 云沙箱可能被重置（未提交的代码会丢）：每完成一块就提交推送。万一丢了，可以从会话记录
   （`~/.claude/projects/*/*.jsonl`，按 parentUuid 链还原顺序）里重放 Write / Edit 调用恢复。
 - POSIX 区域设置下 Java 读命令行里的中文参数会变成"?"：运行工具前 `export LC_ALL=C.UTF-8`，并加 `-Dstdout.encoding=UTF-8`。
