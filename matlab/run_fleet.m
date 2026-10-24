@@ -1,9 +1,10 @@
-function run_fleet(host, ids, showPlot)
+function run_fleet(host, ids, showPlot, duration)
 %RUN_FLEET  启动多辆 Matlab 模拟车接入数字世界（数字孪生）。
 %
 %   run_fleet                         % 默认连接本机，car-1 … car-5，显示本地视图
 %   run_fleet("192.168.1.20")         % 服务端在另一台电脑上
 %   run_fleet("127.0.0.1", ["car-1" "car-2"], false)
+%   run_fleet("127.0.0.1", [], false, 180)   % 运行 180 s 后自动结束（自动测试 / CI 用）
 %
 % 使用前先启动服务端（仓库根目录 scripts/start_server.bat 或 scripts/start_server.sh）。
 % 关闭"Matlab 模拟车视图"窗口或按 Ctrl+C 结束，结束后数字世界会自动接管这些车。
@@ -14,6 +15,7 @@ function run_fleet(host, ids, showPlot)
 if nargin < 1 || isempty(host), host = "127.0.0.1"; end
 if nargin < 2 || isempty(ids), ids = ["car-1", "car-2", "car-3", "car-4", "car-5"]; end
 if nargin < 3, showPlot = true; end
+if nargin < 4 || isempty(duration), duration = Inf; end   % 运行多少秒后自动结束，默认一直运行
 
 cfg.host       = string(host);
 cfg.port       = 9000;           % 服务端设备接入 TCP 端口
@@ -47,9 +49,10 @@ end
 
 fprintf('已启动 %d 辆模拟车，连接 %s:%d。关闭图窗或按 Ctrl+C 结束。\n', N, cfg.host, cfg.port);
 tick = 0;
+tStart = tic;
 lastRetry = tic;
 lastTick = tic;
-while true
+while toc(tStart) < duration
     loopStart = tic;
     dt = min(toc(lastTick), 0.1);       % 用实际经过的时间积分，保证与服务端实时同步
     lastTick = tic;

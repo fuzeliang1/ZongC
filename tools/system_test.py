@@ -13,6 +13,9 @@
     python3 tools/system_test.py                 # 默认运行 180 s 后断开车队，再观察 30 s
     python3 tools/system_test.py --seconds 600   # 跑 10 分钟
     python3 tools/system_test.py --udp           # 模拟车的状态改走 UDP
+    python3 tools/system_test.py --fleet external --bind-timeout 300
+        # 不启动 Python 模拟车，等外部车队（例如 MATLAB 的 run_fleet(..., 时长)）接入；
+        # 车队运行到时自己断开，再检查接管。CI 里用它验证 Matlab 车队（.github/workflows/ci.yml）
 
 结果打印成表格，同时写到 --out 指定的 JSON 文件（默认不写）。全部通过时退出码为 0。
 """
@@ -52,6 +55,11 @@ def server_up():
 
 def sample():
     s = get('/api/snapshot')
+    for _ in range(50):                     # 服务端刚启动、还没发布第一帧快照时返回 {}
+        if 'agents' in s:
+            break
+        time.sleep(0.1)
+        s = get('/api/snapshot')
     drivers = {}
     for a in s['agents']:
         drivers[a['driver']] = drivers.get(a['driver'], 0) + 1
@@ -67,6 +75,10 @@ def main():
     ap.add_argument('--scenario', default='demo')
     ap.add_argument('--udp', action='store_true', help='模拟车状态上报走 UDP')
     ap.add_argument('--out', default='', help='把采样结果写到这个 JSON 文件')
+    ap.add_argument('--fleet', choices=['mock', 'external'], default='mock',
+                    help='mock = 启动 5 辆 Python 模拟车；external = 等外部车队（如 MATLAB）接入，到时由它自己断开')
+    ap.add_argument('--bind-timeout', type=float, default=20, help='等待 5 辆车接入的最长秒数')
+    ap.add_argument('--exit-timeout', type=float, default=300, help='external 模式下等待外部车队自己断开的最长秒数')
     args = ap.parse_args()
 
     if server_up():
@@ -102,23 +114,27 @@ def main():
             sys.exit('服务端 30 s 内没有启动，请看 system_test_server.log')
         print(f'服务端已启动，场景 {args.scenario}')
 
-        car_cmd = [py, os.path.join('tools', 'mock_devices.py'), '--cars', '5', '--phones', '0', '--kind', 'matlab']
-        if args.udp:
-            car_cmd.append('--udp')
-        cars = spawn(car_cmd, 'system_test_cars.log')
+        cars = None
+        if args.fleet == 'mock':
+            car_cmd = [py, os.path.join('tools', 'mock_devices.py'), '--cars', '5', '--phones', '0', '--kind', 'matlab']
+            if args.udp:
+                car_cmd.append('--udp')
+            cars = spawn(car_cmd, 'system_test_cars.log')
+        else:
+            print(f'等待外部车队接入（最长 {args.bind_timeout:.0f} s）')
         spawn([py, os.path.join('tools', 'mock_devices.py'), '--cars', '0', '--phones', '1'], 'system_test_phone.log')
 
         t_bind = None
         t0 = time.time()
-        while time.time() - t0 < 20:
+        while time.time() - t0 < args.bind_timeout:
             if sample()['externalTaxis'] == 5:
                 t_bind = time.time() - t0
                 break
             time.sleep(0.5)
         if t_bind is None:
-            failures.append('20 s 内没有 5 辆模拟车接入')
+            failures.append(f'{args.bind_timeout:.0f} s 内没有 5 辆车接入')
         else:
-            print(f'5 辆模拟车已接入（{t_bind:.1f} s）')
+            print(f'5 辆车已接入（{t_bind:.1f} s），驾驶方：{sample()["drivers"]}')
 
         t0 = time.time()
         next_print = 0
@@ -134,18 +150,29 @@ def main():
             time.sleep(10)
 
         # 断开车队：检查接管
-        cars.terminate()
-        t_kill = time.time()
-        t_takeover = None
-        while time.time() - t_kill < 10:
-            if sample()['externalTaxis'] == 0:
-                t_takeover = time.time() - t_kill
-                break
-            time.sleep(0.2)
-        if t_takeover is None or t_takeover > 5:
-            failures.append(f'断开车队后没有在 5 s 内被接管（{t_takeover}）')
+        if cars is not None:
+            cars.terminate()
+            t_kill = time.time()
+            t_takeover = None
+            while time.time() - t_kill < 10:
+                if sample()['externalTaxis'] == 0:
+                    t_takeover = time.time() - t_kill
+                    break
+                time.sleep(0.2)
+            if t_takeover is None or t_takeover > 5:
+                failures.append(f'断开车队后没有在 5 s 内被接管（{t_takeover}）')
+            else:
+                print(f'断开车队：{t_takeover:.1f} s 后 5 辆车全部由内部仿真接管')
         else:
-            print(f'断开车队：{t_takeover:.1f} s 后 5 辆车全部由内部仿真接管')
+            # 外部车队到时自己断开（run_fleet 的 duration 参数），这里只等它断开
+            t_wait = time.time()
+            while time.time() - t_wait < args.exit_timeout and sample()['externalTaxis'] > 0:
+                time.sleep(0.5)
+            left = sample()['externalTaxis']
+            if left > 0:
+                failures.append(f'外部车队 {args.exit_timeout:.0f} s 内没有断开（还剩 {left} 辆）')
+            else:
+                print(f'外部车队已断开（等了 {time.time() - t_wait:.1f} s），车辆由内部仿真接管')
 
         # 图像识别：用服务端自带的示例照片，相机放在一条车道上朝东
         with urllib.request.urlopen(BASE + '/api/vision/sample.jpg', timeout=10) as resp:

@@ -1,0 +1,200 @@
+# 持续集成（CI）：每次推送和 Pull Request 自动在 GitHub 的云端机器上跑一遍，保证 main 始终"能编译、测试通过、能演示"。
+# 四个任务并行运行，结果在仓库的 Actions 页面查看（README 顶部的徽章也会显示通过 / 失败）：
+#   1. Linux：服务端单元测试、Gazebo 桥接包测试、离线实验冒烟测试、系统集成测试（服务端 + 5 车 + 手机）
+#   2. Windows：build / experiment / start_server / phone_sim / start_demo 五个 .bat 一键脚本，以及 Windows 上的系统集成测试
+#   3. Android：手机 App 单元测试，编译调试版 APK 并作为附件上传（组员可以直接下载安装，不用装 Android Studio）
+#   4. MATLAB：SimCar 离线控制器测试；run_fleet 的 5 辆 Matlab 车真正接入服务端，跑系统集成测试（零碰撞、零越权）
+# MATLAB 任务依赖仓库是公开的（公开仓库由 MathWorks 自动授权）；改成私有库后需要在 Secrets 里配置 MLM_LICENSE_TOKEN。
+name: CI
+
+on:
+  push:
+    paths-ignore: ['**.md', 'docs/**', 'deliverables/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'deliverables/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: 服务端与系统测试（Linux）
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: 服务端单元测试（29 项）
+        working-directory: server
+        run: mvn -B -ntp test
+      - name: Gazebo 桥接包单元测试（9 项，不需要 ROS）
+        working-directory: gazebo/minididi_bridge
+        run: python3 -m unittest discover -s test -v
+      - name: 离线对比实验冒烟测试
+        run: bash scripts/experiment.sh --minutes 5 --seeds 1 --strategies GREEDY,HUNGARIAN
+      - name: 系统集成测试（服务端 + 5 辆模拟车 + 模拟手机，约 4 分钟）
+        run: python3 tools/system_test.py --out system_test.json
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-system-test-logs
+          path: |
+            system_test*.log
+            system_test.json
+          if-no-files-found: ignore
+
+  windows:
+    name: Windows 一键脚本
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: '1'      # 英文版 Windows 控制台默认不是 UTF-8，模拟设备打印中文时需要
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: build.bat
+        shell: cmd
+        run: scripts\build.bat
+      - name: experiment.bat
+        shell: cmd
+        run: scripts\experiment.bat --minutes 5 --seeds 1 --strategies GREEDY,HUNGARIAN
+      - name: 系统集成测试（Windows，内部调用 build.bat）
+        shell: cmd
+        run: python tools\system_test.py --seconds 90 --after 10
+      - name: start_server.bat + phone_sim.bat
+        shell: pwsh
+        run: |
+          $p = Start-Process cmd.exe -ArgumentList '/c', 'scripts\start_server.bat', '--scenario', 'none' `
+               -NoNewWindow -PassThru -RedirectStandardOutput server_bat.out -RedirectStandardError server_bat.err
+          $up = $false
+          for ($i = 0; $i -lt 90; $i++) {
+            try { Invoke-RestMethod http://127.0.0.1:8080/api/info -TimeoutSec 2 | Out-Null; $up = $true; break }
+            catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $up) { Get-Content server_bat.out, server_bat.err; throw 'start_server.bat: 服务端 90 s 内没有启动' }
+          cmd /c scripts\phone_sim.bat --seconds 20
+          $code = $LASTEXITCODE
+          taskkill /T /F /PID $p.Id | Out-Null
+          if ($code -ne 0) { throw "phone_sim.bat 失败（退出码 $code）" }
+          Write-Host 'start_server.bat、phone_sim.bat 正常'
+          exit 0
+      - name: start_demo.bat（服务端 + 5 辆模拟车 + 模拟手机）
+        shell: pwsh
+        run: |
+          cmd /c scripts\start_demo.bat
+          $ok = $false
+          for ($i = 0; $i -lt 120; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+              $m = (Invoke-RestMethod http://127.0.0.1:8080/api/snapshot -TimeoutSec 2).metrics
+              if ($m.externalTaxis -eq 5 -and $m.freeAgents -ge 1) { $ok = $true; break }
+            } catch { }
+          }
+          Start-Sleep -Seconds 20
+          $m = (Invoke-RestMethod http://127.0.0.1:8080/api/snapshot -TimeoutSec 5).metrics
+          $m | Format-List created, delivered, externalTaxis, freeAgents, collisions, obstacleHits, barrierHits, authorityViolations
+          Get-Process java, python -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $ok) { throw 'start_demo.bat: 120 s 内没有 5 辆模拟车和 1 部模拟手机接入' }
+          if ($m.collisions -ne 0 -or $m.obstacleHits -ne 0 -or $m.barrierHits -ne 0 -or $m.authorityViolations -ne 0) {
+            throw 'start_demo.bat: 出现碰撞或越权'
+          }
+          Write-Host 'start_demo.bat 正常：5 辆模拟车、1 部模拟手机接入，零碰撞'
+          exit 0
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-logs
+          path: |
+            system_test*.log
+            server_bat.*
+            *.log
+          if-no-files-found: ignore
+
+  android:
+    name: 手机 App：单元测试 + 编译 APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: 单元测试（65 项）与编译调试版 APK
+        working-directory: phone
+        run: ./gradlew --no-daemon test assembleDebug
+      - name: 上传 APK（在本次运行页面底部的 Artifacts 下载，解压后装到手机上）
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiniDiDi-phone-debug-apk
+          path: phone/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+      - name: 上传测试报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: phone/app/build/reports/
+          if-no-files-found: ignore
+
+  matlab:
+    name: Matlab 模拟车（离线测试 + 5 车接入）
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          cache: true
+      - name: SimCar 离线控制器测试（test_simcar_offline）
+        uses: matlab-actions/run-command@v3
+        with:
+          command: cd matlab; test_simcar_offline
+      - name: 后台启动服务端和系统测试，等待 Matlab 车队接入
+        run: |
+          setsid nohup bash -c 'python3 tools/system_test.py --fleet external --seconds 150 --after 20 \
+            --bind-timeout 300 --exit-timeout 300 --out system_test_matlab.json > system_test_matlab.out 2>&1; \
+            echo $? > system_test_matlab.exit' > /dev/null 2>&1 &
+          for i in $(seq 1 90); do curl -sf http://127.0.0.1:8080/api/info > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:8080/api/info > /dev/null || { cat system_test_matlab.out; exit 1; }
+      - name: Matlab 车队（run_fleet，5 辆车运行 200 s 后自动结束）
+        uses: matlab-actions/run-command@v3
+        with:
+          command: 'cd matlab; run_fleet("127.0.0.1", [], false, 200)'
+      - name: 等待系统测试结束并检查结果（零碰撞、零越权、断开后接管）
+        run: |
+          for i in $(seq 1 120); do [ -f system_test_matlab.exit ] && break; sleep 5; done
+          cat system_test_matlab.out
+          test "$(cat system_test_matlab.exit 2>/dev/null)" = "0"
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-system-test-logs
+          path: |
+            system_test*.log
+            system_test_matlab.*
+          if-no-files-found: ignore
