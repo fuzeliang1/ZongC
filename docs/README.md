@@ -3,6 +3,8 @@
 课程要求文档覆盖"立项 → 需求 → 设计 → 测试 → 部署 → 效果评估"全流程。本目录按 GB/T 8567《计算机软件文档编制规范》的阶段组织，
 最终的技术报告就是这些文档的汇编。
 
+新组员先读 **[上手指南](onboarding.md)**：仓库里有什么、课程要求完成情况、怎么跑起来、每个人的分工和第一批任务。
+
 ## 按阶段
 
 | 阶段 | 文档 | 内容 |
@@ -14,7 +16,6 @@
 | 设计 | [架构设计说明](architecture.md) | 算法细节：交通管控、规划、派单、感知建图、场景脚本、空车调度、图像识别、3D |
 | 设计 | [接口协议说明](protocol.md) | 设备接入（TCP / UDP）、浏览器接口（REST / SSE）、地图与场景脚本格式 |
 | 实现 | [开发指南](dev-guide.md) | 开发环境、常用命令、目录结构、配置、代码约定、Git 协作 |
-| 实现 | [周会纪要](meetings/) | [模板](meetings/template.md)；每周一份 `week-XX.md` |
 | 测试 | [测试计划与测试报告](test-report.md) | 测试层次、94 项单元测试清单、系统集成测试、端到端测试、缺陷记录、已知限制 |
 | 部署 | [部署与使用手册](deployment.md) | 软硬件要求、一键演示、各部分单独启动、现场网络、考核当天检查单、常见问题 |
 | 评估 | [效果评估报告](evaluation.md) | 指标、实验方法、派单 / 空车调度 / 感知 / 安全 / 图像处理 / 位姿估计结果与分析 |
@@ -31,7 +32,7 @@
 | `MiniDiDi_slides.pptx` | 答辩介绍 PPT：封面 + 正文 5 页 + 结尾，每页有演讲备注 | 改 `tools/build_slides.js`，`npm install pptxgenjs react-icons react react-dom sharp` 后 `NODE_PATH=…/node_modules node tools/build_slides.js` |
 | `MiniDiDi_demo.mp4` | 演示录屏（4 分 57 秒，1280×720）：片头 → 2D 主界面 → 3D 巡游 → 3D 跟车，全程无人操作 | `python3 tools/record_demo.py`（需要 Node.js + Playwright、ffmpeg） |
 
-报告封面的组号、成员和第 9.3 节个人总结、PPT 封面的成员需要组员自己填写；真机、MATLAB 实测后的照片和视频可以补进报告第 5、6 章。
+报告封面的组号、指导教师、完成日期和第 9.3 节个人总结，以及 PPT 封面的组号需要组员自己填写；真机、MATLAB 实测后的照片和视频可以补进报告第 5、6 章。
 
 ## UML 图
 

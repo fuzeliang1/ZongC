@@ -60,6 +60,7 @@ docs/      文档
 
 全流程文档的索引见 [docs/README.md](docs/README.md)（按立项 → 需求 → 设计 → 测试 → 部署 → 评估组织，UML 图齐全）。常用的几份：
 
+- **[上手指南](docs/onboarding.md)**：新组员从这里开始——完成情况、怎么跑起来、分工与第一批任务
 - [立项申请书](docs/proposal.md)、[项目计划](docs/plan.md)：目标、分工、16 周进度、风险
 - [需求规格说明](docs/requirements.md)：用例图、功能与非功能需求、验收标准、需求追踪
 - [软件设计说明](docs/design.md)：组件图、部署图、类图、时序图、状态图、活动图

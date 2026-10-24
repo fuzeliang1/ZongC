@@ -10,7 +10,7 @@
 - 全流程过程文档：[立项申请书](docs/proposal.md)、[需求规格说明](docs/requirements.md)（用例图、功能 / 非功能需求、
   验收标准、需求追踪矩阵）、[软件设计说明](docs/design.md)（组件图、部署图、类图、时序图、状态图、活动图、设计决策）、
   [测试计划与测试报告](docs/test-report.md)、[部署与使用手册](docs/deployment.md)、[效果评估报告](docs/evaluation.md)、
-  [周会纪要模板](docs/meetings/template.md)、[文档索引](docs/README.md)。
+  [文档索引](docs/README.md)。
 - UML 图的 PlantUML 源文件（`docs/uml/`）与渲染结果（`docs/images/uml/`），`tools/render_uml.py` 一键重画。
 - `tools/plot_eval.py`：把评估实验 CSV 画成报告用的图表（`docs/images/eval/`）。
 - `tools/system_test.py`：系统集成测试——自动启动服务端、5 辆模拟车和模拟手机，运行演示场景，断开车队检查接管，
@@ -23,8 +23,15 @@
   （宋体 / 黑体、三线表、页眉页码、自动目录、公式）。
 - 手机位姿估计数据流图（`docs/uml/pdr.puml`）；数字世界类图改为纵向布局。
 - **答辩 PPT**：`tools/build_slides.js` 生成 `deliverables/MiniDiDi_slides.pptx`（封面 + 正文 5 页 + 结尾，原生图表、演讲备注）。
+- **上手指南**（[docs/onboarding.md](docs/onboarding.md)）：仓库内容、课程要求完成情况、答辩 PPT 内容、上手步骤、
+  每位组员的分工与第一批任务。
 - **演示录屏**：`tools/record_demo.py` + `tools/record_demo.js` 自动启动系统、录制 2D / 3D 画面并加片头片尾，
   生成 `deliverables/MiniDiDi_demo.mp4`。
+
+### 变更
+
+- 填写小组成员与分工（阮飞翔、樊宇泽、李昊博、付泽亮，4 人均分）：立项申请书、项目计划、技术报告、答辩 PPT 同步更新。
+- 代码统一托管在 GitHub 仓库 `fuzeliang1/ZongC`，不另建 gitee 库；删除周会纪要模板。
 
 ## 2026-10-23（开发版本，未打标签）
 

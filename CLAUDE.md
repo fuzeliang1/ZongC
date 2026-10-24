@@ -1,6 +1,7 @@
 # CLAUDE.md — 项目记忆（MiniDiDi / 综设 C）
 
 > 给接手这个仓库的人和 AI 助手看的"交接本"。新会话请先读完本文件，再看 `docs/plan.md` 和 `README.md`。
+> 面向组员的入门说明（完成情况、上手步骤、分工与任务）在 `docs/onboarding.md`。
 > 每完成一个功能就更新第 6 节"进度"，并随代码一起提交推送（云端环境可能被重置，没推送的代码会丢）。
 
 ## 0. 接手第一步
@@ -23,10 +24,16 @@
     和目标物）与辅助建图、端云互动（服务端做重型图像处理）；服务端"图像处理加速模块"。
   - 考核：启动后即自主运行，**考核过程中不可人工切换模式、设置或遥控**；必须整体可集成运行
     （孤立模块拿不到良）；文档要覆盖立项→需求→设计→测试→部署→效果评估全流程，图符要专业。
-  - 组织：第 1–16 周，第 8 周中期检查，第 16 周答辩；4–5 人一组；**要求用 gitee.com 私有库**
-    （目前代码在 GitHub `fuzeliang1/ZongC`，需要导入到 gitee）。
+  - 组织：第 1–16 周，第 8 周中期检查，第 16 周答辩；4–5 人一组。课程 PPT 写的是用 gitee 私有库，
+    **小组决定只用 GitHub 仓库 `fuzeliang1/ZongC`**，不建 gitee，也不写周会纪要（模板已删除）。
   - 提交物：技术报告（docx/pdf，格式参考综设 A）、介绍 PPT（正文 ≤5 页）、源码附件、图片和短视频（≤5 分钟）。
   - 技术路线：选了 PPT 中的"路线 1"（HTML + JS + CSS 前端，Java 服务端 + REST）。
+- 小组 4 人（分工详见 `docs/plan.md` 第 3 节，已写进立项申请书、技术报告、PPT）：
+  - 阮飞翔（2252753，组长）：架构与调度——架构、协议、派单与空车调度、联调；立项 / 需求文档、报告统稿、答辩主讲
+  - 樊宇泽（2351586）：服务端——数字世界、交通管控、设备接入、感知建图、图像处理；设计文档、测试报告
+  - 李昊博（2352853）：控制与可视化——Matlab 模拟车、2D / 3D 网页；部署手册、PPT、视频
+  - 付泽亮（2353413）：移动端与进阶——安卓 App、Gazebo；评估报告、GitHub 仓库管理
+  - 报告封面的组号、指导教师、完成日期，9.3 节个人总结，PPT 封面组号仍待组员填写。
 
 ## 2. 仓库结构
 
@@ -48,7 +55,7 @@ gazebo/            gen_world.py（地图 → Gazebo 世界）、minididi_bridge/
 tools/             mock_devices.py（协议参考实现）、gen_map.py、run_evaluation.py（一键跑全部评估实验）、system_test.py、
                    plot_eval.py、render_uml.py、build_report.py、build_slides.js、record_demo.py/.js
 scripts/           build / start_server / start_demo / experiment / phone_sim（.sh 与 .bat 成对）
-docs/              全流程文档（索引 docs/README.md）、uml/（PlantUML 源）、report/report.md（技术报告源）、eval/、images/
+docs/              全流程文档（索引 docs/README.md，组员入门 docs/onboarding.md）、uml/（PlantUML 源）、report/report.md（技术报告源）、eval/、images/
 deliverables/      提交物：技术报告 docx/pdf、答辩 PPT、演示视频（都由 tools/ 下的脚本生成）
 ```
 
@@ -141,11 +148,12 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | 1a70ac4 | 图像处理加速模块（服务端识别 + 网页面板 + 手机"拍照"按钮）、VisionBench |
 | a8b4047 | 3D 视图（自写 WebGL，四种视角） |
 | c6450d4 | 全自主一键演示（含 Matlab 车队自动启动、无 MATLAB 时回退）；手机 App 打开即自动连接 |
-| 03b5da1 / 738d994 | 全流程文档（立项、需求、设计、测试、部署、评估、周会模板、CHANGELOG）+ PlantUML 图 18 张 + 评估图表；`tools/system_test.py` 系统集成测试 |
+| 03b5da1 / 738d994 | 全流程文档（立项、需求、设计、测试、部署、评估、CHANGELOG）+ PlantUML 图 18 张 + 评估图表；`tools/system_test.py` 系统集成测试 |
 | f5b8976 | Gazebo 接入（世界生成器 + ROS 2 桥接包，无界面模式实测 5 车零碰撞）；技术报告 docx/pdf |
-| 3d39eb2 及之后 | 答辩 PPT；演示录屏工具与视频 |
+| 3d39eb2 / 198794f | 答辩 PPT；演示录屏工具与视频 |
+| 198794f 之后 | 组员上手指南 `docs/onboarding.md`；填写成员与分工；改为只用 GitHub、删除周会纪要模板 |
 
-以上提交已全部合并到 main（2026-10-24，快进合并）。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main。
+以上提交已全部合并到 main。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main。
 
 效果评估关键数字（`docs/eval/summary.md`）：接近饱和时匈牙利比贪心平均等待 −45%；潮汐需求下空车调度 −20%
 （4 单/分）/ −18%（5 单/分）；感知场景零误检、零碰撞；16 车高负载演示场景 6 × 60 分钟零碰撞（含撞障碍）。
@@ -171,8 +179,8 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 - 在 MATLAB 里跑 `matlab/test_simcar_offline.m` 和 `run_fleet`（5 辆车），修复报错；再跑一次 `start_demo`（会自动起 MATLAB）。
 - 用 Android Studio 编译 `phone/`、装到真机实测（PDR、拍照识别、自动连接），做 `phone/README.md` 第 4 节的 10 m 正方形实验。
-- 在 gitee 建私有库并从 GitHub 导入；向老师确认 `docs/plan.md` 第 8 节的问题。
-- 拍摄真机 / 现场演示视频；准备答辩；组内分工与周会纪要。
+- 向老师确认 `docs/plan.md` 第 8 节的问题；在 Windows 上实测 `.bat` 一键脚本（开发环境是 Linux，没跑过）。
+- 拍摄真机 / 现场演示视频；准备答辩；填写报告与 PPT 封面的组号、个人总结。每人的具体任务见 `docs/onboarding.md` 第 7 节。
 
 ## 7. 已知坑
 

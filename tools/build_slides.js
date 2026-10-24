@@ -97,7 +97,7 @@ async function main() {
   let s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: '封面' });
   s.addText('缩微滴滴：多智能体无人出租车系统', { placeholder: 'title' });
   s.addText('MiniDiDi · 综合设计与实践 C 期末答辩', { placeholder: 'body' });
-  s.addText('第 ___ 组　组长 ______\n组员 ______　______　______　______', { placeholder: 'info' });
+  s.addText('第 ___ 组　组长 阮飞翔 2252753\n组员 樊宇泽 2351586　李昊博 2352853　付泽亮 2353413', { placeholder: 'info' });
   s.addImage({ path: img('docs/images/view3d.png'), x: 5.75, y: 1.15, w: 3.85, h: 2.41, objectName: 'cover-3d', altText: '3D 视图截图' });
   s.addText('城市里有人叫车，“系统超脑”派车、规划路径、管控交通；Matlab、手机、Gazebo 小车都是它的数字孪生', {
     x: 5.75, y: 3.7, w: 3.85, h: 0.75, fontSize: 12, color: C.background2, margin: 0, isTextBox: true, objectName: 'cover-tagline',
@@ -289,7 +289,7 @@ async function main() {
   s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: '结尾' });
   s.addText('谢谢！请老师指正', { placeholder: 'title' });
   s.addText('现场演示：一键启动，全程无人操作', { placeholder: 'body' });
-  s.addText('源码、技术报告、测试与评估数据：gitee 私有库 ______', { placeholder: 'info' });
+  s.addText('源码、技术报告、测试与评估数据：\ngithub.com/fuzeliang1/ZongC', { placeholder: 'info' });
   s.addImage({ path: img('docs/images/gazebo_chase.jpg'), x: 5.75, y: 1.15, w: 3.85, h: 2.41, objectName: 'closing-gazebo', altText: 'Gazebo 跟车视角' });
   s.addNotes('我们的介绍就到这里，接下来是现场演示：整个系统一键启动，演示过程中我们不碰电脑。谢谢各位老师。');
 

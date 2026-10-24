@@ -102,7 +102,7 @@ ZongC/
 4. 提交信息写清楚做了什么，例如"Matlab 模拟车：速度环加入积分项，减小稳态误差"。
 5. 每次中期、期末提交前打标签（tag），例如 `v0.8-midterm`，作为"版本发布记录"。
 
-课程要求用 gitee 私有库：可以在 gitee 上用"从 GitHub/GitLab 导入仓库"做镜像，或者本地同时添加两个远程仓库，一起推送。
+代码统一放在 GitHub 仓库 `fuzeliang1/ZongC`，不另建 gitee 库。组员要先由仓库所有者（付泽亮）在 GitHub 的 Settings → Collaborators 里添加为协作者，才能克隆和推送。
 
 ## 7. 常见问题
 

@@ -20,7 +20,7 @@
 ## 2. 获取代码与编译
 
 ```bash
-git clone <gitee 私有库地址> ZongC        # 或者从 GitHub 克隆、或解压源码附件
+git clone https://github.com/fuzeliang1/ZongC.git   # 或者解压源码附件
 cd ZongC
 scripts/build.sh                          # Windows：scripts\build.bat
 ```
