@@ -29,7 +29,7 @@
 | 挑战：图像处理加速（I） | ✅ 完成 | 手机拍照上传，服务端颜色分割 + 连通域识别路障（多线程），测距后写入地图 |
 | Gazebo（进阶，E） | 🟡 无界面模式已实测 | `gazebo/`：世界生成器 + ROS 2 桥接包 + launch。云端用 ROS 2 Jazzy + Gazebo Harmonic（服务器模式）实测 5 车接入、零碰撞零越权；带界面版本待在 Ubuntu 24.04 上实测，见 [gazebo/README.md](../gazebo/README.md) |
 | 过程文档 | ✅ 完成 | 立项申请书、需求规格说明、软件设计说明（UML 18 张）、测试计划与报告、部署与使用手册、效果评估报告、版本记录，索引见 [README](README.md)；新组员先读 [上手指南](onboarding.md) |
-| 提交物 | ✅ 初稿完成 | `deliverables/`：技术报告 docx/pdf、答辩 PPT（正文 5 页）、演示视频（4 分 57 秒）；封面组号、指导教师和个人总结待填，真机与 MATLAB 实测后补充 |
+| 提交物 | ✅ 初稿完成 | `deliverables/`：技术报告 docx/pdf、答辩 PPT（正文 5 页）、演示视频（4 分 57 秒）；真机与 MATLAB 实测后补充 |
 
 ## 3. 分工
 

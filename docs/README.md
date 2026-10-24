@@ -32,7 +32,7 @@
 | `MiniDiDi_slides.pptx` | 答辩介绍 PPT：封面 + 正文 5 页 + 结尾，每页有演讲备注 | 改 `tools/build_slides.js`，`npm install pptxgenjs react-icons react react-dom sharp` 后 `NODE_PATH=…/node_modules node tools/build_slides.js` |
 | `MiniDiDi_demo.mp4` | 演示录屏（4 分 57 秒，1280×720）：片头 → 2D 主界面 → 3D 巡游 → 3D 跟车，全程无人操作 | `python3 tools/record_demo.py`（需要 Node.js + Playwright、ffmpeg） |
 
-报告封面的组号、指导教师、完成日期和第 9.3 节个人总结，以及 PPT 封面的组号需要组员自己填写；真机、MATLAB 实测后的照片和视频可以补进报告第 5、6 章。
+报告和 PPT 的封面信息、报告第 9.3 节个人总结已填写；真机、MATLAB 实测后的照片和视频可以补进报告第 5、6 章。
 
 ## UML 图
 

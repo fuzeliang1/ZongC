@@ -33,7 +33,7 @@
   - 樊宇泽（2351586）：服务端——数字世界、交通管控、设备接入、感知建图、图像处理；设计文档、测试报告
   - 李昊博（2352853）：控制与可视化——Matlab 模拟车、2D / 3D 网页；部署手册、PPT、视频
   - 付泽亮（2353413）：移动端与进阶——安卓 App、Gazebo；评估报告、GitHub 仓库管理
-  - 报告封面的组号、指导教师、完成日期，9.3 节个人总结，PPT 封面组号仍待组员填写。
+  - 第 1 组，指导教师许春权；报告封面不写完成日期。报告 9.3 节个人总结已按分工写好（改了相关内容要同步）。
 
 ## 2. 仓库结构
 
@@ -163,8 +163,8 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 1. ~~全流程文档 + UML~~ ✅ 已完成：索引 `docs/README.md`；UML 用 PlantUML（`docs/uml/*.puml`，18 张，共用 `_style.iuml`），
    改了源文件跑 `tools/render_uml.py`。Matlab / 真机 / Gazebo 实测后要补 `docs/test-report.md` 第 7 节和 `docs/evaluation.md` 4.6 节。
 2. ~~提交物~~ ✅ 已完成（`deliverables/`，生成方法见 `docs/README.md`"提交物"一节）：技术报告 docx/pdf、
-   答辩 PPT（`tools/build_slides.js`，pptxgenjs）、演示录屏（`tools/record_demo.py`）。报告和 PPT 封面的组号、成员、
-   报告 9.3 节个人总结待组员填写；改了实验数据要同步报告、PPT 里的数字并重新生成。
+   答辩 PPT（`tools/build_slides.js`，pptxgenjs）、演示录屏（`tools/record_demo.py`）。封面信息与个人总结已填写；
+   改了实验数据要同步报告、PPT 里的数字并重新生成。
    沙箱里 pptxgenjs 没有预装：`npm install` 到临时目录后用 `NODE_PATH=<目录>/node_modules` 运行。
 3. ~~Gazebo 接入~~ ✅ 已完成（`gazebo/`，见其 README）：世界生成器 + ROS 2 桥接包 + launch，无界面模式实测 5 车零碰撞。
    云端复现方法：`micromamba create -n ros -c conda-forge -c robostack-jazzy python=3.11 ros-jazzy-ros-base ros-jazzy-ros-gz
@@ -180,7 +180,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 - 在 MATLAB 里跑 `matlab/test_simcar_offline.m` 和 `run_fleet`（5 辆车），修复报错；再跑一次 `start_demo`（会自动起 MATLAB）。
 - 用 Android Studio 编译 `phone/`、装到真机实测（PDR、拍照识别、自动连接），做 `phone/README.md` 第 4 节的 10 m 正方形实验。
 - 向老师确认 `docs/plan.md` 第 8 节的问题；在 Windows 上实测 `.bat` 一键脚本（开发环境是 Linux，没跑过）。
-- 拍摄真机 / 现场演示视频；准备答辩；填写报告与 PPT 封面的组号、个人总结。每人的具体任务见 `docs/onboarding.md` 第 7 节。
+- 拍摄真机 / 现场演示视频；准备答辩。每人的具体任务见 `docs/onboarding.md` 第 7 节。
 
 ## 7. 已知坑
 

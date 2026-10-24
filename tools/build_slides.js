@@ -97,7 +97,7 @@ async function main() {
   let s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: '封面' });
   s.addText('缩微滴滴：多智能体无人出租车系统', { placeholder: 'title' });
   s.addText('MiniDiDi · 综合设计与实践 C 期末答辩', { placeholder: 'body' });
-  s.addText('第 ___ 组　组长 阮飞翔 2252753\n组员 樊宇泽 2351586　李昊博 2352853　付泽亮 2353413', { placeholder: 'info' });
+  s.addText('第 1 组　指导教师 许春权\n组长 阮飞翔 2252753\n组员 樊宇泽 2351586　李昊博 2352853　付泽亮 2353413', { placeholder: 'info' });
   s.addImage({ path: img('docs/images/view3d.png'), x: 5.75, y: 1.15, w: 3.85, h: 2.41, objectName: 'cover-3d', altText: '3D 视图截图' });
   s.addText('城市里有人叫车，“系统超脑”派车、规划路径、管控交通；Matlab、手机、Gazebo 小车都是它的数字孪生', {
     x: 5.75, y: 3.7, w: 3.85, h: 0.75, fontSize: 12, color: C.background2, margin: 0, isTextBox: true, objectName: 'cover-tagline',
