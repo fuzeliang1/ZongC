@@ -2,7 +2,7 @@
 
 PPT 任务"基于 Matlab 的模拟车"的实现：5 辆在 PC 上运行的模拟车，通过网络与数字世界中的数字车保持同步（数字孪生），在地图描述的世界中行驶，不与静态障碍和其他车辆碰撞。
 
-> 说明：这部分代码是按 `tools/mock_devices.py`（已在服务端上测试通过）逐行移植的，**还没有在 MATLAB 里实际运行过**。第一次使用请先跑 `test_simcar_offline`，遇到报错把错误信息发出来即可。
+> 说明：这部分代码按 `tools/mock_devices.py`（协议参考实现）逐行移植，已在 GitHub Actions（CI）中用 **MATLAB R2024b（Linux）实际运行**：`test_simcar_offline` 通过；`run_fleet` 的 5 辆车接入服务端运行 200 s，送达订单、零碰撞、零越权，结束后由数字世界接管（见 `docs/test-report.md` 4.6 节）。CI 里不显示图窗，在自己电脑上第一次使用时请先跑 `test_simcar_offline`，再跑带"Matlab 模拟车视图"的 `run_fleet`。
 
 ## 文件
 
@@ -23,6 +23,7 @@ PPT 任务"基于 Matlab 的模拟车"的实现：5 辆在 PC 上运行的模拟
    test_simcar_offline          % 先离线检查控制器
    run_fleet                    % 连接本机服务端，接管 car-1 … car-5
    run_fleet("192.168.1.20")    % 服务端在另一台电脑上
+   run_fleet("127.0.0.1", [], false, 180)   % 不显示视图，运行 180 s 后自动结束（CI 用）
    ```
 
 3. 浏览器打开 `http://localhost:8080`，车辆列表中 car-1 … car-5 的驱动会显示为"Matlab M"。

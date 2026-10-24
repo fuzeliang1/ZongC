@@ -1,5 +1,7 @@
 # MiniDiDi 缩微滴滴：多智能体无人出租车系统
 
+[![CI](https://github.com/fuzeliang1/ZongC/actions/workflows/ci.yml/badge.svg)](https://github.com/fuzeliang1/ZongC/actions/workflows/ci.yml)
+
 综合设计与实践 C 课程项目。城市里不断有乘客叫车，"系统超脑"——数字世界（Digital World, DW）服务端负责派车、规划路径、管控交通，让多辆自主运动的车把乘客从出发地送到目的地。车辆可以由服务端自己仿真，也可以由 Matlab 模拟车、手机或 Gazebo 驱动。外部设备驱动时，服务端里的数字车就是它的数字孪生。
 
 ![数字世界实时界面](docs/images/overview.png)
@@ -80,5 +82,7 @@ python3 tools/run_evaluation.py                          # 跑完全部效果评
 python3 tools/system_test.py                             # 系统集成测试：服务端 + 5 车 + 手机，断线接管、图像识别，断言零碰撞
 scripts/phone_sim.sh                                     # 模拟一部"拿着走路的手机"接入运行中的服务端
 ```
+
+每次推送后，GitHub Actions 会自动跑上面的测试，并在 Windows 上跑一键脚本、编译安卓 APK、用 MATLAB 跑 5 辆 Matlab 车接入（`.github/workflows/ci.yml`，说明见[上手指南 6.6 节](docs/onboarding.md#66-持续集成ci怎么看)）。
 
 接近饱和的场景（16 辆车，16 单/分钟）下，匈牙利算法派单比贪心派单的平均等待时间少约 45%（39 s 对 70 s），送达效率高约 13%；潮汐需求下开启空车调度，平均等待再降约 20%；16 车高负载运行演示场景 6 × 60 分钟，零碰撞（含车撞障碍）。详见 [效果评估实验结果](docs/eval/summary.md)。

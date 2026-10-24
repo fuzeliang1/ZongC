@@ -121,7 +121,7 @@ App 分两层：`com.zongc.phone.core` 是纯 Java（不引用任何 `android.*`
 | `FleetView.m` | 类 | 本地实时视图：地图、各车位置、路线、停车点 |
 | `test_simcar_offline.m` | 脚本 | 不连服务端的控制器测试：不越过停车点、能到达终点 |
 
-这部分代码按 `tools/mock_devices.py`（已在服务端上测试）逐行移植，**还需要在 MATLAB 中实测**。
+这部分代码按 `tools/mock_devices.py`（协议参考实现）逐行移植，已在持续集成中用 MATLAB R2024b 实际运行通过（离线控制器测试 + 5 车接入系统测试，见[测试报告 4.6 节](test-report.md#46-持续集成github-actions)）。
 
 ### 4.5 网页前端
 

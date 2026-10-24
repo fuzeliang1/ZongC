@@ -28,6 +28,14 @@
 - **演示录屏**：`tools/record_demo.py` + `tools/record_demo.js` 自动启动系统、录制 2D / 3D 画面并加片头片尾，
   生成 `deliverables/MiniDiDi_demo.mp4`。
 
+- **持续集成**（`.github/workflows/ci.yml`）：每次推送自动在 GitHub Actions 上跑 Linux（服务端单元测试、Gazebo 桥接测试、系统集成测试）、Windows（5 个 `.bat` 一键脚本）、Android（单元测试 + 编译 APK 并上传）、MATLAB（R2024b 中跑 SimCar 离线测试和 5 辆 Matlab 车接入的系统测试）四组任务；第一次运行全部通过。
+- `run_fleet` 增加第 4 个参数 `duration`（运行多少秒后自动结束）；`tools/system_test.py` 增加 `--fleet external`（等待外部车队接入、到时自己断开）、`--bind-timeout`、`--exit-timeout`。
+
+### 修复
+
+- `start_demo.bat` 在输入被重定向时（CI、部分 IDE 终端）`timeout` 直接报错、不等服务端启动：改用 `ping` 等待。
+- `system_test.py` 在服务端发布第一帧快照前读取会报错：等第一帧发布后再读。
+
 ### 变更
 
 - 填写小组成员与分工（阮飞翔、樊宇泽、李昊博、付泽亮，4 人均分）：立项申请书、项目计划、技术报告、答辩 PPT 同步更新。

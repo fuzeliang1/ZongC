@@ -49,7 +49,7 @@ server/            数字世界服务端：Java 17+，只依赖 Gson（server/li
   scenarios/       场景脚本 demo / perception / rush-hour（JSON）
   config/ maps/    配置、地图
 web/               网页：index.html（2D，Canvas）、3d.html（3D，自写 WebGL 渲染器 js/gl/）
-matlab/            Matlab 模拟车（DwClient / SimCar / FleetView / run_fleet）——尚未在 MATLAB 中实测
+matlab/            Matlab 模拟车（DwClient / SimCar / FleetView / run_fleet）——CI 中用 MATLAB R2024b 实测通过（无图窗）
 phone/             安卓 App（Android Studio 工程，Java，零第三方库，minSdk 26，compile/target 35，AGP 8.7.3，Gradle 8.9）
 gazebo/            gen_world.py（地图 → Gazebo 世界）、minididi_bridge/（ROS 2 桥接包，含纯 Python 运动学后端与测试）
 tools/             mock_devices.py（协议参考实现）、gen_map.py、run_evaluation.py（一键跑全部评估实验）、system_test.py、
@@ -57,6 +57,7 @@ tools/             mock_devices.py（协议参考实现）、gen_map.py、run_ev
 scripts/           build / start_server / start_demo / experiment / phone_sim（.sh 与 .bat 成对）
 docs/              全流程文档（索引 docs/README.md，组员入门 docs/onboarding.md）、uml/（PlantUML 源）、report/report.md（技术报告源）、eval/、images/
 deliverables/      提交物：技术报告 docx/pdf、答辩 PPT、演示视频（都由 tools/ 下的脚本生成）
+.github/workflows/ci.yml   持续集成：Linux / Windows（.bat）/ Android（编译 APK）/ MATLAB（5 车接入）四个任务
 ```
 
 ## 3. 常用命令
@@ -79,7 +80,12 @@ python3 gazebo/gen_world.py           # 地图 → Gazebo 世界 + ros_gz_bridge
 scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路"，接入运行中的服务端
 cd server && mvn test                 # 服务端单元测试 29 项（需要能访问 Maven Central）
 cd phone && ./gradlew test            # 手机核心算法单元测试 65 项（需要 Android SDK）
+python3 tools/system_test.py --fleet external --bind-timeout 300   # 不起模拟车，等外部车队（如 MATLAB run_fleet）接入
 ```
+
+**持续集成**：推送后 GitHub Actions 自动运行 `.github/workflows/ci.yml`（只改 `*.md`、`docs/`、`deliverables/` 不触发；同一分支新推送会取消正在跑的）。
+沙箱里没有 gh，但公开仓库可以直接 `curl -s https://api.github.com/repos/fuzeliang1/ZongC/actions/runs?per_page=3` 查状态，
+日志用 GitHub MCP 的 `get_job_logs`。MATLAB 任务依赖仓库公开（私有库要配 `MLM_LICENSE_TOKEN`）；Android 任务产出的 APK 在运行页面的 Artifacts 里。
 
 没有 Maven / Android SDK 时（例如受限的云沙箱）直接用 javac + JUnit 4（junit-4.13.2.jar、hamcrest-core-1.3.jar，
 沙箱里在 `/opt/gradle-*/lib/`）：
@@ -151,7 +157,8 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | 03b5da1 / 738d994 | 全流程文档（立项、需求、设计、测试、部署、评估、CHANGELOG）+ PlantUML 图 18 张 + 评估图表；`tools/system_test.py` 系统集成测试 |
 | f5b8976 | Gazebo 接入（世界生成器 + ROS 2 桥接包，无界面模式实测 5 车零碰撞）；技术报告 docx/pdf |
 | 3d39eb2 / 198794f | 答辩 PPT；演示录屏工具与视频 |
-| 198794f 之后 | 组员上手指南 `docs/onboarding.md`；填写成员与分工；改为只用 GitHub、删除周会纪要模板 |
+| 198794f 之后 | 组员上手指南 `docs/onboarding.md`；填写成员与分工；改为只用 GitHub、删除周会纪要模板；封面与个人总结 |
+| 669688c / a6bcf21 | GitHub Actions 持续集成（Linux / Windows / Android / MATLAB），第一次运行全部通过；`run_fleet` 的 duration 参数、`system_test.py --fleet external`；修复 `start_demo.bat` 的 timeout 问题 |
 
 以上提交已全部合并到 main。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main。
 
@@ -177,17 +184,19 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 ### 需要人来做（AI 在云端做不了）
 
-- 在 MATLAB 里跑 `matlab/test_simcar_offline.m` 和 `run_fleet`（5 辆车），修复报错；再跑一次 `start_demo`（会自动起 MATLAB）。
-- 用 Android Studio 编译 `phone/`、装到真机实测（PDR、拍照识别、自动连接），做 `phone/README.md` 第 4 节的 10 m 正方形实验。
-- 向老师确认 `docs/plan.md` 第 8 节的问题；在 Windows 上实测 `.bat` 一键脚本（开发环境是 Linux，没跑过）。
+- 在自己的 MATLAB 上跑带"Matlab 模拟车视图"图窗的 `run_fleet`，再跑一次 `start_demo`（会自动起 MATLAB）——CI 只验证了 Linux 上无图窗的 R2024b。
+- 从 Actions 下载 CI 编译的 APK（或用 Android Studio 编译 `phone/`）装到真机实测（PDR、拍照识别、自动连接），做 `phone/README.md` 第 4 节的 10 m 正方形实验。
+- 向老师确认 `docs/plan.md` 第 8 节的问题；在中文 Windows 笔记本上跑一次 `start_demo.bat`（CI 只在英文版 Windows 上跑过）。
 - 拍摄真机 / 现场演示视频；准备答辩。每人的具体任务见 `docs/onboarding.md` 第 7 节。
 
 ## 7. 已知坑
 
 - 云沙箱的网络权限因环境而异：有的会话里 Maven Central、Google Maven、Gradle、npm、PyPI、CDN 都访问不了（403 或 DNS 失败），
   不要反复重试；有的会话可以访问（2026-10-24 那次可以 `pip install matplotlib`、`apt-get install graphviz`、下载 PlantUML）。无论如何：
-  服务端不用 Spring Boot、Gson jar 随仓库提供；网页不用 Three.js；Android APK 无法在沙箱里构建。
-- 安卓层在沙箱里只能对照手写的安卓 API 桩做编译检查，桩没有提交进仓库；改了安卓代码请用 Android Studio 编译确认。
+  服务端不用 Spring Boot、Gson jar 随仓库提供；网页不用 Three.js；Android APK 无法在沙箱里构建（交给 CI）。
+- 安卓层在沙箱里只能对照手写的安卓 API 桩做编译检查，桩没有提交进仓库；改了安卓代码以 CI 的 Android 任务（真实 SDK）为准。
+- `.bat` 里不要用 `timeout /t N` 等待：输入被重定向时（CI、部分 IDE 终端）会直接报错退出，用 `ping -n N+1 127.0.0.1 >nul`。
+- GitHub Actions 的同一分支并发组会取消正在跑的运行：等一轮 CI 结果时不要推送会触发 CI 的提交（只改文档的可以）。
 - `pkill -f DwServer`（以及任何 `pkill -f <命令行里也出现的字符串>`）会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID。
   `kill` 掉 `ros2 run` / `xvfb-run` / `timeout` 等包装进程时子进程会残留（同名 Gazebo 话题出现多个发布者，车辆位置乱跳）：
   用 `setsid` 启动、`kill -- -<pgid>` 结束，或用 ros2 launch。

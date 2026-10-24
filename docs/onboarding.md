@@ -14,8 +14,9 @@
 - 老师课程 PPT 里的必做项和挑战项，代码都已写完，并合并到 GitHub 仓库 `fuzeliang1/ZongC` 的 `main` 分支。
 - 四个提交物（技术报告 docx / pdf、答辩 PPT、演示视频）都已生成初稿，在 `deliverables/`；封面（第 1 组，指导教师许春权）
   和报告 9.3 节的个人总结都已写好。
-- 还没完成的是**要真设备实测**的部分：Matlab 车（代码没在 MATLAB 里跑过）、安卓真机（没编译成 APK 装到手机上）、
-  带界面的 Gazebo、答辩教室的网络、Windows 一键脚本（开发环境是 Linux，`.bat` 没在 Windows 上实际运行过）。
+- 仓库配了持续集成（CI，见 6.6 节）：每次推送自动在 GitHub 的云端机器上验证服务端、Windows 一键脚本、安卓 APK 编译和
+  Matlab 车队。Matlab 车已在 MATLAB R2024b 中实际运行（5 车接入零碰撞），安卓 App 已用真实 SDK 编译出 APK，`.bat` 已在 Windows 上跑通。
+- 还没完成的是**要真设备、人来看**的部分：安卓 App 装到真机上实测、Matlab 的"模拟车视图"图窗、带界面的 Gazebo、答辩教室的网络。
 
 ## 2. 小组分工
 
@@ -78,6 +79,7 @@ UML 图共 18 张（用例图 2、组件图、部署图、类图 3、时序图 5
 | `python3 tools/system_test.py` | 系统集成测试：服务端 + 5 车 + 手机，跑演示场景、断线接管、图像识别，断言零碰撞 | 约 4 分钟 |
 | `python3 tools/run_evaluation.py` | 全部效果评估实验 → `docs/eval/summary.md` + CSV | 约 5 分钟 |
 | `python3 tools/plot_eval.py` | 评估 CSV → `docs/images/eval/*.png`（需要 matplotlib） | 几秒 |
+| 推送到 GitHub（自动） | 持续集成：以上单元测试和系统集成测试 + Windows 一键脚本 + 编译 APK + Matlab 车队，见 6.6 节 | 约 10 分钟 |
 
 ### 3.4 提交物（`deliverables/`）
 
@@ -100,8 +102,8 @@ UML 图共 18 张（用例图 2、组件图、部署图、类图 3、时序图 5
 | 基于最优化的路径规划 | ✅ | A* 最短路（带转弯代价）；匈牙利算法全局最优派单 |
 | 人机交互与动态显示 | ✅ | 2D 实时地图、统计面板、配置面板 |
 | 不与静态 / 动态障碍碰撞 | ✅ | 格子预约：一格只给一辆车，两车授权区永不重叠；16 车高负载 6 × 60 分钟零碰撞（含撞障碍） |
-| Matlab 模拟车 ≥5 辆，与数字车同步 | 🟡 | 代码完成（按测试过的 Python 参考实现逐行移植），**待在 MATLAB 中实测** |
-| 手机 App：读 GPS / 北斗、加速度、陀螺、地磁，无线上报并同步，惯性元件估计位姿 | 🟡 | 代码完成，核心算法 65 项测试通过并做过端到端仿真，**待真机实测** |
+| Matlab 模拟车 ≥5 辆，与数字车同步 | ✅ | CI 中用 MATLAB R2024b 实际运行：离线控制器测试通过，5 辆 Matlab 车接入服务端 200 s，零碰撞、零越权（本地带图窗运行待确认） |
+| 手机 App：读 GPS / 北斗、加速度、陀螺、地磁，无线上报并同步，惯性元件估计位姿 | 🟡 | 代码完成，核心算法 65 项测试通过并做过端到端仿真，CI 已编译出 APK，**待真机实测** |
 
 ### 4.2 挑战（决定能否拿"优"）
 
@@ -232,7 +234,7 @@ cd ZongC
 ### 6.5 改代码的规矩
 
 - **`main` 永远能编译、测试通过、能演示**。新功能开分支（例如 `feature/matlab-mpc`、`fix/xxx`），发 Pull Request，
-  按第 2 节的结对审查后再合并。合并前在本地跑一遍单元测试和一键演示。
+  按第 2 节的结对审查、**CI 全部通过（绿色 ✓）** 后再合并。合并前在本地跑一遍单元测试和一键演示。
 - **改服务端逻辑要补测试**（`server/src/test`），改手机算法也要补（`phone/app/src/test`）。没有 Maven 时只用 `javac` + JUnit 4
   的跑法见 `CLAUDE.md` 第 3 节。
 - **零碰撞是硬指标**：改了影响结果的逻辑，重跑 `python3 tools/system_test.py` 和 `python3 tools/run_evaluation.py`，
@@ -242,18 +244,36 @@ cd ZongC
 - 文档、注释、界面、提交信息都用中文；`.sh` 用 LF 换行，`.bat` 用 CRLF 且只写英文注释（见 `.gitattributes`）。
 - 手机 App 只用 Java 8 语法和安卓自带 API，`core` 包不能引用 `android.*`；网页不用第三方库。
 
+### 6.6 持续集成（CI）怎么看
+
+仓库的 `.github/workflows/ci.yml` 让 GitHub 在每次推送和 Pull Request 后自动开四台云端机器测试（只改文档的提交不触发），
+约 10 分钟出结果。结果在 [Actions 页面](https://github.com/fuzeliang1/ZongC/actions/workflows/ci.yml) 查看，根目录 README 顶部的徽章也会显示通过（passing）或失败（failing）。
+
+| 任务 | 验证什么 | 失败时先看 |
+|---|---|---|
+| 服务端与系统测试（Linux） | 服务端 29 项、Gazebo 桥接 9 项单元测试；离线实验；系统集成测试（服务端 + 5 车 + 手机，零碰撞） | 樊宇泽 |
+| Windows 一键脚本 | `build.bat`、`experiment.bat`、`start_server.bat`、`phone_sim.bat`、`start_demo.bat` 在 Windows 上能用 | 樊宇泽 |
+| 手机 App | 65 项单元测试；用真实安卓 SDK 编译 APK | 付泽亮 |
+| Matlab 模拟车 | `test_simcar_offline`；`run_fleet` 的 5 辆 Matlab 车接入服务端 200 s，零碰撞、零越权 | 李昊博 |
+
+- **下载 APK**：点最新一次成功的运行，页面底部 Artifacts 里的 `MiniDiDi-phone-debug-apk`（需要登录 GitHub，保留 30 天）。
+- **失败了怎么办**：点进红色的任务，展开红色 ✗ 的步骤看日志；系统测试的服务端、模拟车日志在 Artifacts 里（`*-logs`）。
+  修好后再推送，CI 会自动重跑。不要为了变绿去删测试或跳过检查。
+- MATLAB 任务能免费运行是因为仓库是公开的；如果改成私有库，需要向 MathWorks 申请批处理许可令牌，
+  在仓库 Settings → Secrets 里配置为 `MLM_LICENSE_TOKEN`，否则这个任务会失败。
+
 ## 7. 每个人的第一批任务
 
 | 成员 | 任务 | 怎么做 | 完成后更新 |
 |---|---|---|---|
 | 阮飞翔 | 问老师 | `docs/plan.md` 第 8 节的四个问题 | `docs/plan.md` |
 | 阮飞翔 | 组织现场彩排 | 按 `docs/deployment.md` 第 5、6 节：自带路由器、关 AP 隔离、防火墙放行 8080 / 9000 / 9001；在答辩教室完整跑 10 分钟，碰撞全为 0 | `docs/test-report.md` 第 7 节 |
-| 樊宇泽 | Windows 上验证一键脚本 | 在 Windows 笔记本上依次运行 `scripts\build.bat`、`start_server.bat`、`start_demo.bat`、`experiment.bat`、`phone_sim.bat`，修复报错 | `docs/test-report.md` |
+| 樊宇泽 | 在自己的 Windows 笔记本上跑一次 `start_demo.bat` | CI 已在英文版 Windows 上验证 5 个 `.bat`；这里确认中文系统的控制台、浏览器里 2D / 3D 页面的显示，以及防火墙弹窗 | `docs/test-report.md` 第 7 节 |
 | 樊宇泽 | 在自己电脑上跑全部测试 | IDEA 或 `mvn test` 跑服务端 29 项；`python3 tools/system_test.py`；熟悉 `World.java`、`TrafficController.java` | `docs/test-report.md` 第 7 节（实测结果） |
-| 李昊博 | Matlab 车队实测 | MATLAB 进入 `matlab/`，先跑 `test_simcar_offline`；再启动服务端、跑 `run_fleet`，网页上 car-1 … car-5 显示为 Matlab 驱动；最后跑一次 `start_demo`，确认它会自动拉起 MATLAB | `matlab/README.md`、`docs/test-report.md` 第 7 节 |
+| 李昊博 | Matlab 车队本地运行 | CI 已用 MATLAB R2024b 跑通离线测试和 5 车接入；在自己电脑上启动服务端、跑带"Matlab 模拟车视图"的 `run_fleet`，网页上 car-1 … car-5 显示为 Matlab 驱动；再跑一次 `start_demo`，确认它会自动拉起 MATLAB | `matlab/README.md`、`docs/test-report.md` 第 7 节 |
 | 李昊博 | 用真 MATLAB 重录演示视频 | Matlab 车队跑通后运行 `python3 tools/record_demo.py`（需要 Node.js + Playwright、ffmpeg），片头文字在 `tools/record_demo.py` 里改 | `deliverables/MiniDiDi_demo.mp4` |
 | 付泽亮 | 加协作者 | GitHub → Settings → Collaborators，邀请另外三位 | — |
-| 付泽亮 | 手机真机实测 | Android Studio 打开 `phone/`，编译安装（`phone/README.md` 第 1 节）；连上服务端；做第 4 节的 10 m × 10 m 正方形行走实验，测闭合误差 | `docs/evaluation.md` 4.6 节、`phone/README.md` 第 4 节 |
+| 付泽亮 | 手机真机实测 | 从 Actions 下载 CI 编译的 APK 安装（或用 Android Studio 编译，`phone/README.md` 第 1 节）；连上服务端；做第 4 节的 10 m × 10 m 正方形行走实验，测闭合误差 | `docs/evaluation.md` 4.6 节、`phone/README.md` 第 4 节 |
 | 付泽亮 | 带界面的 Gazebo | 在 Ubuntu 24.04 上按 `gazebo/README.md` 第 3–5 节安装、构建、运行，截图、录屏 | `gazebo/README.md` 第 6 节、`docs/evaluation.md` 4.8 节 |
 | 每个人 | 读一遍自己的个人总结 | 报告 9.3 节已按分工写好，实测后可以补上真机、MATLAB 上遇到的问题 | `docs/report/report.md` |
 
@@ -277,9 +297,9 @@ cd ZongC
 
 | 项 | 说明 | 对策 |
 |---|---|---|
-| Matlab 车队 | 没在 MATLAB 里运行过，可能有语法或版本问题 | 李昊博尽早实测；不行时 `start_demo` 会自动改用 Python 模拟车，演示不受影响 |
-| 安卓真机 | 界面层只做过编译检查 | 付泽亮尽早编译安装；`LocationListener` 的三个旧回调不能删，否则安卓 10 及以下会崩溃 |
-| Windows 脚本 | `.bat` 没在 Windows 上实际运行过 | 樊宇泽验证 |
+| Matlab 车队 | CI 中 MATLAB R2024b（Linux）实测通过；图窗显示、Windows 上的 MATLAB、更老的 MATLAB 版本没测 | 李昊博在自己电脑上跑一次；不行时 `start_demo` 会自动改用 Python 模拟车，演示不受影响 |
+| 安卓真机 | CI 能编译出 APK，但还没在真机上运行 | 付泽亮尽早安装实测；`LocationListener` 的三个旧回调不能删，否则安卓 10 及以下会崩溃 |
+| Windows 脚本 | CI（英文版 Windows）中全部通过；中文系统没测 | 樊宇泽在自己笔记本上跑一次 |
 | 现场网络 | 只在本机测试过；校园网常有终端隔离 | 自带路由器、固定 IP、放行端口，答辩教室彩排 |
 | 行人接触 | 模拟手机随机横穿马路时可能从侧面撞上行驶中的车，碰撞监测照实记录 | 属设计限制（车只对前方授权格里的行人刹车），报告已说明；演示时拿手机的人不要横穿车流 |
 | 课程要求 gitee | 课程 PPT 写的是 gitee 私有库，小组决定只用 GitHub | 如果老师坚持，在 gitee 上"从 GitHub 导入仓库"即可，几分钟完成 |

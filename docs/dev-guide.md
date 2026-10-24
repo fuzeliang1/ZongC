@@ -98,7 +98,7 @@ ZongC/
 
 1. `main` 分支始终保持"能编译、测试通过、能演示"。
 2. 每个功能新建分支，例如 `feature/matlab-mpc`、`feature/phone-app`、`fix/xxx`。
-3. 完成后发起 Pull Request，至少一位组员审查后再合并。合并前在本地跑一遍 `mvn test` 和一键演示。
+3. 完成后发起 Pull Request，至少一位组员审查、并且持续集成（GitHub Actions，`.github/workflows/ci.yml`）全部通过后再合并。合并前在本地跑一遍 `mvn test` 和一键演示。CI 的说明见 [上手指南 6.6 节](onboarding.md#66-持续集成ci怎么看)。
 4. 提交信息写清楚做了什么，例如"Matlab 模拟车：速度环加入积分项，减小稳态误差"。
 5. 每次中期、期末提交前打标签（tag），例如 `v0.8-midterm`，作为"版本发布记录"。
 

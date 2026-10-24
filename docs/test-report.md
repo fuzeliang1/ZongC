@@ -4,8 +4,8 @@
 |---|---|
 | 被测版本 | `main` 分支，提交 `4bd075a` 之后（含本报告所在提交） |
 | 测试日期 | 2026-10-24（评估实验数据生成于 2026-10-23） |
-| 测试环境 | Linux 云主机，4 核（评估实验时 2 核）；OpenJDK 21；Python 3.12；Chromium（Playwright 无头模式） |
-| 结论 | 服务端 29 项、手机核心 65 项、Gazebo 桥接 9 项单元测试全部通过；系统集成测试、手机端到端仿真、网页冒烟测试、Gazebo 联调（无界面模式）全部通过；Matlab 车队、安卓真机、带界面的 Gazebo 尚未实测 |
+| 测试环境 | Linux 云主机，4 核（评估实验时 2 核）；OpenJDK 21；Python 3.12；Chromium（Playwright 无头模式）；GitHub Actions（ubuntu-latest、windows-latest，Temurin JDK 17，MATLAB R2024b） |
+| 结论 | 服务端 29 项、手机核心 65 项、Gazebo 桥接 9 项单元测试全部通过；系统集成测试、手机端到端仿真、网页冒烟测试、Gazebo 联调（无界面模式）全部通过；持续集成中 Windows 一键脚本、安卓 APK 编译、Matlab 车队（MATLAB R2024b，5 车接入）全部通过；安卓真机、带界面的 Gazebo 尚未实测 |
 
 ## 1. 测试计划
 
@@ -23,7 +23,8 @@
 | 端到端测试 | 手机核心代码 ↔ 服务端 | 同一套核心代码模拟"拿着手机走路"接入运行中的服务端 | `scripts/phone_sim.sh`（`PhoneSim`） | ✅ |
 | 界面冒烟测试 | 2D、3D 网页 | 无头浏览器打开页面，等数据流动，检查控制台错误并截图 | Playwright + Chromium | ✅（脚本见 4.4） |
 | 系统测试（性能、安全、长时间） | 整个数字世界 | 离线仿真：派单对比、空车调度对比、感知、6 × 60 分钟高负载 | `tools/run_evaluation.py` | ✅ |
-| 现场测试 | Matlab 车队、安卓真机、Gazebo、现场网络 | 按部署手册在真实设备上运行 | 人工 | ❌ 待人来做 |
+| 持续集成 | 以上自动化测试 + Windows 一键脚本 + 安卓 APK 编译 + Matlab 车队 | 每次推送在 GitHub 云端机器上自动运行（4.6 节） | GitHub Actions | ✅ |
+| 现场测试 | Matlab 车队本地图窗、安卓真机、带界面的 Gazebo、现场网络 | 按部署手册在真实设备上运行 | 人工 | ❌ 待人来做 |
 
 **为什么大量用随机测试**：交通管控、规划这类逻辑的边界情况很多，手写用例很难覆盖。测试里用固定种子的随机输入
 （300 组随机起终点、15 分钟 16 车稠密交通等）反复检查不变量（零碰撞、路线合法、不卡死），既能覆盖大量情况，又能复现。
@@ -198,6 +199,35 @@ await page.goto(url); await page.waitForTimeout(8000); await page.screenshot({ p
 另外：桥接包单元测试 9 项（控制器不越过 stopS、授权收回后在新停车点前停下、转弯横向偏差 < 0.1 m、前车急停、
 世界生成器矩形合并不重不漏、SDF 结构与话题唯一性）全部通过；纯 Python 运动学后端接入服务端 90 s，最大越界 0.000 m、零碰撞。
 
+### 4.6 持续集成（GitHub Actions）
+
+`.github/workflows/ci.yml` 定义了四个并行任务，每次推送和 Pull Request 自动在 GitHub 的云端机器上运行
+（只改文档的提交不触发）。结果在仓库的 [Actions 页面](https://github.com/fuzeliang1/ZongC/actions/workflows/ci.yml) 查看，
+README 顶部的徽章显示最近一次的结果。2026-10-24 第一次完整运行（提交 `a6bcf21`）全部通过：
+
+| 任务 | 运行环境 | 内容 | 结果 |
+|---|---|---|---|
+| 服务端与系统测试 | ubuntu-latest，JDK 17 | `mvn test`（29 项）、Gazebo 桥接测试（9 项）、离线实验冒烟测试、`tools/system_test.py`（180 s + 30 s） | ✅ |
+| Windows 一键脚本 | windows-latest，JDK 17，Python 3.12 | `build.bat`、`experiment.bat`、Windows 上的系统集成测试（90 s）；`start_server.bat` 启动后跑 `phone_sim.bat`；`start_demo.bat` 启动后检查 5 辆模拟车 + 1 部模拟手机接入 | ✅ phone_sim 全部检查通过（位置差平均 0.08 m，两次为行人停车，叫车成功）；start_demo 5 车 + 1 手机接入，零碰撞 |
+| 手机 App | ubuntu-latest，安卓 SDK | `./gradlew test assembleDebug`：65 项单元测试，用真实安卓 SDK（compileSdk 35）编译调试版 APK，作为附件上传 | ✅ 这是安卓界面层第一次用真实 SDK 编译 |
+| Matlab 模拟车 | ubuntu-latest，MATLAB R2024b | `test_simcar_offline`；`system_test.py --fleet external` 启动服务端并等待外部车队，`run_fleet("127.0.0.1", [], false, 200)` 让 5 辆 Matlab 车接入 200 s | ✅ 见下表 |
+
+Matlab 车队第一次在真正的 MATLAB 中运行的结果：
+
+| 检查项 | 结果 |
+|---|---|
+| 离线控制器测试 | ✅ 第一次授权停车点 4.00 m，实际最远 4.000 m（没有越过）；最终到达终点，距离 0.000 m |
+| 5 辆 Matlab 车接入 | ✅ 4.5 s 内全部注册，驾驶方显示为 MATLAB；每辆车运行 200 s，收到 9~11 条路线、约 200 次授权，行驶约 260 m |
+| 订单 | ✅ 生成 33 单，送达 19 单 |
+| 车车碰撞 / 撞墙 / 撞障碍 / 越权行驶 | ✅ 0 / 0 / 0 / 0 |
+| 最小车距 / 最小离墙 | 0.28 m / 0.137 m |
+| 场景事件 | ✅ 两处未知障碍分别在出现 6.0 s、16.0 s 后被发现，车辆借对向车道掉头 |
+| 车队结束后接管 | ✅ 5 辆车同时断开，全部由数字世界内部仿真接管，系统继续运行 |
+| 行人接触 | 1 次（模拟手机从侧面走进车身，见第 7 节） |
+
+CI 没有覆盖的：MATLAB 的"Matlab 模拟车视图"图窗（CI 里不显示图窗）、Windows 上的 MATLAB 和 `start_demo` 自动启动 MATLAB、
+中文 Windows 控制台、网页在浏览器中的显示效果、安卓真机运行。
+
 ## 5. 系统测试（性能、安全、长时间运行）
 
 由 `tools/run_evaluation.py` 完成，详细数据与分析见 [效果评估报告](evaluation.md)。与需求对应的结论：
@@ -235,13 +265,21 @@ await page.goto(url); await page.waitForTimeout(8000); await page.screenshot({ p
 | D08 | Gazebo 渲染截图时 | Gazebo 很忙时小车停在停车场，服务端看到的位置乱跳 | 传送服务超时后改用了里程计里的停车场位置 | 传送确认之前一直重试，只报目标位姿、只发零速度 | 截图运行中 5 车正常行驶，越界 0 |
 | D09 | Gazebo 联调 | Ctrl+C 时桥接节点报错、统计不输出 | ROS 上下文关闭后仍发布停车指令 | 先输出统计，发布失败时忽略 | 正常退出 |
 
+搭建持续集成时发现并修复的问题：
+
+| 编号 | 发现方式 | 现象 | 原因 | 修复 | 验证 |
+|---|---|---|---|---|---|
+| D10 | CI（Windows） | `start_demo.bat` 输出"Input redirection is not supported"，没有等服务端启动就启动了模拟车（靠模拟车自动重连才恢复） | `timeout` 命令在输入被重定向时（CI、部分 IDE 终端）直接报错退出 | 改用 `ping -n 7 127.0.0.1 >nul` 等待 6 s | CI 中无报错，5 车 + 1 手机正常接入 |
+| D11 | 开发 CI 的外部车队模式时 | 服务端刚启动时 `system_test.py` 读取快照报 `KeyError: 'agents'` | 第一帧快照发布前接口返回 `{}` | 读取快照时等到第一帧发布 | 外部车队模式与默认模式都通过 |
+
 ## 7. 已知限制与未覆盖项
 
 | 项 | 说明 | 计划 |
 |---|---|---|
 | 行人接触 | 系统集成测试中记录到少量"行人接触"（`freeContacts`）：模拟手机随机横穿马路时从侧面走进行驶中的车身。车只能对**前方**授权格里的行人刹车，行人从侧面撞上来任何车端规则都避免不了，碰撞监测照实记录 | 属设计限制，在报告中说明；演示时手机用户不要横穿车流 |
-| Matlab 车队 | 代码按已测试的 Python 参考实现逐行移植，但**没有在 MATLAB 中运行过** | 组员在 MATLAB 中跑 `test_simcar_offline` 和 `run_fleet`，修复报错后补充本报告 |
-| 安卓真机 | 核心算法已单元测试和端到端仿真；安卓界面层只做过编译检查 | 用 Android Studio 编译安装，做 10 m 正方形实验 |
+| Matlab 车队 | CI 中用 MATLAB R2024b（Linux、不显示图窗）实测通过（4.6 节）；"Matlab 模拟车视图"图窗、Windows 上的 MATLAB、`start_demo` 自动启动 MATLAB 尚未实测 | 组员在自己的 MATLAB 上跑一次带视图的 `run_fleet` 和 `start_demo` |
+| Windows 一键脚本 | CI（英文版 Windows）中 5 个 `.bat` 全部通过；中文 Windows 控制台、浏览器里的显示效果没有自动检查 | 组员在自己的 Windows 笔记本上跑一次 `start_demo.bat` |
+| 安卓真机 | 核心算法已单元测试和端到端仿真；CI 用真实安卓 SDK 编译通过并产出 APK；还没有装到真机上运行 | 从 Actions 下载 APK（或用 Android Studio 编译）安装，做 10 m 正方形实验 |
 | Gazebo | 无界面模式（`gz sim -s`）已实测通过（4.5 节）；带界面的 Gazebo 窗口、Ubuntu 上 apt 安装的版本未测 | 在 Ubuntu 24.04 上按 `gazebo/README.md` 带界面运行一次 |
 | 现场网络 | 只在本机回环上测试过 | 在答辩教室用自带路由器彩排 |
 | 网页交互 | 只做了冒烟测试（加载、渲染、无报错），按钮和表单没有自动化测试 | 演示前人工过一遍控制面板 |
@@ -252,4 +290,5 @@ await page.goto(url); await page.waitForTimeout(8000); await page.screenshot({ p
 - 系统集成测试在无人操作的情况下完成了设备接入、场景事件、感知发现障碍、掉头脱困、断线接管、图像识别全流程，零碰撞、零越权。
 - 长时间高负载实验（6 × 60 分钟）零碰撞，满足必做要求中"不与静态 / 动态障碍碰撞"。
 - 5 辆 Gazebo 物理仿真小车接入后同样零碰撞、零越权，联调中发现的延迟与执行滞后问题已修复。
-- 剩余风险集中在需要真实设备的部分（Matlab、安卓真机、带界面的 Gazebo、现场网络），需要组员在第 13–14 周加固阶段完成并补充本报告。
+- 持续集成每次推送自动验证：Windows 一键脚本可用；安卓 App 能用真实 SDK 编译出 APK；Matlab 车队在 MATLAB R2024b 中 5 车接入零碰撞、零越权。
+- 剩余风险集中在需要真实设备的部分（安卓真机、带界面的 Gazebo、Matlab 本地图窗、现场网络），需要组员在第 13–14 周加固阶段完成并补充本报告。
