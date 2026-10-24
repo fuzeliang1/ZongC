@@ -11,7 +11,8 @@ set SCENARIO=demo
 if not "%~1"=="" set SCENARIO=%~1
 start "MiniDiDi DW server" cmd /c scripts\start_server.bat --scenario %SCENARIO%
 echo Waiting for the server to start...
-timeout /t 6 /nobreak >nul
+rem ping instead of timeout: timeout fails when input is redirected (CI, some IDE terminals)
+ping -n 7 127.0.0.1 >nul
 set PY=python
 where python >nul 2>nul
 if errorlevel 1 set PY=py -3

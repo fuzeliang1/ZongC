@@ -45,7 +45,7 @@ jobs:
         run: python3 tools/system_test.py --out system_test.json
       - name: 上传日志
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: linux-system-test-logs
           path: |
@@ -118,7 +118,7 @@ jobs:
           exit 0
       - name: 上传日志
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-logs
           path: |
@@ -142,14 +142,14 @@ jobs:
         working-directory: phone
         run: ./gradlew --no-daemon test assembleDebug
       - name: 上传 APK（在本次运行页面底部的 Artifacts 下载，解压后装到手机上）
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: MiniDiDi-phone-debug-apk
           path: phone/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: 上传测试报告
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: android-test-reports
           path: phone/app/build/reports/
@@ -191,7 +191,7 @@ jobs:
           test "$(cat system_test_matlab.exit 2>/dev/null)" = "0"
       - name: 上传日志
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: matlab-system-test-logs
           path: |
