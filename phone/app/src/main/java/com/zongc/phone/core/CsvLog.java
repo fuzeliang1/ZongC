@@ -8,13 +8,15 @@ import java.io.Writer;
  *
  * <p>一次记录生成两个文件，时间列 t_s 都从同一时刻起算（秒），可以直接对齐：</p>
  * <ul>
- *   <li>pose_*.csv —— 10 Hz 位姿与状态（{@link #POSE_HEADER}）；</li>
+ *   <li>pose_*.csv —— 10 Hz 状态（{@link #POSE_HEADER}）：手机车在地图上的位姿（car_*）、
+ *       手机自己的惯性推算位姿（px, py, yaw_p）、走路速度、步伐、卫星和网络；</li>
  *   <li>imu_*.csv  —— 原始传感器数据（{@link #IMU_HEADER}），用于在 MATLAB 里离线复现 PDR。</li>
  * </ul>
  * 写入失败（例如存储已满）不会抛异常打断传感器线程，而是记在 {@link #error()} 里。
  */
 public final class CsvLog {
-    public static final String POSE_HEADER = "t_s,x,y,theta,v,w,raw_x,raw_y,px,py,yaw_p,steps,distance,"
+    public static final String POSE_HEADER = "t_s,car_x,car_y,car_theta,car_v,car_s,car_stop_s,"
+            + "walk_v,px,py,yaw_p,yaw_rate,steps,distance,"
             + "step_len,cadence,walking,acc_sig,mag_yaw,tilt_deg,lat,lon,gnss_acc,gnss_used,"
             + "sats_used,bds_used,connected,rtt_ms";
     public static final String IMU_HEADER = "t_s,sensor,x,y,z";
@@ -41,12 +43,20 @@ public final class CsvLog {
         write(header + "\n");
     }
 
-    /** 写一行位姿。sats/bds 为参与定位的卫星总数 / 北斗卫星数，未知时传 -1。 */
-    public synchronized void pose(PdrState s, int satsUsed, int bdsUsed, boolean connected, double rttMs) {
+    /**
+     * 写一行。car 为手机车状态（还没绑定数字车时传 null，对应列写 NaN）；
+     * sats/bds 为参与定位的卫星总数 / 北斗卫星数，未知时传 -1。
+     */
+    public synchronized void pose(PdrState s, RouteFollower.Status car, int satsUsed, int bdsUsed,
+                                  boolean connected, double rttMs) {
         sb.setLength(0);
         Fmt.fixed(sb, (s.t - t0) * 1e-9, 3, "NaN").append(',');
-        num(s.x, 3).num(s.y, 3).num(s.theta, 4).num(s.v, 3).num(s.w, 4);
-        num(s.rawX, 3).num(s.rawY, 3).num(s.px, 3).num(s.py, 3).num(s.yawP, 4);
+        boolean bound = car != null && car.ready;
+        boolean route = bound && car.hasRoute;
+        num(bound ? car.x : Double.NaN, 3).num(bound ? car.y : Double.NaN, 3);
+        num(bound ? car.theta : Double.NaN, 4).num(bound ? car.v : Double.NaN, 3);
+        num(route ? car.s : Double.NaN, 3).num(route ? car.stopS : Double.NaN, 3);
+        num(s.v, 3).num(s.px, 3).num(s.py, 3).num(s.yawP, 4).num(s.w, 4);
         sb.append(s.steps).append(',');
         num(s.distance, 3).num(s.stepLength, 3).num(s.cadence, 1);
         sb.append(s.walking ? 1 : 0).append(',');

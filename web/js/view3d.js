@@ -11,7 +11,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const STATUS = {
   CRUISING: '空车巡游', TO_PICKUP: '前往接客', BOARDING: '乘客上车',
-  TO_DROPOFF: '送客中', ALIGHTING: '乘客下车', FREE: '自由移动',
+  TO_DROPOFF: '送客中', ALIGHTING: '乘客下车',
 };
 const DRIVER = { INTERNAL: '内部仿真', MATLAB: 'Matlab', GAZEBO: 'Gazebo', PHONE: '手机', GENERIC: '外部设备' };
 
@@ -23,7 +23,7 @@ const C = {
   plaza: rgb('#dfe5e9'), asphalt: rgb('#5d646c'), cross: rgb('#666d75'), mark: rgb('#e9edf0'),
   curb: rgb('#c8cfd5'), glass: rgb('#55697f'), roofTrim: rgb('#e7eaee'),
   facades: ['#b9c0ca', '#cdbda6', '#a9b9c8', '#c9b3ab', '#adc0b1', '#bfc3cf', '#bdb1c6'].map(rgb),
-  phone: rgb('#7b5cd6'), amber: rgb('#e09b10'), sensed: rgb('#dd6f12'), danger: rgb('#cf3f36'),
+  amber: rgb('#e09b10'), sensed: rgb('#dd6f12'), danger: rgb('#cf3f36'),
   signFree: rgb('#2fbf5b'), signPickup: rgb('#f0a020'), signBusy: rgb('#e5483d'),
 };
 
@@ -276,7 +276,6 @@ function drawWorld(s, poses, t) {
   }
   const tiles = new MeshBuilder(), routes = new MeshBuilder(), fans = new MeshBuilder(), rays = new MeshBuilder();
   for (const a of s.agents) {
-    if (!a.taxi) continue;
     const col = rgb(carColor(a.num));
     const p = poses.get(a.id);
     if (a.held) {
@@ -346,14 +345,9 @@ function drawWorld(s, poses, t) {
     }
   }
 
-  // ---- 车辆与行人
+  // ---- 车辆
   for (const a of s.agents) {
     const p = poses.get(a.id);
-    if (!a.taxi) {
-      renderer.draw(meshes.person, trs(p.x, 0, -p.y, p.theta), [...C.phone, 1]);
-      renderer.draw(meshes.ring, trs(p.x, 0.003, -p.y, 0, a.r, 1, a.r), [...C.phone, 0.55], { unlit: true, noDepthWrite: true });
-      continue;
-    }
     const col = rgb(carColor(a.num));
     const m = trs(p.x, 0, -p.y, p.theta);
     renderer.draw(meshes.shadow, m, [0, 0, 0, 0.22], { unlit: true, noDepthWrite: true });
@@ -381,7 +375,7 @@ function updateLabels(s, poses, w, h) {
     const dpr = renderer.canvas.width / Math.max(1, renderer.canvas.clientWidth);
     for (const a of s.agents) {
       const p = poses.get(a.id);
-      const sp = project(viewProj, p.x, a.taxi ? 0.55 : 0.75, -p.y, w, h);
+      const sp = project(viewProj, p.x, 0.55, -p.y, w, h);
       let el = labelEls.get(a.id);
       if (!sp || sp[0] < -40 || sp[1] < -40 || sp[0] > w + 40 || sp[1] > h + 40) {
         if (el) el.style.display = 'none';
@@ -390,14 +384,14 @@ function updateLabels(s, poses, w, h) {
       }
       if (!el) {
         el = document.createElement('div');
-        el.className = 'lb' + (a.taxi ? '' : ' phone');
+        el.className = 'lb';
         box.appendChild(el);
         labelEls.set(a.id, el);
       }
       el.style.display = '';
-      const text = a.taxi ? String(a.num) + (a.driver !== 'INTERNAL' ? ' ' + ({ MATLAB: 'M', GAZEBO: 'G', GENERIC: 'E' }[a.driver] || '') : '') : a.id;
+      const text = String(a.num) + (a.driver !== 'INTERNAL' ? ' ' + ({ MATLAB: 'M', GAZEBO: 'G', PHONE: 'P', GENERIC: 'E' }[a.driver] || '') : '');
       if (el.textContent !== text) el.textContent = text;
-      if (a.taxi) el.style.background = carColor(a.num);
+      el.style.background = carColor(a.num);
       el.style.left = sp[0] / dpr + 'px';
       el.style.top = sp[1] / dpr + 'px';
       live.add(a.id);
@@ -425,11 +419,11 @@ function renderCard(s) {
     return;
   }
   card.hidden = false;
-  const lines = [`<span class="swatch" style="background:${a.taxi ? carColor(a.num) : '#7b5cd6'}"></span><b>${esc(a.id)}</b>　${esc(STATUS[a.status] || a.status)}`,
+  const lines = [`<span class="swatch" style="background:${carColor(a.num)}"></span><b>${esc(a.id)}</b>　${esc(STATUS[a.status] || a.status)}`,
     `驱动：${esc(DRIVER[a.driver] || a.driver)}${a.device ? '（' + esc(a.device) + '）' : ''}`,
     `速度 ${a.v.toFixed(2)} m/s，位置 (${a.x.toFixed(1)}, ${a.y.toFixed(1)})`];
   if (a.taskId) lines.push(`订单 ${esc(a.taskId)}`);
-  if (a.seen) lines.push(`雷达看到：车 ${a.seen[0]}，行人 ${a.seen[1]}${a.seen[2] ? `，未知障碍 ${a.seen[2]} 处` : ''}`);
+  if (a.seen) lines.push(`雷达看到：车 ${a.seen[0]}${a.seen[1] ? `，未知障碍 ${a.seen[1]} 处` : ''}`);
   if (a.zone) lines.push(`空车调度：在区域 ${esc(a.zone)} 待命`);
   if (a.blocked) lines.push('<span style="color:var(--danger)">前方受阻，等待通行</span>');
   card.innerHTML = lines.join('<br>');
@@ -468,7 +462,7 @@ function renderTop(s) {
 
 function setCamMode(mode) {
   if (mode === 'follow' && !selected) {
-    const first = latest?.agents.find((a) => a.taxi);
+    const first = latest?.agents[0];
     if (first) selected = first.id;
   }
   cam.mode = mode;

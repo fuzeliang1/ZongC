@@ -13,8 +13,7 @@
     "aAcc": 1.0,
     "aDec": 1.5,
     "vTurn": 0.6,
-    "stopMargin": 0.08,
-    "phoneRadius": 0.45
+    "stopMargin": 0.08
   },
 
   "traffic": {

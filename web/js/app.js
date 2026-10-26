@@ -3,7 +3,7 @@ import { MapView, carColor, driverLetter } from './map.js';
 
 const STATUS = {
   CRUISING: '空车巡游', TO_PICKUP: '前往接客', BOARDING: '乘客上车',
-  TO_DROPOFF: '送客中', ALIGHTING: '乘客下车', FREE: '自由移动',
+  TO_DROPOFF: '送客中', ALIGHTING: '乘客下车',
 };
 const DRIVER = { INTERNAL: '内部仿真', MATLAB: 'Matlab', GAZEBO: 'Gazebo', PHONE: '手机', GENERIC: '外部设备' };
 const TASK_STATE = { WAITING: '等待接驾', ASSIGNED: '已派车', PICKED: '行程中' };
@@ -56,10 +56,6 @@ function isBlocked(x, y) {
 }
 
 function tooltipHtml(a) {
-  if (!a.taxi) {
-    return `<b>${esc(a.id)}</b><br>自由智能体（${esc(DRIVER[a.driver] || a.driver)}）<br>`
-      + `位置 (${a.x.toFixed(1)}, ${a.y.toFixed(1)})` + (a.device ? `<br>设备 ${esc(a.device)}` : '');
-  }
   const lines = [
     `<b>${esc(a.id)}</b>　${esc(STATUS[a.status] || a.status)}`,
     `驱动：${esc(DRIVER[a.driver] || a.driver)}${a.device ? '（' + esc(a.device) + '）' : ''}`,
@@ -67,7 +63,7 @@ function tooltipHtml(a) {
   ];
   if (a.taskId) lines.push(`订单 ${esc(a.taskId)}`);
   if (a.zone) lines.push(`空车调度：在区域 ${esc(a.zone)} 内待命`);
-  if (a.seen) lines.push(`雷达看到：车 ${a.seen[0]}，行人 ${a.seen[1]}${a.seen[2] ? `，<b style="color:var(--sensed)">未知障碍 ${a.seen[2]} 处</b>` : ''}`);
+  if (a.seen) lines.push(`雷达看到：车 ${a.seen[0]}${a.seen[1] ? `，<b style="color:var(--sensed)">未知障碍 ${a.seen[1]} 处</b>` : ''}`);
   if (a.blocked) lines.push('<span style="color:var(--danger)">前方受阻，等待通行</span>');
   return lines.join('<br>');
 }
@@ -141,7 +137,7 @@ function renderPanels() {
     metric('平均乘车', m.avgRide.toFixed(1), 's'),
     metric('空驶率', Math.round(m.emptyRatio * 100), '%'),
     metric('数字车', m.taxis),
-    metric('外部接入', m.externalTaxis + m.freeAgents),
+    metric('外部接入', m.externalTaxis),
     metric('绕行 / 掉头', `${m.reroutes}<small>/${m.uturns}</small>`),
     metric('感知发现障碍', m.discoveries, m.obstacleClears ? `撤除 ${m.obstacleClears}` : ''),
     metric('地图核实', Math.round(m.coverage * 100), '%'),
@@ -159,10 +155,10 @@ function renderPanels() {
     + `　${gaps.join('，')}${m.authorityViolations ? `，越权行驶 ${m.authorityViolations} 次` : ''}`;
 
   // 车辆表
-  const agents = [...s.agents].sort((a, b) => (a.taxi === b.taxi ? a.num - b.num : a.taxi ? -1 : 1));
-  $('carCount').textContent = `${s.agents.filter((a) => a.taxi).length} 辆`;
+  const agents = [...s.agents].sort((a, b) => a.num - b.num);
+  $('carCount').textContent = `${agents.length} 辆`;
   $('carRows').innerHTML = agents.map((a) => {
-    const color = a.taxi ? carColor(a.num) : '#7b5cd6';
+    const color = carColor(a.num);
     const ext = a.driver !== 'INTERNAL';
     return `<tr data-id="${esc(a.id)}" class="${a.id === selected ? 'selected' : ''}">`
       + `<td><span class="swatch" style="background:${color}"></span>${esc(a.id)}</td>`

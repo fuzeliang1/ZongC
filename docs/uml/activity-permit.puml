@@ -4,12 +4,11 @@
 !include _style.iuml
 
 start
-:计算每个智能体车身覆盖的格子;
+:计算每辆车车身覆盖的格子;
 :重建占用表 owner[]：先车身，再已有授权;
-:行人车身覆盖的格子标为 pedestrian;
 partition "收回不安全的授权" {
   while (每辆车已授权、未到达的格子 i) is (还有)
-    if (格子 i 不可通行或有行人？) then (是)
+    if (格子 i 变得不可通行（路障 / 感知发现的障碍）？) then (是)
       :revokeBefore(a, i)：授权收回到 i 之前;
       if (新终点落在路口里？) then (是)
         :退到路口之前;
@@ -30,7 +29,7 @@ partition "依次延伸每辆车的授权（至多前视 horizonCells 格）" {
         break
       endif
     else (否)
-      if (下一格空闲且可通行、无行人？) then (是)
+      if (下一格空闲且可通行？) then (是)
         :占用这一格;
       else (否)
         :授权停在这一格之前;

@@ -6,15 +6,18 @@ function plot_phone_log(poseFile, imuFile)
 %   plot_phone_log('pose_....csv', 'imu_....csv')
 %
 %   App 点“记录数据”后在手机的 Download/MiniDiDi 文件夹生成两个文件：
-%     pose_*.csv  10 Hz 位姿与状态（地图坐标、步数、步长、卫星数、往返时延……）
+%     pose_*.csv  10 Hz 状态：手机车在地图上的位姿（car_*）、手机自己的惯性推算位姿
+%                 （px, py, yaw_p）、走路速度、步数、步长、卫星数、往返时延……
 %     imu_*.csv   约 50 Hz 原始传感器数据：t_s, sensor, x, y, z
 %                 sensor：1 加速度计 m/s²，2 陀螺仪 rad/s，3 磁力计 µT，4 重力 m/s²
 %   两个文件的 t_s 从同一时刻起算，可以直接对齐。
 %
-%   图 1：轨迹（标出每一步）、航向、速度与步频、步长
+%   图 1：手机自己的位姿估计——惯性推算轨迹（标出每一步）、航向、走路速度与步频、步长
 %   图 2：用与 App 完全相同的滤波器重放加速度信号，标出 App 检测到的每一步，
 %         方便调“计步阈值”；以及陀螺仪竖直方向角速度
 %   图 3（有数据时）：卫星数量与网络往返时延
+%   图 4（连上服务端时）：手机车在数字世界地图上的轨迹；走路速度（油门）与车速；
+%         沿路线走过的长度 s 与授权停车位置 stopS（s 追上 stopS = 在等前方让路）
 
 if nargin < 1 || isempty(poseFile)
     [f, p] = uigetfile('pose_*.csv', '选择手机记录的 pose 文件');
@@ -35,29 +38,28 @@ end
 stepIdx = find(diff(P.steps) > 0) + 1;        % 步数增加的时刻 = 检测到新的一步
 tStep = P.t_s(stepIdx);
 
-%% 图 1：轨迹与运动
-figure('Name', ['手机位姿 ' poseFile], 'Color', 'w');
+%% 图 1：手机自己的位姿估计（惯性推算）
+figure('Name', ['手机位姿估计 ' poseFile], 'Color', 'w');
 
 subplot(2, 2, 1);
-plot(P.raw_x, P.raw_y, ':', 'Color', [0.6 0.6 0.6]); hold on;
-plot(P.x, P.y, '-', 'Color', [0.48 0.36 0.84], 'LineWidth', 1.5);
-plot(P.x(stepIdx), P.y(stepIdx), '.', 'Color', [0.2 0.2 0.2], 'MarkerSize', 8);
-plot(P.x(1), P.y(1), 'go', 'MarkerFaceColor', 'g');
-plot(P.x(end), P.y(end), 'rs', 'MarkerFaceColor', 'r');
+plot(P.px, P.py, '-', 'Color', [0.48 0.36 0.84], 'LineWidth', 1.5); hold on;
+plot(P.px(stepIdx), P.py(stepIdx), '.', 'Color', [0.2 0.2 0.2], 'MarkerSize', 8);
+plot(P.px(1), P.py(1), 'go', 'MarkerFaceColor', 'g');
+plot(P.px(end), P.py(end), 'rs', 'MarkerFaceColor', 'r');
 axis equal; grid on;
-xlabel('x（地图 m）'); ylabel('y（地图 m）');
-title(sprintf('轨迹：%d 步，%.1f m', P.steps(end) - P.steps(1), P.distance(end) - P.distance(1)));
-legend({'未平滑', '上报（平滑后）', '每一步', '起点', '终点'}, 'Location', 'best');
+xlabel('x（m）'); ylabel('y（m）');
+title(sprintf('惯性推算轨迹：%d 步，%.1f m', P.steps(end) - P.steps(1), P.distance(end) - P.distance(1)));
+legend({'轨迹', '每一步', '起点', '终点'}, 'Location', 'best');
 
 subplot(2, 2, 2);
-plot(P.t_s, rad2deg(unwrap(P.theta)), 'LineWidth', 1.2); grid on;
+plot(P.t_s, rad2deg(unwrap(P.yaw_p)), 'LineWidth', 1.2); grid on;
 xlabel('t（s）'); ylabel('航向（°，逆时针为正）');
-title('地图坐标系中的航向');
+title('陀螺仪航向（室外模式下以正东为 0°）');
 
 subplot(2, 2, 3);
-yyaxis left; plot(P.t_s, P.v, 'LineWidth', 1.2); ylabel('速度（地图 m/s）');
+yyaxis left; plot(P.t_s, P.walk_v, 'LineWidth', 1.2); ylabel('走路速度（m/s）');
 yyaxis right; plot(P.t_s, P.cadence, 'LineWidth', 1.0); ylabel('步频（步/分）');
-grid on; xlabel('t（s）'); title('速度与步频');
+grid on; xlabel('t（s）'); title('走路速度（= 步长 × 步频）与步频');
 
 subplot(2, 2, 4);
 len = P.step_len(stepIdx);
@@ -127,6 +129,33 @@ if hasGnss || hasNet
         xlabel('t（s）'); ylabel('ms');
         title(sprintf('与服务端的往返时延：中位数 %.0f ms', median(P.rtt_ms(P.connected > 0), 'omitnan')));
     end
+end
+
+%% 图 4：手机车
+bound = ~isnan(P.car_x);
+if any(bound)
+    figure('Name', '手机车', 'Color', 'w');
+
+    subplot(1, 2, 1);
+    plot(P.car_x(bound), P.car_y(bound), '-', 'Color', [0.18 0.42 0.85], 'LineWidth', 1.5); hold on;
+    i0 = find(bound, 1); i1 = find(bound, 1, 'last');
+    plot(P.car_x(i0), P.car_y(i0), 'go', 'MarkerFaceColor', 'g');
+    plot(P.car_x(i1), P.car_y(i1), 'rs', 'MarkerFaceColor', 'r');
+    axis equal; grid on;
+    xlabel('x（地图 m）'); ylabel('y（地图 m）');
+    title('手机车在数字世界里的轨迹（沿服务端规划的路线）');
+
+    subplot(2, 2, 2);
+    plot(P.t_s, P.walk_v, P.t_s, P.car_v, 'LineWidth', 1.2); grid on;
+    legend({'走路速度（油门）', '车速'}, 'Location', 'best');
+    xlabel('t（s）'); ylabel('m/s');
+    title('车速跟随走路速度，受最高车速、转弯限速与授权限制');
+
+    subplot(2, 2, 4);
+    plot(P.t_s, P.car_s, P.t_s, P.car_stop_s, '--', 'LineWidth', 1.2); grid on;
+    legend({'沿路线走过的长度 s', '授权停车位置 stopS'}, 'Location', 'best');
+    xlabel('t（s）'); ylabel('m');
+    title('移动授权：s 始终不超过 stopS（换路线时重新计算）');
 end
 end
 

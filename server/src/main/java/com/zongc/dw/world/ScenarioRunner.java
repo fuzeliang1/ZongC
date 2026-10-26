@@ -16,7 +16,7 @@ import java.util.Set;
  * <ul>
  *   <li>时间以"本轮开始"为零点；{@code loop=true} 时最后一个事件之后再等 loopGapSec 秒重新开始，
  *       并自动撤掉本轮脚本放置的路障和障碍，方便无人值守长时间演示；</li>
- *   <li>未知障碍不会直接"砸"在车上：目标格 2.5 m 内有车或行人时推迟出现，最多等 30 s；</li>
+ *   <li>未知障碍不会直接"砸"在车上：目标格 2.5 m 内有车时推迟出现，最多等 30 s；</li>
  *   <li>事件附带的 text 会写入事件日志，并在界面上以横幅显示 8 秒。</li>
  * </ul>
  */
@@ -128,7 +128,7 @@ public final class ScenarioRunner {
         }
     }
 
-    /** 未知障碍出现前，确认目标格附近没有车或行人（否则会凭空"砸"在车上）。 */
+    /** 未知障碍出现前，确认目标格附近没有车（否则会凭空"砸"在车上）。 */
     private boolean clearOfAgents(World w, Scenario.Action a) {
         int[] c = a.cell("cell");
         double cx = (c[0] + 0.5) * w.map().resolution(), cy = (c[1] + 0.5) * w.map().resolution();

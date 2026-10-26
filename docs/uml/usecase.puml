@@ -5,8 +5,7 @@ left to right direction
 
 actor "观察者\n（评委 / 观众）" as Viewer
 actor "演示操作员" as Operator
-actor "乘客" as Passenger
-actor "手机用户\n（行人智能体）" as PhoneUser
+actor "手机用户\n（手机车驾驶员）" as PhoneUser
 Operator -|> Viewer
 
 rectangle "MiniDiDi 数字世界服务端（系统超脑）" {
@@ -17,7 +16,7 @@ rectangle "MiniDiDi 数字世界服务端（系统超脑）" {
   usecase "UC05 设置 / 解除路障" as UC05
   usecase "UC06 手动下单" as UC06
   usecase "UC07 切换场景脚本" as UC07
-  usecase "UC08 叫车" as UC08
+  usecase "UC08 走路驾驶手机车" as UC08
   usecase "UC09 接入数字世界并上报位姿" as UC09
   usecase "UC10 拍照识别路障" as UC10
   usecase "UC11 注册并接管数字车" as UC11
@@ -31,10 +30,12 @@ rectangle "MiniDiDi 数字世界服务端（系统超脑）" {
 actor "车辆设备" as Vehicle
 actor "Matlab 模拟车" as Matlab
 actor "Gazebo 小车" as Gazebo
+actor "手机（模拟车）" as PhoneDev
 actor "实体小车 / 其他设备" as Generic
 actor "时钟与场景脚本" as Clock <<时间>>
 Matlab -|> Vehicle
 Gazebo -|> Vehicle
+PhoneDev -|> Vehicle
 Generic -|> Vehicle
 
 Viewer -- UC02
@@ -44,7 +45,6 @@ Operator -- UC04
 Operator -- UC05
 Operator -- UC06
 Operator -- UC07
-Passenger -- UC08
 PhoneUser -- UC08
 PhoneUser -- UC09
 PhoneUser -- UC10

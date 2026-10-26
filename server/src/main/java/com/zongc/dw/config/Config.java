@@ -47,7 +47,6 @@ public final class Config {
         public double aDec = 1.5;          // 舒适减速度（m/s²）
         public double vTurn = 0.6;         // 转弯限速（m/s）
         public double stopMargin = 0.08;   // 停车点距离授权边界的额外余量（米）
-        public double phoneRadius = 0.45;  // 手机（行人）占位半径（米）
     }
 
     /** 交通管控参数。 */

@@ -6,11 +6,11 @@ import java.util.Map;
 
 /** 数字世界快照中手机需要的部分（GET /api/snapshot）：所有智能体、订单、路障。 */
 public final class WorldSnapshot {
-    /** 一个智能体（出租车或手机）。 */
+    /** 一辆车（由数字世界内部仿真，或由 Matlab / 手机 / Gazebo 驱动）。 */
     public static final class Agent {
         public String id;
         public int num;
-        public boolean taxi;
+        /** INTERNAL / MATLAB / PHONE / GAZEBO / GENERIC。 */
         public String driver;
         public String status;
         public boolean online = true;
@@ -59,7 +59,6 @@ public final class WorldSnapshot {
                 Agent a = new Agent();
                 a.id = Json.str(m, "id");
                 a.num = (int) Json.num(m, "num", 0);
-                a.taxi = Json.bool(m, "taxi", false);
                 a.driver = Json.str(m, "driver");
                 a.status = Json.str(m, "status");
                 a.online = Json.bool(m, "online", true);
@@ -67,7 +66,7 @@ public final class WorldSnapshot {
                 a.y = Json.num(m, "y", 0);
                 a.theta = Json.num(m, "theta", 0);
                 a.v = Json.num(m, "v", 0);
-                a.r = Json.num(m, "r", a.taxi ? 0.3 : 0.45);
+                a.r = Json.num(m, "r", 0.3);
                 a.taskId = Json.str(m, "taskId");
                 a.route = Json.nums(m, "route");
                 a.blocked = Json.bool(m, "blocked", false);
@@ -112,11 +111,5 @@ public final class WorldSnapshot {
         if (id == null) return null;
         for (Task t : tasks) if (id.equals(t.id)) return t;
         return null;
-    }
-
-    public int taxiCount() {
-        int n = 0;
-        for (Agent a : agents) if (a.taxi) n++;
-        return n;
     }
 }

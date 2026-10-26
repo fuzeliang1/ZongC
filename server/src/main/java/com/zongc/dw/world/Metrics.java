@@ -12,8 +12,6 @@ public final class Metrics {
     public int obstacleHits;
     /** 车—路障 / 未知障碍碰撞次数（必须为 0；按真实世界判断，包括系统还不知道的障碍）。 */
     public int barrierHits;
-    /** 出租车与自由智能体（手机/行人）的接触次数。 */
-    public int freeContacts;
     public int reroutes;
     /** 掉头次数（前方道路被堵死、无路可走时借对向车道掉头）。 */
     public int uturns;
@@ -62,14 +60,14 @@ public final class Metrics {
     public record View(double simTime, int created, int assigned, int picked, int delivered, int cancelled,
                        int waiting, double avgWait, double maxWait, double avgRide, double avgTotal,
                        double deliveredPerMin, double emptyRatio, double distEmpty, double distLoaded,
-                       int collisions, int obstacleHits, int barrierHits, int freeContacts, int reroutes,
+                       int collisions, int obstacleHits, int barrierHits, int reroutes,
                        int authorityViolations, int revokeOverruns, int dispatchRounds, double lastDispatchMs,
                        Double minCarGap, Double minWallGap, Double minBarrierGap, double maxBlocked,
-                       int taxis, int externalTaxis, int freeAgents,
+                       int taxis, int externalTaxis,
                        int discoveries, int obstacleClears, double avgDiscoverySec, double coverage,
                        int rebalanceMoves, int visionReports, int uturns) {}
 
-    View view(double time, int waiting, int taxis, int externalTaxis, int freeAgents,
+    View view(double time, int waiting, int taxis, int externalTaxis,
               Perception p, double coverage, int rebalanceMoves, int visionReports) {
         double avgWait = tasksPicked > 0 ? sumWait / tasksPicked : 0;
         double avgRide = tasksDelivered > 0 ? sumRide / tasksDelivered : 0;
@@ -80,10 +78,10 @@ public final class Metrics {
         return new View(Num.r1(time), tasksCreated, tasksAssigned, tasksPicked, tasksDelivered, tasksCancelled,
                 waiting, Num.r1(avgWait), Num.r1(maxWait), Num.r1(avgRide), Num.r1(avgTotal),
                 Math.round(perMin * 100) / 100.0, Math.round(emptyRatio * 1000) / 1000.0,
-                Num.r1(distEmpty), Num.r1(distLoaded), collisions, obstacleHits, barrierHits, freeContacts, reroutes,
+                Num.r1(distEmpty), Num.r1(distLoaded), collisions, obstacleHits, barrierHits, reroutes,
                 authorityViolations, revokeOverruns, dispatchRounds, Math.round(lastDispatchMs * 100) / 100.0,
                 gap(minCarGap), gap(minWallGap), gap(minBarrierGap), Num.r1(maxBlocked),
-                taxis, externalTaxis, freeAgents,
+                taxis, externalTaxis,
                 p.discoveries, p.clears, Num.r1(p.avgDiscoverySec()), Math.round(coverage * 1000) / 1000.0,
                 rebalanceMoves, visionReports, uturns);
     }

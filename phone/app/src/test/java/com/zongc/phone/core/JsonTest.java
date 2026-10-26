@@ -16,10 +16,10 @@ public class JsonTest {
     @Test
     public void parsesNestedStructures() {
         Map<String, Object> o = Json.parseObject(
-                " {\"type\":\"welcome\",\"agentId\":\"phone-1\",\"pose\":{\"x\":12.5,\"y\":-3e-1},"
+                " {\"type\":\"welcome\",\"agentId\":\"car-6\",\"pose\":{\"x\":12.5,\"y\":-3e-1},"
                         + "\"list\":[1,2.5,true,false,null,\"s\"],\"empty\":{},\"none\":[]} ");
         assertEquals("welcome", Json.str(o, "type"));
-        assertEquals("phone-1", Json.str(o, "agentId"));
+        assertEquals("car-6", Json.str(o, "agentId"));
         Map<String, Object> pose = Json.obj(o.get("pose"));
         assertEquals(12.5, Json.num(pose, "x", 0), 1e-12);
         assertEquals(-0.3, Json.num(pose, "y", 0), 1e-12);

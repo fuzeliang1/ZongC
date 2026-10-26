@@ -104,23 +104,13 @@ public final class MapData {
      * @return {x, y}；地图上没有车道时返回 null
      */
     public int[] nearestLane(double wx, double wy, int[] blocked) {
-        return nearestLane(wx, wy, blocked, 0);
-    }
-
-    /**
-     * 同上，但格子中心离 (wx, wy) 至少 minDist 米。叫车时用：上车点不能是行人自己站的格子，
-     * 否则行人本身就挡住了来接他的车。
-     */
-    public int[] nearestLane(double wx, double wy, int[] blocked, double minDist) {
         int[] best = null;
         double bestD = Double.POSITIVE_INFINITY;
-        double min2 = minDist * minDist;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 if (!isLane(x, y) || isBlocked(x, y, blocked)) continue;
                 double dx = (x + 0.5) * resolution - wx, dy = (y + 0.5) * resolution - wy;
                 double d = dx * dx + dy * dy;
-                if (d < min2) continue;
                 if (d < bestD) {
                     bestD = d;
                     best = new int[]{x, y};

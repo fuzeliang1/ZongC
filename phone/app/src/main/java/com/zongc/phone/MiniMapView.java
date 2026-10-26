@@ -12,13 +12,15 @@ import android.view.View;
 
 import com.zongc.phone.core.MapData;
 import com.zongc.phone.core.PdrState;
+import com.zongc.phone.core.RouteFollower;
 import com.zongc.phone.core.WorldSnapshot;
 
 import java.util.ArrayDeque;
 
 /**
- * 手机上的小地图：城市地图、出租车、其他手机、订单、路障，以及"我"（位置、朝向、轨迹）。
- * 颜色与网页端一致。没有连接服务端时显示以"我"为中心的 1 m 网格，方便单独测试 PDR。
+ * 手机上的小地图：城市地图、所有车辆、等车的乘客、路障，以及"我的车"（位置、朝向、轨迹、
+ * 服务端规划的路线和授权停车点）。颜色与网页端一致。没有连接服务端时显示手机自己的惯性推算：
+ * 以"我"为中心的 1 m 网格和步行轨迹，方便单独测试 PDR。
  */
 final class MiniMapView extends View {
     interface TapListener {
@@ -39,6 +41,7 @@ final class MiniMapView extends View {
     private static final int DANGER = 0xffcf3f36;
     private static final int PHONE = 0xff7b5cd6;
     private static final int PICKUP = 0xff12a189;
+    private static final int ROUTE_AHEAD = 0x667b5cd6;
 
     private final AppCore core;
     private final float dp;
@@ -53,16 +56,14 @@ final class MiniMapView extends View {
     // 要画的数据（界面线程）
     private MapData map;
     private WorldSnapshot snap;
-    private PdrState me;
-    private String meId;
-    private String myTaskId;
-    private String hint;
+    private RouteFollower.Status car;
+    private PdrState walk;
 
     // 世界坐标 → 屏幕：sx = ox + x·scale，sy = oy − y·scale
     private float scale = 1;
     private float ox;
     private float oy;
-    /** true：地图铺满屏幕、跟随"我"平移；false：显示整张地图。 */
+    /** true：地图铺满屏幕、跟随我的车平移；false：显示整张地图。 */
     private boolean follow = true;
 
     // 静态几何（地图变化时重算）：街区矩形 [x0,y0,x1,y1]（格），车道中心线段（米）
@@ -92,17 +93,15 @@ final class MiniMapView extends View {
         tapListener = l;
     }
 
-    void update(MapData map, WorldSnapshot snap, PdrState me, String meId, String myTaskId, String hint) {
+    void update(MapData map, WorldSnapshot snap, RouteFollower.Status car, PdrState walk) {
         this.map = map;
         this.snap = snap;
-        this.me = me;
-        this.meId = meId;
-        this.myTaskId = myTaskId;
-        this.hint = hint;
+        this.car = car;
+        this.walk = walk;
         invalidate();
     }
 
-    /** 在"跟随我"和"整张地图"之间切换。 */
+    /** 在"跟随我的车"和"整张地图"之间切换。 */
     void toggleFollow() {
         follow = !follow;
         invalidate();
@@ -120,13 +119,13 @@ final class MiniMapView extends View {
 
     /**
      * 计算显示比例与平移。整图：地图完整放进视图；跟随：地图铺满视图（竖屏时按高度铺满），
-     * 视图中心跟着"我"走，但不移出地图边界。正在地图上选点时总是显示整图。
+     * 视图中心跟着我的车走，但不移出地图边界。还没绑定车时显示整图。
      */
     private void layoutFor(MapData m, int w, int h) {
         float pad = 6 * dp;
         float mw = (float) m.worldWidth(), mh = (float) m.worldHeight();
         float fit = Math.min((w - 2 * pad) / mw, (h - 2 * pad) / mh);
-        boolean following = follow && hint == null && me != null;
+        boolean following = follow && car != null && car.ready;
         if (!following) {
             scale = Math.max(fit, 0.5f);
             ox = (w - mw * scale) / 2;
@@ -135,8 +134,8 @@ final class MiniMapView extends View {
         }
         scale = Math.max(Math.max((w - 2 * pad) / mw, (h - 2 * pad) / mh), 0.5f);
         double padW = pad / scale;
-        double cx = centerWithin(me.x, w / scale, mw, padW);
-        double cy = centerWithin(me.y, h / scale, mh, padW);
+        double cx = centerWithin(car.x, w / scale, mw, padW);
+        double cy = centerWithin(car.y, h / scale, mh, padW);
         ox = (float) (w / 2.0 - cx * scale);
         oy = (float) (h / 2.0 + cy * scale);
     }
@@ -216,11 +215,13 @@ final class MiniMapView extends View {
             layoutFor(map, w, h);
             drawStatic(c);
             if (snap != null) drawWorld(c);
-            drawTrail(c);
-            drawMe(c);
+            if (car != null && car.ready) {
+                drawRoute(c);
+                drawTrail(c, core.carTrail, 0x997b5cd6);
+                drawMyCar(c);
+            }
             drawViewLabel(c, h);
         }
-        drawHint(c, w);
     }
 
     private void drawStatic(Canvas g) {
@@ -238,11 +239,12 @@ final class MiniMapView extends View {
     }
 
     private void drawViewLabel(Canvas c, int h) {
-        if (hint != null) return;
         text.setTextSize(10 * dp);
         text.setTextAlign(Paint.Align.LEFT);
         text.setColor(MUTED);
-        c.drawText(follow ? "跟随我 · 轻点地图看全图" : "全图 · 轻点地图跟随我", 8 * dp, h - 6 * dp, text);
+        String label = car == null || !car.ready ? "全图 · 连接服务端后绑定一辆车"
+                : follow ? "跟随我的车 · 轻点地图看全图" : "全图 · 轻点地图跟随我的车";
+        c.drawText(label, 8 * dp, h - 6 * dp, text);
     }
 
     private void drawBlock(Canvas g, int x0, int y0, int x1, int y1, float cell) {
@@ -275,8 +277,9 @@ final class MiniMapView extends View {
             c.drawLine(x0 + cell * 0.8f, y0 + cell * 0.2f, x0 + cell * 0.2f, y0 + cell * 0.8f, line);
         }
 
-        // 订单：等待中的上车点（橙色）；我的订单画出上车点、目的地和接单车辆的路线
-        WorldSnapshot.Task mine = myTaskId == null ? null : snap.task(myTaskId);
+        // 订单：等待中的上车点（橙色）；我的车正在执行的订单画出上车点和目的地
+        String myId = car != null && car.ready ? car.agentId : null;
+        WorldSnapshot.Task mine = car != null && car.ready ? snap.task(car.taskId) : null;
         for (WorldSnapshot.Task t : snap.tasks) {
             if (t == mine || !"WAITING".equals(t.state)) continue;
             fill.setStyle(Paint.Style.FILL);
@@ -284,53 +287,92 @@ final class MiniMapView extends View {
             c.drawCircle(cellCx(t.fromX), cellCy(t.fromY), Math.max(cell * 0.22f, 3 * dp), fill);
         }
         if (mine != null) {
-            WorldSnapshot.Agent taxi = snap.agent(mine.agent);
-            if (taxi != null && taxi.route != null && taxi.route.length >= 4) {
-                path.reset();
-                path.moveTo(sx(taxi.x), sy(taxi.y));
-                for (int i = 0; i + 1 < taxi.route.length; i += 2) path.lineTo(sx(taxi.route[i]), sy(taxi.route[i + 1]));
-                line.setColor(carColor(taxi.num));
-                line.setStrokeWidth(Math.max(2, cell * 0.14f));
-                c.drawPath(path, line);
+            if (!"PICKED".equals(mine.state)) {
+                ring(c, cellCx(mine.fromX), cellCy(mine.fromY), Math.max(cell * 0.45f, 7 * dp), PICKUP, "上车");
             }
-            ring(c, cellCx(mine.fromX), cellCy(mine.fromY), Math.max(cell * 0.45f, 7 * dp), PICKUP, "上车");
             ring(c, cellCx(mine.toX), cellCy(mine.toY), Math.max(cell * 0.45f, 7 * dp), DANGER, "目的地");
         }
 
-        // 出租车与其他手机
+        // 其他车辆（我的车用本地位姿单独画，更跟手）
         text.setTextSize(9 * dp);
         text.setTextAlign(Paint.Align.LEFT);
         for (WorldSnapshot.Agent a : snap.agents) {
-            if (a.id.equals(meId)) continue;
+            if (a.id.equals(myId)) continue;
             float x = sx(a.x), y = sy(a.y);
-            if (a.taxi) {
-                float r = Math.max((float) a.r * 1.2f * scale, 3.5f * dp);
-                int col = carColor(a.num);
-                fill.setStyle(Paint.Style.FILL);
-                fill.setColor(a.online ? col : MUTED);
-                c.drawCircle(x, y, r, fill);
-                line.setColor(0xffffffff);
-                line.setStrokeWidth(Math.max(1.2f, r * 0.25f));
-                c.drawLine(x, y, x + (float) Math.cos(a.theta) * r, y - (float) Math.sin(a.theta) * r, line);
-                if (mine != null && a.id.equals(mine.agent)) {
-                    line.setColor(col);
-                    line.setStrokeWidth(2 * dp);
-                    c.drawCircle(x, y, r + 3 * dp, line);
-                }
-                if (a.blocked) {
-                    fill.setColor(SIGNAL);
-                    c.drawCircle(x + r * 0.8f, y - r * 0.8f, Math.max(2 * dp, r * 0.35f), fill);
-                }
-                text.setColor(INK);
-                c.drawText(String.valueOf(a.num), x + r + 1.5f * dp, y + r, text);
-            } else {
-                float r = Math.max((float) a.r * scale, 5 * dp);
-                dashed.setColor(PHONE);
-                c.drawCircle(x, y, r, dashed);
-                text.setColor(PHONE);
-                c.drawText(a.id, x + r + 2 * dp, y + 3 * dp, text);
+            float r = carRadius(a.r);
+            drawCarBody(c, x, y, a.theta, r, a.online ? carColor(a.num) : MUTED);
+            if (a.blocked) {
+                fill.setColor(SIGNAL);
+                c.drawCircle(x + r * 0.8f, y - r * 0.8f, Math.max(2 * dp, r * 0.35f), fill);
             }
+            text.setColor(INK);
+            c.drawText(driverMark(a.driver) + a.num, x + r + 1.5f * dp, y + r, text);
         }
+    }
+
+    private float carRadius(double r) {
+        return Math.max((float) r * 1.2f * scale, 3.5f * dp);
+    }
+
+    /** 一辆车：实心圆 + 指向车头的白线。 */
+    private void drawCarBody(Canvas c, float x, float y, double theta, float r, int color) {
+        fill.setStyle(Paint.Style.FILL);
+        fill.setColor(color);
+        c.drawCircle(x, y, r, fill);
+        line.setColor(0xffffffff);
+        line.setStrokeWidth(Math.max(1.2f, r * 0.25f));
+        c.drawLine(x, y, x + (float) Math.cos(theta) * r, y - (float) Math.sin(theta) * r, line);
+    }
+
+    /** 与网页一致：外部设备驱动的车在编号前加 M / P / G / E。 */
+    private static String driverMark(String driver) {
+        if ("MATLAB".equals(driver)) return "M";
+        if ("PHONE".equals(driver)) return "P";
+        if ("GAZEBO".equals(driver)) return "G";
+        if ("GENERIC".equals(driver)) return "E";
+        return "";
+    }
+
+    /** 我的车的路线：已授权的部分画实线，授权停车点之后画浅色虚线；授权停车点画一个圆点（在等让路时为红色）。 */
+    private void drawRoute(Canvas c) {
+        double[] wp = car.waypoints;
+        if (!car.hasRoute || wp == null || wp.length < 2) return;
+        float cell = (float) map.resolution * scale;
+        int n = wp.length / 2;
+        path.reset();
+        path.moveTo(sx(car.stopX), sy(car.stopY));
+        for (int i = car.stopNext; i < n; i++) path.lineTo(sx(wp[2 * i]), sy(wp[2 * i + 1]));
+        dashed.setColor(ROUTE_AHEAD);
+        dashed.setStrokeWidth(Math.max(1.5f * dp, cell * 0.1f));
+        c.drawPath(path, dashed);
+        path.reset();
+        path.moveTo(sx(car.x), sy(car.y));
+        for (int i = car.next; i < car.stopNext && i < n; i++) path.lineTo(sx(wp[2 * i]), sy(wp[2 * i + 1]));
+        path.lineTo(sx(car.stopX), sy(car.stopY));
+        line.setColor(PHONE);
+        line.setStrokeWidth(Math.max(2, cell * 0.16f));
+        c.drawPath(path, line);
+        if (!car.arrived()) {
+            fill.setStyle(Paint.Style.FILL);
+            fill.setColor(car.waitingPermit() ? DANGER : INK);
+            c.drawCircle(sx(car.stopX), sy(car.stopY), Math.max(2.5f * dp, cell * 0.12f), fill);
+        }
+    }
+
+    /** 我的车：车身 + 紫色外圈 + "我" 标签。 */
+    private void drawMyCar(Canvas c) {
+        WorldSnapshot.Agent a = snap == null ? null : snap.agent(car.agentId);
+        float x = sx(car.x), y = sy(car.y);
+        float r = carRadius(a != null ? a.r : 0.3) * 1.15f;
+        drawCarBody(c, x, y, car.theta, r, a != null ? carColor(a.num) : PHONE);
+        line.setColor(PHONE);
+        line.setStrokeWidth(2.5f * dp);
+        c.drawCircle(x, y, r + 3 * dp, line);
+        text.setTextSize(11 * dp);
+        text.setTypeface(Typeface.DEFAULT_BOLD);
+        text.setColor(PHONE);
+        c.drawText("我", x + r + 4 * dp, y - r, text);
+        text.setTypeface(Typeface.DEFAULT);
     }
 
     private void ring(Canvas c, float x, float y, float r, int color, String label) {
@@ -359,28 +401,30 @@ final class MiniMapView extends View {
         return CAR_COLORS[(Math.max(1, num) - 1) % CAR_COLORS.length];
     }
 
-    private void drawTrail(Canvas c) {
-        int n = core.trailCount;
+    private void drawTrail(Canvas c, AppCore.Trail t, int color) {
+        int n = t.count;
         if (n < 2) return;
         path.reset();
-        int start = (core.trailHead - n + AppCore.TRAIL) % AppCore.TRAIL;
+        int start = (t.head - n + AppCore.Trail.SIZE) % AppCore.Trail.SIZE;
         for (int k = 0; k < n; k++) {
-            int i = (start + k) % AppCore.TRAIL;
-            float x = sx(core.trailX[i]), y = sy(core.trailY[i]);
+            int i = (start + k) % AppCore.Trail.SIZE;
+            float x = sx(t.x[i]), y = sy(t.y[i]);
             if (k == 0) path.moveTo(x, y);
             else path.lineTo(x, y);
         }
-        line.setColor(0x997b5cd6);
+        line.setColor(color);
         line.setStrokeWidth(2.5f * dp);
         c.drawPath(path, line);
     }
 
-    private void drawMe(Canvas c) {
+    /** 步行者（手机自己的惯性推算位姿）：圆点 + 朝向箭头，走路时中间有白点。 */
+    private void drawWalker(Canvas c) {
+        PdrState me = walk;
         if (me == null) return;
-        float x = sx(me.x), y = sy(me.y);
+        float x = sx(me.px), y = sy(me.py);
         float r = Math.max(0.45f * scale, 7 * dp);
         // 朝向箭头
-        float ux = (float) Math.cos(me.theta), uy = (float) -Math.sin(me.theta);
+        float ux = (float) Math.cos(me.yawP), uy = (float) -Math.sin(me.yawP);
         float tip = r * 2.3f;
         path.reset();
         path.moveTo(x + ux * tip, y + uy * tip);
@@ -401,9 +445,9 @@ final class MiniMapView extends View {
         }
     }
 
-    /** 没有地图：以"我"为中心画 1 m 网格和轨迹。 */
+    /** 没有地图：以"我"为中心画 1 m 网格和步行轨迹（手机坐标系 P）。 */
     private void drawLocal(Canvas c, int w, int h) {
-        double cx = me == null ? 0 : me.x, cy = me == null ? 0 : me.y;
+        double cx = walk == null ? 0 : walk.px, cy = walk == null ? 0 : walk.py;
         scale = 22 * dp;
         ox = w / 2f - (float) cx * scale;
         oy = h / 2f + (float) cy * scale;
@@ -419,28 +463,12 @@ final class MiniMapView extends View {
             line.setStrokeWidth(gy % 5 == 0 ? 1.5f * dp : 1);
             c.drawLine(0, sy(gy), w, sy(gy), line);
         }
-        drawTrail(c);
-        drawMe(c);
+        drawTrail(c, core.walkTrail, 0x997b5cd6);
+        drawWalker(c);
         text.setColor(MUTED);
         text.setTextSize(11 * dp);
         text.setTextAlign(Paint.Align.LEFT);
-        c.drawText("未连接服务端：本地推算（细线 1 m，粗线 5 m）", 8 * dp, h - 8 * dp, text);
-    }
-
-    private void drawHint(Canvas c, int w) {
-        if (hint == null || hint.isEmpty()) return;
-        text.setTextSize(13 * dp);
-        text.setTextAlign(Paint.Align.CENTER);
-        text.setTypeface(Typeface.DEFAULT_BOLD);
-        float tw = text.measureText(hint);
-        rect.set(w / 2f - tw / 2 - 10 * dp, 6 * dp, w / 2f + tw / 2 + 10 * dp, 34 * dp);
-        fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xee17212b);
-        c.drawRoundRect(rect, 8 * dp, 8 * dp, fill);
-        text.setColor(0xffffffff);
-        c.drawText(hint, w / 2f, 25 * dp, text);
-        text.setTypeface(Typeface.DEFAULT);
-        text.setTextAlign(Paint.Align.LEFT);
+        c.drawText("未连接服务端：手机自己的惯性推算（细线 1 m，粗线 5 m）", 8 * dp, h - 8 * dp, text);
     }
 
     // ================================================================ 触摸

@@ -3,17 +3,16 @@ package com.zongc.dw.world;
 import com.zongc.dw.plan.Route;
 
 /**
- * 数字世界中的一个自主运动体（AMO）。
+ * 数字世界中的一个自主运动体（AMO）：一辆出租车，按服务端下发的路线行驶、参与派单。
  *
- * <p>出租车（taxi=true）按服务端下发的路线行驶、参与派单；
- * 自由智能体（taxi=false，例如手机模拟车）只上报位置，作为动态障碍参与交通管控。</p>
+ * <p>车可以由内部仿真驾驶，也可以由外部设备（Matlab 模拟车、手机模拟车、Gazebo 小车）驾驶，
+ * 这时它就是设备的数字孪生（见 {@link #driver}）。</p>
  *
  * <p>为了让仿真代码简洁，字段直接公开；只有仿真线程会修改它们。</p>
  */
 public final class Agent {
     public final String id;
     public final int num;
-    public final boolean taxi;
     /** 在 World 智能体列表中的下标。 */
     int index;
 
@@ -66,11 +65,10 @@ public final class Agent {
     public int delivered;
     double odoX, odoY;
 
-    public Agent(String id, int num, boolean taxi) {
+    public Agent(String id, int num) {
         this.id = id;
         this.num = num;
-        this.taxi = taxi;
-        this.status = taxi ? AgentStatus.CRUISING : AgentStatus.FREE;
+        this.status = AgentStatus.CRUISING;
     }
 
     public boolean internal() {

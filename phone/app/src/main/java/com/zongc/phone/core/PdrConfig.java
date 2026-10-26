@@ -3,7 +3,7 @@ package com.zongc.phone.core;
 import java.util.Map;
 
 /**
- * 行人航位推算（PDR）与坐标换算的全部可调参数。
+ * 行人航位推算（PDR）与手机车的全部可调参数。
  *
  * <p>App 把它序列化成一行 JSON 存在 SharedPreferences 里；单元测试直接 new 一个用默认值。</p>
  */
@@ -36,15 +36,15 @@ public final class PdrConfig {
     /** 磁偏角（度，东偏为正）。上海约 −6.5°（偏西）。 */
     public double declinationDeg = -6.5;
 
-    // ---------------------------------------------------------------- 坐标换算
-    /** 比例尺：真实走 1 米 = 地图上多少米。在教室里走动时可设为 3~5。 */
-    public double mapScale = 1.0;
+    // ---------------------------------------------------------------- 卫星与磁力计
     /** 室外模式：用磁力计定北、用卫星定位（GPS/北斗）修正位置漂移。室内请关闭。 */
     public boolean outdoor = false;
     /** 精度差于此值（米）的卫星定位结果不参与融合。 */
     public double gnssMaxAccuracy = 25.0;
-    /** 上报位置的平滑时间常数（s），避免每走一步跳一下。 */
-    public double smoothingTau = 0.35;
+
+    // ---------------------------------------------------------------- 手机车
+    /** 驾驶比例：人走 1 米，车沿路线开多少米（车速还受最高车速 1.5 m/s 限制）。人走得慢、想让车快些时调大。 */
+    public double driveScale = 1.0;
 
     // ---------------------------------------------------------------- 模拟行走（桌面演示）
     public double simStepLength = 0.65;
@@ -70,10 +70,9 @@ public final class PdrConfig {
         gyroBiasEstimation = o.gyroBiasEstimation;
         magGain = o.magGain;
         declinationDeg = o.declinationDeg;
-        mapScale = o.mapScale;
         outdoor = o.outdoor;
         gnssMaxAccuracy = o.gnssMaxAccuracy;
-        smoothingTau = o.smoothingTau;
+        driveScale = o.driveScale;
         simStepLength = o.simStepLength;
         simCadenceHz = o.simCadenceHz;
     }
@@ -92,10 +91,9 @@ public final class PdrConfig {
                 .put("gyroBiasEstimation", gyroBiasEstimation)
                 .put("magGain", magGain, 4)
                 .put("declinationDeg", declinationDeg, 3)
-                .put("mapScale", mapScale, 4)
                 .put("outdoor", outdoor)
                 .put("gnssMaxAccuracy", gnssMaxAccuracy, 2)
-                .put("smoothingTau", smoothingTau, 4)
+                .put("driveScale", driveScale, 4)
                 .put("simStepLength", simStepLength, 4)
                 .put("simCadenceHz", simCadenceHz, 4)
                 .toString();
@@ -127,10 +125,10 @@ public final class PdrConfig {
         gyroBiasEstimation = Json.bool(m, "gyroBiasEstimation", gyroBiasEstimation);
         magGain = pos(m, "magGain", magGain, 0, 5);
         declinationDeg = pos(m, "declinationDeg", declinationDeg, -90, 90);
-        mapScale = pos(m, "mapScale", mapScale, 0.01, 1000);
         outdoor = Json.bool(m, "outdoor", outdoor);
         gnssMaxAccuracy = pos(m, "gnssMaxAccuracy", gnssMaxAccuracy, 1, 1000);
-        smoothingTau = pos(m, "smoothingTau", smoothingTau, 0, 5);
+        // 旧版本把"比例尺"存为 mapScale（人走 1 米 = 地图上几米），含义相同，接着用
+        driveScale = pos(m, m.containsKey("driveScale") ? "driveScale" : "mapScale", driveScale, 0.1, 10);
         simStepLength = pos(m, "simStepLength", simStepLength, 0.1, 3);
         simCadenceHz = pos(m, "simCadenceHz", simCadenceHz, 0.2, 5);
     }

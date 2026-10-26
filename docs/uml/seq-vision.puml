@@ -12,10 +12,10 @@ participant "ForkJoin 线程池" as FJ
 participant "SimulationEngine\n(仿真线程)" as Eng
 participant "World / Perception" as W
 
-U -> App : 点"拍照识别"
+U -> App : 点"拍照"
 App -> App : 拍摄缩略图，JPEG 编码
-App -> Http : POST /api/vision/detect?source=phone-1&hfov=63&scale=3\n（请求体：JPEG）
-Http -> Eng : call(w → 取 phone-1 当前位姿)
+App -> Http : POST /api/vision/detect?source=car-6&hfov=63&scale=1（驾驶比例）\n（请求体：JPEG）
+Http -> Eng : call(w → 取 car-6（手机车）当前位姿)
 Eng --> Http : 相机位姿 (x, y, θ)
 Http -> VS : process(bytes, params)
 VS -> VS : 解码，缩到 640 像素宽

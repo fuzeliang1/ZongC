@@ -65,10 +65,6 @@ public class MapDataTest {
         // 路口格不能作为上下车点
         int[] c3 = m.nearestLane(0.5, 33.5, null);
         assertFalse(m.isCross(c3[0], c3[1]));
-        // 叫车：站在车道 (1, 5) 上时，上车点不能是自己脚下这一格
-        int[] c4 = m.nearestLane(1.5, 5.5, null, 1.2);
-        assertTrue(m.isLane(c4[0], c4[1]));
-        assertTrue(Math.hypot(c4[0] + 0.5 - 1.5, c4[1] + 0.5 - 5.5) >= 1.2);
     }
 
     @Test
@@ -86,10 +82,9 @@ public class MapDataTest {
     public void parsesServerSnapshot() throws IOException {
         WorldSnapshot s = WorldSnapshot.fromJson(fixture("snapshot.json"));
         assertEquals(8, s.agents.size());
-        assertEquals(8, s.taxiCount());
         WorldSnapshot.Agent car1 = s.agent("car-1");
         assertNotNull(car1);
-        assertTrue(car1.taxi);
+        assertEquals("INTERNAL", car1.driver);
         assertEquals(1, car1.num);
         assertEquals(0.3, car1.r, 1e-9);
         assertNotNull(car1.route);

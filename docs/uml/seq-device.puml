@@ -29,7 +29,7 @@ end
 
 loop 每个墙钟节拍
   W -> TC : update(...)
-  TC --> W : 授权延伸（或因行人 / 障碍收回）
+  TC --> W : 授权延伸（或因路障 / 障碍收回）
   Br --> Dev : permit（stopS 变化时）
   Br --> Dev : world（周边车辆，5 Hz）
   Br --> Dev : scan（模拟激光雷达，5 Hz，可忽略）

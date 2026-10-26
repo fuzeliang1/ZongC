@@ -28,11 +28,11 @@
 
 | 文件 | 内容 | 重新生成 |
 |---|---|---|
-| `MiniDiDi_report.docx` / `.pdf` | 技术报告（46 页：立项 → 需求 → 设计 → 算法 → 实现 → 测试 → 部署 → 评估 → 总结） | 改 `docs/report/report.md`，运行 `python3 tools/build_report.py --pdf`（需要 pandoc、python-docx，PDF 需要 LibreOffice） |
-| `MiniDiDi_slides.pptx` | 答辩介绍 PPT：封面 + 正文 5 页 + 结尾，每页有演讲备注 | 改 `tools/build_slides.js`，`npm install pptxgenjs react-icons react react-dom sharp` 后 `NODE_PATH=…/node_modules node tools/build_slides.js` |
-| `MiniDiDi_demo.mp4` | 演示录屏（4 分 57 秒，1280×720）：片头 → 2D 主界面 → 3D 巡游 → 3D 跟车，全程无人操作 | `python3 tools/record_demo.py`（需要 Node.js + Playwright、ffmpeg） |
+| `MiniDiDi_report.docx` / `.pdf` | 技术报告（40 页：立项 → 需求 → 设计 → 算法 → 实现 → 测试 → 评估 → 总结） | 改 `docs/report/report.md`，运行 `python3 tools/build_report.py --pdf`（需要 pandoc、python-docx，PDF 需要 LibreOffice） |
+| `MiniDiDi_slides.pptx` | 答辩介绍 PPT：封面 + 正文 5 页 + 结尾 + 附录 4 页（问答备用），正文每页有演讲备注 | 改 `tools/build_slides.js`，`npm install pptxgenjs react-icons react react-dom sharp` 后 `NODE_PATH=…/node_modules node tools/build_slides.js` |
+| `MiniDiDi_demo.mp4` | 演示录屏（4 分 41 秒，1280×720）：片头 → 2D 主界面 → 3D 巡游 → 3D 跟随手机车 car-6，全程无人操作 | `python3 tools/record_demo.py --car car-6`（需要 Node.js + Playwright、ffmpeg） |
 
-报告和 PPT 的封面信息、报告第 9.3 节个人总结已填写；真机、MATLAB 实测后的照片和视频可以补进报告第 5、6 章。
+报告和 PPT 的封面信息、报告第 8.3 节个人总结已填写；真机、MATLAB 实测后的照片和视频可以补进报告第 5、6 章。
 
 ## UML 图
 
@@ -53,12 +53,12 @@ python3 tools/render_uml.py --svg      # 同时输出矢量图（放进 Word 不
 | 类图：数字世界领域模型 | `class-world` | 设计 4.1 |
 | 类图：算法类 | `class-algo` | 设计 4.2 |
 | 类图：手机 App | `class-phone` | 设计 4.3 |
-| 数据流图：手机位姿估计 | `pdr` | 设计 4.3 |
+| 数据流图：手机位姿估计与走路驾驶 | `pdr` | 设计 4.3 |
 | 时序图：订单生命周期 | `seq-order` | 设计 5.1 |
 | 时序图：设备接入与断线接管 | `seq-device` | 设计 5.2 |
 | 时序图：感知未知障碍 | `seq-perception` | 设计 5.3 |
 | 时序图：拍照识别（端云互动） | `seq-vision` | 设计 5.4 |
-| 时序图：手机接入与叫车 | `seq-phone` | 设计 5.5 |
+| 时序图：手机车接入与走路驾驶 | `seq-phone` | 设计 5.5 |
 | 状态图：出租车 | `state-vehicle` | 设计 5.6 |
 | 状态图：订单与设备连接 | `state-task` | 设计 5.6 |
 | 活动图：仿真步 | `activity-step` | 设计 5.7 |

@@ -10,7 +10,7 @@ import java.nio.charset.Charset;
 import java.util.Map;
 
 /**
- * 访问数字世界的 HTTP 接口（端口 8080）：拉地图、拉快照、叫车、上传照片做图像识别。
+ * 访问数字世界的 HTTP 接口（端口 8080）：拉地图、拉快照、上传照片做图像识别。
  *
  * <p>全部是阻塞调用，必须在后台线程里用（安卓禁止在主线程联网）。</p>
  */
@@ -51,28 +51,12 @@ public final class MapClient {
     }
 
     /**
-     * 叫车：在数字世界里下一个订单（上下车点必须是车道格）。
-     *
-     * @return 订单号，例如 "T012"
-     */
-    public String hail(int fromX, int fromY, int toX, int toY) throws IOException {
-        String body = new Json.Obj()
-                .raw("from", "[" + fromX + "," + fromY + "]")
-                .raw("to", "[" + toX + "," + toY + "]")
-                .toString();
-        Map<String, Object> o = parse(request("POST", "/api/tasks", body));
-        String id = Json.str(o, "taskId");
-        if (id == null) throw new IOException("服务端没有返回订单号");
-        return id;
-    }
-
-    /**
-     * 拍照识别：把一张 JPEG 照片上传给服务端的图像处理模块。服务端用这部手机（source）在地图上的位姿
+     * 拍照识别：把一张 JPEG 照片上传给服务端的图像处理模块。服务端用这部手机所驾驶的车（source）在地图上的位姿
      * 把识别出的路障换算到地图格子上，写入全局地图，出租车随即绕行。
      *
-     * @param source  这部手机在数字世界里的编号（welcome 里的 agentId）
+     * @param source  手机车在数字世界里的编号（welcome 里的 agentId）
      * @param hfovDeg 相机水平视场角（度）
-     * @param scale   比例尺：真实世界 1 米 = 地图上多少米
+     * @param scale   比例：真实世界 1 米 = 地图上多少米（用驾驶比例 driveScale）
      */
     public VisionResult detectPhoto(String source, byte[] jpeg, double hfovDeg, double scale) throws IOException {
         String q = "/api/vision/detect?source=" + java.net.URLEncoder.encode(source, "UTF-8")

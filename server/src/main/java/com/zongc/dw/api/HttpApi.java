@@ -285,7 +285,7 @@ public final class HttpApi {
 
     /**
      * 图像识别：请求体是一张 JPEG / PNG 图片，参数放在查询串里：
-     * source（手机的智能体编号或 web）、x / y / theta（相机在地图上的位姿，省略时用 source 智能体的当前位姿）、
+     * source（手机车的编号或 web）、x / y / theta（相机在地图上的位姿，省略时用 source 智能体的当前位姿）、
      * hfov（水平视场角，度）、h（目标真实高度，米）、scale（比例尺）、benchmark=1（附带单线程对比耗时）。
      * 识别在 HTTP 线程里完成（不占用仿真线程），结果再交给仿真线程并入地图。
      */

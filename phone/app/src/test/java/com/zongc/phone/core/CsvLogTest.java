@@ -18,23 +18,37 @@ public class CsvLogTest {
         CsvLog log = new CsvLog(out, CsvLog.POSE_HEADER, 1_000_000_000L);
         PdrState s = new PdrState();
         s.t = 3_500_000_000L;
-        s.x = 12.3456;
-        s.y = -1;
-        s.theta = Math.PI;
+        s.px = 1.25;
+        s.yawP = Math.PI;
+        s.v = 1.1;
         s.steps = 42;
         s.walking = true;
         s.stepLength = Double.NaN;
-        log.pose(s, 9, 4, true, 12.34);
+        RouteFollower.Status car = new RouteFollower.Status();
+        car.ready = true;
+        car.x = 12.3456;
+        car.y = -1;
+        car.theta = Math.PI / 2;
+        car.hasRoute = true;
+        car.s = 3.5;
+        car.stopS = 6;
+        log.pose(s, car, 9, 4, true, 12.34);
+        log.pose(s, null, -1, -1, false, Double.NaN);
         log.close();
         String[] lines = out.toString().split("\n");
-        assertEquals(2, lines.length);
+        assertEquals(3, lines.length);
         String[] head = lines[0].split(",", -1);
         String[] row = lines[1].split(",", -1);
         assertEquals(head.length, row.length);
         assertEquals("2.500", row[0]);
-        assertEquals("12.346", row[col(head, "x")]);
-        assertEquals("-1.000", row[col(head, "y")]);
-        assertEquals("3.1416", row[col(head, "theta")]);
+        assertEquals("12.346", row[col(head, "car_x")]);
+        assertEquals("-1.000", row[col(head, "car_y")]);
+        assertEquals("1.5708", row[col(head, "car_theta")]);
+        assertEquals("3.500", row[col(head, "car_s")]);
+        assertEquals("6.000", row[col(head, "car_stop_s")]);
+        assertEquals("1.100", row[col(head, "walk_v")]);
+        assertEquals("1.250", row[col(head, "px")]);
+        assertEquals("3.1416", row[col(head, "yaw_p")]);
         assertEquals("42", row[col(head, "steps")]);
         assertEquals("1", row[col(head, "walking")]);
         assertEquals("NaN", row[col(head, "step_len")]);
@@ -42,7 +56,11 @@ public class CsvLogTest {
         assertEquals("9", row[col(head, "sats_used")]);
         assertEquals("4", row[col(head, "bds_used")]);
         assertEquals("12.3", row[col(head, "rtt_ms")]);
-        assertEquals(2, log.rows());
+        String[] unbound = lines[2].split(",", -1);
+        assertEquals(head.length, unbound.length);
+        assertEquals("还没绑定数字车：车的列为 NaN", "NaN", unbound[col(head, "car_x")]);
+        assertEquals("1.250", unbound[col(head, "px")]);
+        assertEquals(3, log.rows());
     }
 
     @Test

@@ -4,7 +4,7 @@
 
 | 接口 | 端口 | 使用者 |
 |---|---|---|
-| 设备接入（TCP，每行一条 JSON） | 9000 | Matlab 模拟车、手机 App、Gazebo 桥接、实体小车 |
+| 设备接入（TCP，每行一条 JSON） | 9000 | Matlab 模拟车、手机 App（手机车）、Gazebo 桥接、实体小车 |
 | 设备状态上报（UDP，可选） | 9001 | 同上（须先通过 TCP 注册） |
 | 浏览器接口（HTTP：REST + SSE） | 8080 | 网页前端、调试工具、3D 前端 |
 
@@ -30,7 +30,7 @@
 ### 2.1 传输格式
 
 - TCP 长连接，每条消息是一个 JSON 对象，以换行符 `\n` 结尾，单条不超过 1 MB。
-- 一个设备（一辆模拟车 / 一部手机）使用一条连接。Matlab 跑 5 辆车就开 5 条连接。
+- 一个设备（一辆模拟车 / 一部手机）使用一条连接，绑定一辆数字车。Matlab 跑 5 辆车就开 5 条连接。
 - UDP 9001 只用于高频上报 `state`：每个数据报放一条（或多条以换行分隔的）`state` 消息，必须带 `agentId`，且该车已经通过 TCP 完成注册。下行消息只走 TCP。
 
 ### 2.2 交互流程
@@ -46,7 +46,7 @@ sequenceDiagram
     loop 每 0.1 秒
         D->>S: state（x, y, θ, v）
     end
-    S-->>D: permit（授权延伸，或因行人 / 障碍收回时）
+    S-->>D: permit（授权延伸，或因路障 / 障碍收回时）
     S-->>D: world（周边车辆，5 Hz）
     S-->>D: scan（服务端模拟的激光雷达，5 Hz，可忽略）
     S-->>D: path（到站、派单、绕行时下发新路线）
@@ -60,10 +60,9 @@ sequenceDiagram
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | type | string | 是 | `"register"` |
-| kind | string | 是 | `matlab` / `gazebo` / `generic`：绑定一辆出租车（数字孪生）；`phone`：作为自由智能体接入 |
+| kind | string | 是 | `matlab` / `gazebo` / `phone` / `generic`：设备类型，都绑定一辆出租车（数字孪生），只影响界面上的标记（M / G / P / E） |
 | agentId | string | 否 | 希望绑定的车，如 `"car-3"`。不存在则新建；正被其他活跃设备使用则改派一辆空闲车（以 welcome 中的 agentId 为准） |
 | name | string | 否 | 设备名称，仅用于日志 |
-| x, y, theta | number | 手机必填 | 自由智能体的初始位姿（地图坐标） |
 
 ```json
 {"type":"register","kind":"matlab","agentId":"car-1","name":"matlab-1"}
@@ -90,7 +89,7 @@ sequenceDiagram
 
 - `ping`：心跳，服务端回复 `pong`。
 - `event`：设备事件，`{"type":"event","event":"任意文字"}`，会记入服务端事件日志。
-- `sensor`：预留给手机原始传感器数据（服务端位姿估计时使用），目前只当作心跳。
+- `sensor`：预留给手机原始传感器数据（将来如果把位姿估计放到服务端时使用），目前只当作心跳。
 
 ### 2.4 服务端 → 设备
 
@@ -132,7 +131,7 @@ sequenceDiagram
 **world**：周边所有智能体的状态（5 Hz），用于本地安全兜底（例如前方很近处有车就急停）。
 
 ```json
-{"type":"world","t":35.2,"agents":[{"id":"car-2","x":30.1,"y":8.5,"theta":0.0,"v":1.5,"r":0.3,"taxi":true}]}
+{"type":"world","t":35.2,"agents":[{"id":"car-2","x":30.1,"y":8.5,"theta":0.0,"v":1.5,"r":0.3}]}
 ```
 
 **scan**：服务端按这辆车的最新位姿模拟的激光雷达扫描（约 5 Hz）。服务端自己用它建图（见架构说明 5.9 节）；
@@ -144,7 +143,7 @@ sequenceDiagram
 | angleMin, angleStep | 第 k 束射线的方向 = theta + angleMin + k·angleStep（共 48 束，覆盖 360°，从车尾开始逆时针） |
 | rangeMax | 量程（米），没有命中的射线距离等于它 |
 | ranges | 48 个距离（米） |
-| kinds | 48 个命中类型：0 未命中，1 建筑 / 地图边界，2 路障 / 障碍，3 车辆，4 行人（这是"真值"，只用于显示和本地安全检查） |
+| kinds | 48 个命中类型：0 未命中，1 建筑 / 地图边界，2 路障 / 障碍，3 车辆（这是"真值"，只用于显示和本地安全检查） |
 
 ```json
 {"type":"scan","agentId":"car-1","t":35.2,"x":12.5,"y":0.5,"theta":0.0,"angleMin":-3.14159,"angleStep":0.1309,
@@ -158,7 +157,7 @@ sequenceDiagram
 1. 设备沿 `waypoints` 折线行驶，并计算自己在折线上的投影长度 s。
 2. 任何时刻都必须满足 **s ≤ stopS**。推荐的速度上限是 v ≤ √(2·a·(stopS − s))，这样总能在停车点前刹住。
 3. 收到新的 `path` 之后、收到同一 `routeId` 的 `permit` 之前，不得前进（stopS 视为 0）。
-4. 服务端保证任意两辆车不会获得同一个格子的授权，因此只要遵守第 2 条就不会相撞。授权通常只向前延伸，**例外有两种**：手机等自由智能体（行人）走进了已经授权给某辆车、但车还没开到的格子；或者这样的格子变得不可通行（人工设置路障、车辆感知发现了障碍）。这时服务端立即把授权收回到它之前，下发一条 `stopS` 更小的 `permit`（如果这样会停在路口中间，就退到路口之前），障碍的情况下紧接着下发绕行或掉头的新 `path`。设备必须直接采用新的 `stopS`（不要取历史最大值），按第 2 条立即减速停车。
+4. 服务端保证任意两辆车不会获得同一个格子的授权，因此只要遵守第 2 条就不会相撞。授权通常只向前延伸，**例外**：已经授权给某辆车、但车还没开到的格子变得不可通行（人工设置路障、车辆感知发现了障碍）。这时服务端立即把授权收回到它之前，下发一条 `stopS` 更小的 `permit`（如果这样会停在路口中间，就退到路口之前），障碍的情况下紧接着下发绕行或掉头的新 `path`。设备必须直接采用新的 `stopS`（不要取历史最大值），按第 2 条立即减速停车。
 5. `final=true` 且到达终点后，服务端会在乘客上下车（约 2 秒）后下发下一条路线。
 
 服务端会统计"越权行驶"次数并显示在界面上，作为考核时的证据。
@@ -169,29 +168,37 @@ sequenceDiagram
 - 设备重连后重新发送 `register` 即可，服务端会用 `welcome` 把最新位姿同步给设备。
 - 同一辆车被一个 1 秒内有消息的活跃设备占用时，新设备会被分配其他空闲车，不会互相踢下线。旧连接已失联时，新连接直接接管（方便设备重启）。
 
-### 2.7 设备类型与手机接入
+### 2.7 设备类型与手机车
 
-- `matlab` / `gazebo` / `generic`：绑定出租车，参与派单，按服务端路线行驶。
-- `phone`：新建一个自由智能体（`phone-1` …），不参与派单，位置完全由手机上报。它在交通管控中算作行人（动态障碍）：车身半径 `phoneRadius`（默认 0.45 m）覆盖的格子任何车都申请不到授权；走进某辆车已获授权的格子时，该车的授权被紧急收回（见 2.5 第 4 条），车会停在行人前面等待，等待超过 12 s 则绕行。
-- 手机上报的 `x, y` 必须是**地图坐标**。手机把 GPS 经纬度或行人航位推算（PDR）的结果换算成地图坐标，建议如下：
-  1. 选一个地面参考点（如教室某角落）对应地图上某个坐标；
-  2. 把位移转换为东-北-天（ENU）坐标系下的米；
-  3. 乘一个比例尺（例如人走 1 米 = 地图上 5 米），这样在教室里走动就能让手机车在城市地图上移动。
+- 所有设备（`matlab` / `gazebo` / `phone` / `generic`）都绑定一辆出租车：参与派单，按服务端的路线和授权行驶，
+  按第 2.5 节的规则保证不越权。`kind` 只决定界面上的标记（M / G / P / E）和日志里的名称。
+- **手机车**（`phone`）：课程要求"以人携带手机运动来模拟车辆的运动"。人不可能在教室里沿着地图上的街道走，
+  所以手机车的**位置**由服务端规划的路线决定，**快慢**由人走路决定——走路就是踩油门：
+  1. App 用惯性元件做行人航位推算（PDR：计步、Weinberg 步长、陀螺仪航向，室外再融合磁力计和卫星），
+     得到"手机自己的位姿估计"和走路速度 v_walk = 步长 × 步频；
+  2. 期望车速 = v_walk × 驾驶比例（App 设置里的 `driveScale`，默认 1：人走 1 m，车开 1 m），
+     再受 welcome 里的最高车速 `vMax`、转弯限速 `vTurn`、刹车曲线 √(2·aDec·(stopS − s)) 和加减速度限制；
+  3. 沿 `waypoints` 折线推进弧长 s（任何时候 s ≤ stopS），上报折线上 s 处的位姿。车永远在路线上，所以不会撞墙；
+     什么时候能走由移动授权决定，所以不会撞车。人停下，车就按 aDec 减速停下。
+  4. 收到新 `path` 时，把车当前的位置投影到新折线上作为起点（允许落在第一个路点之前不超过 1 m，
+     例如掉头路线从格子中心出发而车还在格子前半部），收到同一 `routeId` 的 `permit` 之前不前进。
 
-  位姿估计放在 App 里还是服务端里，PPT 不做限制；v1 协议要求 App 上报已经算好的地图坐标。
-- 手机收不到 `world` 广播（它只发给出租车设备）。要显示周边车辆，用 HTTP 轮询 `GET /api/snapshot`（约 6 KB/次，3 Hz 足够）。
-- 手机断开或 3 s 无消息，服务端立即移除该自由智能体；重连时若原编号仍被占用（旧连接尚未超时），服务端会分配新编号，以 `welcome` 为准。
+  参考实现：安卓 App 的 `RouteFollower`（`phone/app/src/main/java/com/zongc/phone/core/`），
+  以及 `tools/mock_devices.py` 的 `PhoneCar`（模拟一个拿着手机走走停停的人）。
+- 手机车和其他设备一样收得到 `world`、`scan` 广播（不用可以忽略）。App 的小地图另外用 HTTP 轮询
+  `GET /api/snapshot`（约 6 KB/次，3 Hz 足够）显示整个城市。
+- 手机断开或 3 s 无消息，服务端立即由内部仿真接管这辆车；重连时请求同一个编号，车空闲就重新绑定。
 
-本仓库的安卓 App（`phone/`）的实际收发如下：
+本仓库的安卓 App（`phone/`）的实际收发如下（默认请求 `car-6`：Matlab 车队用 car-1 ~ car-5）：
 
 ```json
-{"type":"register","protocol":1,"kind":"phone","role":"free","agentId":"phone-1","name":"Xiaomi 14","x":22.4,"y":13.5,"theta":1.5708}
-{"type":"state","agentId":"phone-1","x":22.413,"y":13.882,"theta":1.5612,"v":1.08,"w":0.021}
+{"type":"register","protocol":1,"kind":"phone","agentId":"car-6","name":"Xiaomi 14"}
+{"type":"state","agentId":"car-6","x":22.413,"y":13.5,"theta":0.0,"v":1.08,"w":0.0}
 {"type":"ping"}
-{"type":"event","event":"叫车 T012"}
+{"type":"event","event":"拍照识别：识别到 1 个路障"}
 ```
 
-`state` 10 Hz、`ping` 1 Hz（用 `pong` 计算往返时延，5 s 收不到任何消息就重连）。叫车用 REST：`POST /api/tasks`，上车点取离手机最近、且不在手机脚下的车道格。
+`state` 10 Hz、`ping` 1 Hz（用 `pong` 计算往返时延，5 s 收不到任何消息就重连）。
 
 ### 2.8 最小客户端示例（Python）
 
@@ -250,10 +257,10 @@ es.onmessage = (e) => { const snapshot = JSON.parse(e.data); /* 更新画面 */ 
   "type": "snapshot", "t": 125.4, "wall": 1792713600123, "paused": false, "timeScale": 1.0,
   "strategy": "HUNGARIAN", "ratePerMin": 6.0,
   "agents": [{
-    "id": "car-1", "num": 1, "taxi": true, "driver": "MATLAB", "online": true, "device": "127.0.0.1:52144",
+    "id": "car-1", "num": 1, "driver": "MATLAB", "online": true, "device": "127.0.0.1:52144",
     "status": "TO_PICKUP", "x": 12.5, "y": 0.5, "theta": 0.0, "v": 1.5, "r": 0.3, "taskId": "T012",
     "route": [12.5,0.5, 13.5,0.5, ...], "held": [12,0, 13,0, 14,0], "stop": [14.12,0.5],
-    "routeId": 9, "blocked": false, "scan": [30,30,27, ...], "seen": [1,0,0], "zone": "(0~8, 0~8)"
+    "routeId": 9, "blocked": false, "scan": [30,30,27, ...], "seen": [1,0], "zone": "(0~8, 0~8)"
   }],
   "tasks": [{"id": "T012", "state": "ASSIGNED", "from": [20,0], "to": [31,24], "agent": "car-1", "age": 8.2}],
   "metrics": { "delivered": 31, "avgWait": 24.5, "collisions": 0, "obstacleHits": 0, "barrierHits": 0,
@@ -265,7 +272,7 @@ es.onmessage = (e) => { const snapshot = JSON.parse(e.data); /* 更新画面 */ 
                "next": "(11,20) 出现掉落的货物（未知障碍）", "banner": "(35,15) 突然出现施工围挡……", "loop": 1},
   "hotspots": [{"name": "居民区", "x": 5, "y": 4, "radius": 5, "origin": 3, "dest": 0.3}],
   "zones": {"zoneSize": 9, "cols": 6, "rows": 4, "perMin": [2.4, 0.3, ...], "on": true, "moves": 12},
-  "vision": {"seq": 2, "source": "phone-1", "t": 88.0, "objects": 1, "summary": "识别到 1 个路障", "mapped": [16,15]}
+  "vision": {"seq": 2, "source": "car-6", "t": 88.0, "objects": 1, "summary": "识别到 1 个路障", "mapped": [16,15]}
 }
 ```
 
@@ -275,8 +282,8 @@ es.onmessage = (e) => { const snapshot = JSON.parse(e.data); /* 更新画面 */ 
 | agents[].held | 当前已获授权（预约）的格子，扁平数组 [cx0,cy0,…] |
 | agents[].stop | 授权停车点 |
 | agents[].blocked | 前方受阻、正在等待 |
-| agents[].scan | 最近一次模拟激光雷达扫描：48 个距离，单位**分米**（整数），第 k 束方向 = theta − π + k·2π/48；手机为 null |
-| agents[].seen | 这次扫描识别到的 [车辆数, 行人数, 未知障碍命中数] |
+| agents[].scan | 最近一次模拟激光雷达扫描：48 个距离，单位**分米**（整数），第 k 束方向 = theta − π + k·2π/48 |
+| agents[].seen | 这次扫描识别到的 [车辆数, 未知障碍命中数] |
 | agents[].zone | 空车调度给它指定的待命区域，没有时省略 |
 | tasks | 进行中的订单（WAITING / ASSIGNED / PICKED），`age` 为已等待秒数 |
 | metrics | 运行指标，字段含义见 `Metrics.View`（server/src/main/java/com/zongc/dw/world/Metrics.java）。`barrierHits` 是车撞路障 / 未知障碍的次数（按真实世界判断，必须为 0），`discoveries` / `obstacleClears` 是感知发现 / 撤除的障碍数，`coverage` 是最近 60 s 内被车辆传感器核实过的道路比例 |
@@ -294,24 +301,24 @@ es.onmessage = (e) => { const snapshot = JSON.parse(e.data); /* 更新画面 */ 
 ### 3.4 图像识别（图像处理加速模块）
 
 ```
-POST /api/vision/detect?source=phone-1&hfov=63&scale=3
+POST /api/vision/detect?source=car-6&hfov=63&scale=1
 Content-Type: image/jpeg
 <照片的二进制内容>
 ```
 
 | 查询参数 | 默认值 | 说明 |
 |---|---|---|
-| source | `web` | 拍照的智能体编号（手机用 welcome 里的 agentId）。不是 `web` 时，服务端用这个智能体的当前位姿作为相机位姿 |
+| source | `web` | 拍照的车辆编号（手机用 welcome 里的 agentId，即它驾驶的车）。不是 `web` 时，服务端用这辆车的当前位姿作为相机位姿 |
 | x, y, theta | 无 | 直接给出相机在地图上的位姿（优先于 source） |
 | hfov | 63 | 相机水平视场角（度） |
 | h | 0.7 | 目标的真实高度（米），用于按针孔模型估计距离 |
-| scale | 1 | 比例尺：真实世界 1 米 = 地图上多少米（与手机 App 设置一致） |
+| scale | 1 | 比例：真实世界 1 米 = 地图上多少米（手机 App 用设置里的驾驶比例） |
 | benchmark | 0 | 1 表示再用单线程跑一遍，返回并行加速比 |
 
 返回（节选）：
 
 ```json
-{"ok": true, "seq": 2, "source": "phone-1", "width": 960, "height": 720, "procWidth": 640, "procHeight": 480,
+{"ok": true, "seq": 2, "source": "car-6", "width": 960, "height": 720, "procWidth": 640, "procHeight": 480,
  "decodeMs": 12.4, "detectMs": 5.1, "serialMs": 6.3, "speedup": 1.24, "threads": 2, "posed": true,
  "objects": [{"label": "路障", "kind": "barrier", "bbox": [520, 330, 160, 230], "area": 15800,
               "bearingDeg": 9.1, "distance": 2.44, "cell": [18, 15]}],
@@ -336,7 +343,7 @@ Content-Type: image/jpeg
 
 ### 4.3 车辆状态
 
-`CRUISING`（空车巡游，可接单）→ `TO_PICKUP` → `BOARDING`（乘客上车，约 2 秒）→ `TO_DROPOFF` → `ALIGHTING`（乘客下车）→ `CRUISING`。手机等自由智能体为 `FREE`。
+`CRUISING`（空车巡游，可接单）→ `TO_PICKUP` → `BOARDING`（乘客上车，约 2 秒）→ `TO_DROPOFF` → `ALIGHTING`（乘客下车）→ `CRUISING`。由设备驾驶的车（包括手机车）也一样。
 
 ## 5. 地图文件格式
 
@@ -406,7 +413,7 @@ python tools/gen_map.py --widths 8,10,6,8,9 --heights 6,5,7,6 -o server/maps/my-
 | `rate` | `ratePerMin`（0~120） | 修改订单到达率 |
 | `strategy` | `value`：`GREEDY` / `HUNGARIAN` | 切换派单策略 |
 | `roadblock` | `cell`，`blocked`（默认 true） | 设置 / 解除**已知**路障：立即写入地图，车辆马上绕行 |
-| `obstacle` | `cell`，`on`（默认 true） | 在真实世界放置 / 移除**未知**障碍：系统不知道，要靠车辆感知发现；2.5 m 内有车或行人时推迟出现（最多 30 s） |
+| `obstacle` | `cell`，`on`（默认 true） | 在真实世界放置 / 移除**未知**障碍：系统不知道，要靠车辆感知发现；2.5 m 内有车时推迟出现（最多 30 s） |
 | `task` | `from`、`to`（车道格） | 下一个指定订单 |
 | `rush` | `count`（1~50） | 订单潮：一次出现 count 个随机订单 |
 | `demand` | `originShare`、`destShare`、`hotspots[{name, center:[x,y], radius, origin, dest}]` | 设置需求热点；`hotspots` 为空数组表示恢复均匀需求 |
@@ -420,3 +427,4 @@ python tools/gen_map.py --widths 8,10,6,8,9 --heights 6,5,7,6 -o server/maps/my-
 | v1 | 首版：register/state/path/permit/world；REST + SSE；地图格式 |
 | v1（补充） | 行人闯入已授权格子时紧急收回授权（permit 的 stopS 可能变小）；补充手机 App 的实际报文。消息格式不变，旧设备只要直接采用最新 stopS 即兼容 |
 | v1（补充 2） | 新增下行消息 `scan`（模拟激光雷达，可忽略）；授权也会因路障 / 感知发现的障碍而收回；快照新增感知、场景、需求字段；新增场景脚本接口与格式（第 6 节）；新增图像识别接口（3.4 节）。旧设备不受影响 |
+| v1（补充 3） | 按课程要求"手机模拟车辆运动"：`phone` 设备改为与其他设备一样绑定一辆出租车（手机车，走路即油门，2.7 节），不再有自由智能体 / 行人；去掉 register 的 `x, y, theta`、快照和 world 消息的 `taxi` 字段、指标 `freeContacts` / `freeAgents`、车辆状态 `FREE`、scan 的类型 4（行人）；`seen` 改为 [车辆数, 未知障碍命中数]。Matlab / Gazebo 等设备不受影响 |

@@ -75,7 +75,7 @@ class FollowerTest(unittest.TestCase):
         self.assertLess(sim.car.v, 1e-3, '最后应停稳')
 
     def test_permit_revocation_is_obeyed(self):
-        """行驶中 stopS 变小（行人闯入 / 出现障碍）：必须采用新值，在新的停车点前停下。"""
+        """行驶中 stopS 变小（出现路障 / 发现障碍）：必须采用新值，在新的停车点前停下。"""
         sim = Sim(straight(0, 0, 12))
         sim.permit(10.0)
         state = {'revoked': None}

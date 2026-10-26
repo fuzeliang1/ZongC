@@ -31,10 +31,10 @@ import android.widget.Toast;
 import com.zongc.phone.core.DwConnection;
 import com.zongc.phone.core.Endpoint;
 import com.zongc.phone.core.Fmt;
-import com.zongc.phone.core.Geo;
 import com.zongc.phone.core.MapData;
 import com.zongc.phone.core.PdrConfig;
 import com.zongc.phone.core.PdrState;
+import com.zongc.phone.core.RouteFollower;
 import com.zongc.phone.core.VisionResult;
 import com.zongc.phone.core.WorldSnapshot;
 
@@ -42,22 +42,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /**
- * 主界面（纯代码搭建，不依赖任何第三方库）。
+ * 主界面（纯代码搭建，不依赖任何第三方库）。手机 = 数字世界里的一辆模拟车，走路就是踩油门。
  *
  * <pre>
  * ┌ 服务端 IP ─────────────── [连接] ┐  深色顶栏 + 连接状态
- * │            小地图                 │  城市、出租车、我的位置和轨迹
- * │ 步数 / 位置朝向 / 传感器 / 卫星     │  实时数据
- * │ [设位置][对方向][步长标定][模拟行走] │
- * └ [室外模式][记录数据][叫车][设置]   ┘
+ * │            小地图                 │  城市、所有车辆、我的车和它的路线、轨迹
+ * │ 我的车：状态 / 车速 / 剩余路程     │  实时数据
+ * │ 走路 / 手机位姿估计 / 传感器 / 卫星 │
+ * │ [步长标定][模拟行走][室外模式]      │
+ * └ [记录数据][拍照][设置]             ┘
  * </pre>
  */
 public class MainActivity extends Activity implements MiniMapView.TapListener {
     private static final int REQ_LOCATION = 1;
-    private static final int MODE_NONE = 0;
-    private static final int MODE_SET_POSITION = 1;
-    private static final int MODE_FACE_POINT = 2;
-    private static final int MODE_HAIL = 3;
 
     private static final int TOP_BG = 0xff1f2a36;
     private static final int PANEL_BG = 0xfff7f9fb;
@@ -70,24 +67,20 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private AppCore core;
     private float dp;
-    private int mode = MODE_NONE;
 
     private EditText hostInput;
     private Button connectBtn;
     private TextView statusLine;
     private MiniMapView mapView;
+    private TextView carLine;
     private TextView motionLine;
     private TextView poseLine;
     private TextView sensorLine;
     private TextView gnssLine;
-    private TextView taskLine;
-    private Button positionBtn;
-    private Button headingBtn;
     private Button calibBtn;
     private Button simBtn;
     private Button outdoorBtn;
     private Button recordBtn;
-    private Button hailBtn;
     private Button photoBtn;
     private Button settingsBtn;
     private static final int REQ_PHOTO = 41;
@@ -100,9 +93,6 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
     private double accHz;
     private double gyroHz;
     private double magHz;
-    // 订单完成提示
-    private long taskGoneAt;
-    private boolean taskSeen;
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -147,7 +137,6 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         ui.removeCallbacks(tick);
         core.sensors.stop();
         core.gnss.stop();
-        core.savePose();
         core.flushRecording();
     }
 
@@ -220,27 +209,16 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
         info.setPadding(px(10), px(6), px(10), px(4));
+        carLine = infoLine(info);
+        carLine.setTypeface(Typeface.DEFAULT_BOLD);
+        carLine.setSingleLine(false);
+        carLine.setMaxLines(2);
         motionLine = infoLine(info);
         poseLine = infoLine(info);
         sensorLine = infoLine(info);
         gnssLine = infoLine(info);
-        taskLine = infoLine(info);
-        taskLine.setTypeface(Typeface.DEFAULT_BOLD);
-        taskLine.setVisibility(View.GONE);
         body.addView(info);
 
-        positionBtn = button("设位置", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onPositionClicked();
-            }
-        });
-        headingBtn = button("对方向", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onHeadingClicked();
-            }
-        });
         calibBtn = button("步长标定", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -265,12 +243,6 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
                 onRecordClicked();
             }
         });
-        hailBtn = button("叫车", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onHailClicked();
-            }
-        });
         photoBtn = button("拍照", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -283,8 +255,8 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
                 showSettings();
             }
         });
-        body.addView(buttonRow(positionBtn, headingBtn, calibBtn, simBtn));
-        body.addView(buttonRow(outdoorBtn, recordBtn, hailBtn, photoBtn, settingsBtn));
+        body.addView(buttonRow(calibBtn, simBtn, outdoorBtn));
+        body.addView(buttonRow(recordBtn, photoBtn, settingsBtn));
         return root;
     }
 
@@ -326,21 +298,23 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
     private void refresh() {
         long now = AppCore.now();
         PdrState s = core.engine.state(now);
+        RouteFollower.Status car = core.car.status();
         DwConnection.Status cs = core.connStatus();
         MapData map = core.map();
         WorldSnapshot snap = core.snapshot();
-        core.addTrail(s.x, s.y);
-        core.logPose(s, cs);
+        core.track(s, car);
+        core.logPose(s, car, cs);
 
         updateStatusLine(cs, snap);
         updateRates(now);
 
-        motionLine.setText("步数 " + s.steps + " · 步长 " + Fmt.show(s.stepLength, 2) + " m · "
-                + Fmt.show(s.cadence, 0) + " 步/分 · 共 " + Fmt.show(s.distance, 1) + " m");
-        double deg = Math.toDegrees(s.theta);
-        poseLine.setText("位置 (" + Fmt.show(s.x, 1) + ", " + Fmt.show(s.y, 1) + ") · 朝向 "
-                + Fmt.show(deg, 0) + "°" + Geo.arrow(s.theta) + " · " + Fmt.show(s.v, 1) + " m/s"
-                + (s.scale != 1 ? " · ×" + Fmt.show(s.scale, 1) : ""));
+        carLine.setText(carText(car, s, cs, snap));
+        double scale = core.engine.config().driveScale;
+        motionLine.setText("走路 " + s.steps + " 步 · 步长 " + Fmt.show(s.stepLength, 2) + " m · "
+                + Fmt.show(s.cadence, 0) + " 步/分 · " + Fmt.show(s.v, 1) + " m/s"
+                + (scale != 1 ? " · 车速 ×" + Fmt.show(scale, 1) : ""));
+        poseLine.setText("手机位姿估计 (" + Fmt.show(s.px, 1) + ", " + Fmt.show(s.py, 1) + ") m · 航向 "
+                + Fmt.show(Math.toDegrees(s.yawP), 0) + "° · 共走 " + Fmt.show(s.distance, 1) + " m");
         String sensors = "加速度 " + rate(core.sensors.hasAccel, accHz)
                 + " 陀螺 " + rate(core.sensors.hasGyro, gyroHz)
                 + " 磁力 " + rate(core.sensors.hasMag, magHz)
@@ -350,24 +324,18 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         sensorLine.setTextColor(core.sensors.hasAccel ? INK : 0xffcf3f36);
         gnssLine.setText(gnssText(s));
 
-        String task = taskText(snap);
-        taskLine.setVisibility(task == null ? View.GONE : View.VISIBLE);
-        if (task != null) taskLine.setText(task);
-
         connectBtn.setText(core.active() ? "断开" : "连接");
         calibBtn.setText(s.calibrating ? "完成标定" : "步长标定");
         simBtn.setText(s.simWalk ? "停止模拟" : "模拟行走");
         outdoorBtn.setText(s.outdoor ? "室外：开" : "室外模式");
         recordBtn.setText(core.recording() ? "停止记录" : "记录数据");
-        positionBtn.setText(mode == MODE_SET_POSITION ? "取消" : "设位置");
-        hailBtn.setText(mode == MODE_HAIL ? "取消" : "叫车");
 
-        mapView.update(map, snap, s, cs == null ? null : cs.agentId, core.myTaskId, hint());
+        mapView.update(map, snap, car, s);
     }
 
     private void updateStatusLine(DwConnection.Status cs, WorldSnapshot snap) {
         if (cs == null) {
-            statusLine.setText("未连接：只在手机上推算位置。填入运行服务端的电脑 IP，点“连接”接入数字世界");
+            statusLine.setText("未连接：只在手机上做惯性推算。填入运行服务端的电脑 IP，点“连接”，手机就成为数字世界里的一辆车");
             statusLine.setTextColor(0xffc9d3de);
             return;
         }
@@ -375,9 +343,9 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         String where = ep == null ? "" : ep.host + ":" + ep.tcpPort;
         switch (cs.state) {
             case CONNECTED: {
-                StringBuilder sb = new StringBuilder("● 已接入 ").append(cs.agentId)
+                StringBuilder sb = new StringBuilder("● 已接入，驾驶 ").append(cs.agentId)
                         .append(" · 往返 ").append(Fmt.show(cs.rttMs, 0)).append(" ms · 已上报 ").append(cs.sent);
-                if (snap != null) sb.append(" · 出租车 ").append(snap.taxiCount()).append(" 辆");
+                if (snap != null) sb.append(" · 共 ").append(snap.agents.size()).append(" 辆车");
                 String pe = core.pollError();
                 if (pe != null) sb.append("\n地图/快照获取失败：").append(pe);
                 if (cs.serverError != null) sb.append("\n服务端提示：").append(cs.serverError);
@@ -435,55 +403,43 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         return sb.toString();
     }
 
-    /** 我叫的车现在怎样了；没有订单时返回 null。 */
-    private String taskText(WorldSnapshot snap) {
-        String id = core.myTaskId;
-        if (id == null) return null;
-        if (snap == null) return "订单 " + id + "：等待服务端数据…";
-        WorldSnapshot.Task t = snap.task(id);
-        if (t == null) {
-            if (!taskSeen) return "订单 " + id + "：已提交";
-            if (taskGoneAt == 0) taskGoneAt = System.currentTimeMillis();
-            if (System.currentTimeMillis() - taskGoneAt > 15000) {
-                core.myTaskId = null;
-                taskSeen = false;
-                taskGoneAt = 0;
-                return null;
-            }
-            return "订单 " + id + "：已送达（或已取消）";
+    /** 我的车现在怎样了。 */
+    private static String carText(RouteFollower.Status c, PdrState s, DwConnection.Status cs, WorldSnapshot snap) {
+        if (cs == null) return "我的车：未连接。连接后手机绑定数字世界里的一辆车，走路就是踩油门";
+        if (!c.ready) return "我的车：等待服务端分配…";
+        WorldSnapshot.Agent a = snap == null ? null : snap.agent(c.agentId);
+        String status = a != null && a.status != null ? a.status : c.carStatus;   // 快照里的状态更新得更及时
+        String task = a != null ? a.taskId : c.taskId;
+        StringBuilder sb = new StringBuilder("我的车 ").append(c.agentId).append("：").append(statusLabel(status, task))
+                .append(" · ").append(Fmt.show(c.v, 1)).append(" m/s");
+        if (!c.hasRoute) {
+            sb.append(" · 没有路线");
+        } else if (c.arrived()) {
+            sb.append(" · 已到达");
+        } else {
+            sb.append(" · 剩余 ").append(Fmt.show(c.remaining(), 0)).append(" m");
+            if (c.waitingPermit()) sb.append(" · 等待放行（前方有车或障碍）");
+            else if (!s.walking) sb.append(" · 走起来车就开");
         }
-        taskSeen = true;
-        taskGoneAt = 0;
-        if ("WAITING".equals(t.state)) return "订单 " + id + "：等待派车（车都在忙）· 已等 " + Fmt.show(t.age, 0) + " s";
-        WorldSnapshot.Agent taxi = snap.agent(t.agent);
-        if ("ASSIGNED".equals(t.state)) {
-            String left = taxi != null && taxi.route != null ? "，还有约 " + taxi.route.length / 2 + " m" : "";
-            return "订单 " + id + "：" + t.agent + " 正在赶来" + left + "（站在路边别挡道）";
-        }
-        if ("PICKED".equals(t.state)) return "订单 " + id + "：" + t.agent + " 已接到乘客，前往目的地";
-        return "订单 " + id + "：" + t.state;
+        return sb.toString();
     }
 
-    private String hint() {
-        switch (mode) {
-            case MODE_SET_POSITION:
-                return "点地图：我现在站在哪里";
-            case MODE_FACE_POINT:
-                return "点地图：我现在面朝哪个地方";
-            case MODE_HAIL:
-                return "点地图：我要去哪里";
-            default:
-                return null;
-        }
+    private static String statusLabel(String status, String task) {
+        String t = task == null ? "" : " " + task;
+        if ("CRUISING".equals(status)) return "空车巡游";
+        if ("TO_PICKUP".equals(status)) return "去接乘客" + t;
+        if ("BOARDING".equals(status)) return "乘客上车中" + t;
+        if ("TO_DROPOFF".equals(status)) return "载客前往目的地" + t;
+        if ("ALIGHTING".equals(status)) return "乘客下车中" + t;
+        return status == null ? "等待路线" : status;
     }
 
     // ================================================================ 按钮
 
     private void onConnectClicked() {
-        mode = MODE_NONE;
         if (core.active()) {
             core.disconnect();
-            toast("已断开，手机智能体会从数字世界中移除");
+            toast("已断开，这辆车由数字世界接管");
             return;
         }
         String text = hostInput.getText().toString().trim();
@@ -501,43 +457,7 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         if (imm != null) imm.hideSoftInputFromWindow(hostInput.getWindowToken(), 0);
     }
 
-    private void onPositionClicked() {
-        if (mode == MODE_SET_POSITION) {
-            mode = MODE_NONE;
-            return;
-        }
-        if (core.map() == null) {
-            core.setPosition(0, 0);
-            toast("还没有地图：已把当前位置设为本地原点");
-            return;
-        }
-        mode = MODE_SET_POSITION;
-    }
-
-    private void onHeadingClicked() {
-        mode = MODE_NONE;
-        final String[] items = {"→ 地图右方（+x）", "↑ 地图上方（+y）", "← 地图左方（−x）", "↓ 地图下方（−y）",
-                "在地图上点一下我面朝的地方…"};
-        new AlertDialog.Builder(this)
-                .setTitle("手机机头朝前，我现在面朝：")
-                .setItems(items, new android.content.DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(android.content.DialogInterface d, int which) {
-                        if (which < 4) {
-                            core.engine.alignHeading(which * Math.PI / 2);
-                            toast("方向已对准：" + items[which]);
-                        } else if (core.map() == null) {
-                            toast("请先连接服务端获取地图");
-                        } else {
-                            mode = MODE_FACE_POINT;
-                        }
-                    }
-                })
-                .show();
-    }
-
     private void onCalibrationClicked() {
-        mode = MODE_NONE;
         final PdrState s = core.engine.state(AppCore.now());
         if (!s.calibrating) {
             new AlertDialog.Builder(this)
@@ -586,15 +506,13 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
     }
 
     private void onSimClicked() {
-        mode = MODE_NONE;
         long now = AppCore.now();
         boolean on = !core.engine.state(now).simWalk;
         core.engine.setSimWalk(on, now);
-        if (on) toast("模拟行走：按设定步频沿手机朝向前进。手机平放在桌上，转动手机就能转弯");
+        if (on) toast("模拟行走：按设定的步长和步频自动“走路”，手机车沿路线开起来（桌面演示用）");
     }
 
     private void onOutdoorClicked() {
-        mode = MODE_NONE;
         PdrConfig c = core.engine.config();
         c.outdoor = !c.outdoor;
         core.applyConfig(c);
@@ -610,7 +528,6 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
     }
 
     private void onRecordClicked() {
-        mode = MODE_NONE;
         if (core.recording()) {
             LogFiles.Recording r = core.stopRecording();
             if (r != null) {
@@ -622,100 +539,26 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         }
         try {
             String where = core.startRecording();
-            toast("开始记录（位姿 10 Hz + 原始传感器 50 Hz），保存到：" + where);
+            toast("开始记录（车与手机位姿 10 Hz + 原始传感器 50 Hz），保存到：" + where);
         } catch (IOException e) {
             toast("无法创建记录文件：" + e.getMessage());
         }
-    }
-
-    private void onHailClicked() {
-        if (mode == MODE_HAIL) {
-            mode = MODE_NONE;
-            return;
-        }
-        DwConnection.Status cs = core.connStatus();
-        if (cs == null || cs.state != DwConnection.State.CONNECTED || core.map() == null) {
-            toast("请先连接服务端");
-            return;
-        }
-        mode = MODE_HAIL;
     }
 
     // ================================================================ 点地图
 
     @Override
     public void onMapTap(double x, double y) {
-        int m = mode;
-        mode = MODE_NONE;
-        switch (m) {
-            case MODE_SET_POSITION:
-                core.setPosition(x, y);
-                toast("我的位置已设为 (" + Fmt.show(x, 1) + ", " + Fmt.show(y, 1) + ")");
-                break;
-            case MODE_FACE_POINT:
-                core.engine.faceToward(x, y);
-                toast("方向已对准");
-                break;
-            case MODE_HAIL:
-                hail(x, y);
-                break;
-            default:
-                mapView.toggleFollow();         // 平时轻点地图：在"跟随我"和"全图"之间切换
-                break;
-        }
-    }
-
-    private void hail(double tx, double ty) {
-        MapData map = core.map();
-        WorldSnapshot snap = core.snapshot();
-        if (map == null) return;
-        PdrState me = core.engine.state(AppCore.now());
-        int[] blocked = snap == null ? null : snap.blocked;
-        final int[] from = map.nearestLane(me.x, me.y, blocked, 1.2);   // 上车点不能是自己脚下的格子
-        final int[] to = map.nearestLane(tx, ty, blocked);
-        if (from == null || to == null) {
-            toast("地图上找不到可以停车的车道");
-            return;
-        }
-        if (Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]) < 3) {
-            toast("目的地离你太近了，走过去吧");
-            return;
-        }
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    final String id = core.hail(from[0], from[1], to[0], to[1]);
-                    core.sendEvent("叫车 " + id);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            core.myTaskId = id;
-                            taskSeen = false;
-                            taskGoneAt = 0;
-                            toast("已叫车：订单 " + id + "。请站在路边等候，不要站在车道上");
-                        }
-                    });
-                } catch (final IOException e) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            toast("叫车失败：" + e.getMessage());
-                        }
-                    });
-                }
-            }
-        }, "hail").start();
+        mapView.toggleFollow();         // 轻点地图：在"跟随我的车"和"全图"之间切换
     }
 
     // ================================================================ 拍照识别
 
     /**
      * 拍照识别路障：调用系统相机拍一张照片（只取缩略图，不需要相机或存储权限），上传给服务端的
-     * 图像处理模块。服务端识别出橙 / 红色路障后，按手机当前位姿换算到地图上，出租车随即绕行。
+     * 图像处理模块。服务端识别出橙 / 红色路障后，按手机车当前位姿换算到地图上，出租车随即绕行。
      */
     private void onPhotoClicked() {
-        mode = MODE_NONE;
         DwConnection.Status cs = core.connStatus();
         if (cs == null || cs.state != DwConnection.State.CONNECTED) {
             toast("请先连接服务端");
@@ -773,14 +616,14 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
     // ================================================================ 设置
 
     private void showSettings() {
-        mode = MODE_NONE;
         final PdrConfig c = core.engine.config();
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(px(20), px(8), px(20), px(8));
-        final EditText id = field(box, "手机编号（数字世界里显示的名字）", core.prefs.phoneId(), false, false);
-        final EditText scale = field(box, "比例尺：真实走 1 m = 地图上多少 m（教室里可设 3~5）",
-                Fmt.show(c.mapScale, 2), true, false);
+        final EditText id = field(box, "车号：想驾驶数字世界里的哪辆车（被占用时服务端另分配一辆）",
+                core.prefs.carId(), false, false);
+        final EditText scale = field(box, "驾驶比例：人走 1 m，车开几 m（车速上限 1.5 m/s；走得慢可设 1.5~2）",
+                Fmt.show(c.driveScale, 2), true, false);
         final EditText k = field(box, "步长系数 K（步长 = K·Δa^¼，用“步长标定”自动求）",
                 Fmt.show(c.weinbergK, 3), true, false);
         final EditText amp = field(box, "计步阈值 m/s²（走路不计步就调小，晃手机误计步就调大）",
@@ -789,7 +632,6 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
         final EditText simHz = field(box, "模拟行走：步频 步/秒", Fmt.show(c.simCadenceHz, 2), true, false);
         final EditText decl = field(box, "磁偏角 °（东偏为正，上海约 −6.5，仅室外模式用）",
                 Fmt.show(c.declinationDeg, 1), true, true);
-        final EditText smooth = field(box, "上报位置平滑时间常数 s（0 = 不平滑）", Fmt.show(c.smoothingTau, 2), true, false);
         final CheckBox auto = new CheckBox(this);
         auto.setText("打开 App 时自动连接上次的服务端");
         auto.setChecked(core.prefs.autoConnect());
@@ -803,22 +645,20 @@ public class MainActivity extends Activity implements MiniMapView.TapListener {
                     @Override
                     public void onClick(android.content.DialogInterface d, int which) {
                         PdrConfig n = c.copy();
-                        n.mapScale = positive(scale, c.mapScale);
+                        n.driveScale = positive(scale, c.driveScale);
                         n.weinbergK = positive(k, c.weinbergK);
                         n.minStepAmplitude = positive(amp, c.minStepAmplitude);
                         n.simStepLength = positive(simLen, c.simStepLength);
                         n.simCadenceHz = positive(simHz, c.simCadenceHz);
                         double dv = parse(decl);
                         if (!Double.isNaN(dv)) n.declinationDeg = dv;
-                        double sm = parse(smooth);
-                        if (!Double.isNaN(sm) && sm >= 0) n.smoothingTau = sm;
                         core.applyConfig(n);
                         core.prefs.setAutoConnect(auto.isChecked());
                         String newId = id.getText().toString().trim();
-                        if (!newId.isEmpty() && !newId.equals(core.prefs.phoneId())) {
-                            core.prefs.setPhoneId(newId);
+                        if (!newId.isEmpty() && !newId.equals(core.prefs.carId())) {
+                            core.prefs.setCarId(newId);
                             Endpoint ep = core.endpoint();
-                            if (core.active() && ep != null) core.connect(ep);   // 用新编号重新接入
+                            if (core.active() && ep != null) core.connect(ep);   // 换一辆车重新接入
                         }
                         toast("已保存");
                     }

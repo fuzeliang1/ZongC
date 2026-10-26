@@ -5,11 +5,11 @@ left to right direction
 
 rectangle "MiniDiDi 数字世界服务端" {
   usecase "UC06 手动下单" as UC06
-  usecase "UC08 叫车" as UC08
   usecase "UC14 自动生成订单" as UC14
   usecase "UC05 设置 / 解除路障" as UC05
   usecase "UC10 拍照识别路障" as UC10
   usecase "UC16 车辆感知未知障碍" as UC16
+  usecase "UC08 走路驾驶手机车" as UC08
   usecase "UC12 接收路线与行驶授权" as UC12
   usecase "UC13 上报车辆状态" as UC13
 
@@ -23,7 +23,6 @@ rectangle "MiniDiDi 数字世界服务端" {
 }
 
 UC06 ..> Dispatch : <<include>>
-UC08 ..> Dispatch : <<include>>
 UC14 ..> Dispatch : <<include>>
 Dispatch ..> Plan : <<include>>
 UC10 ..> Vision : <<include>>
@@ -32,6 +31,8 @@ UC05 ..> MapUpd : <<include>>
 UC16 ..> MapUpd : <<include>>
 MapUpd ..> Plan : <<include>>
 UC12 ..> Permit : <<include>>
+UC08 ..> UC12 : <<include>>
+UC08 ..> UC13 : <<include>>
 Reroute .> Permit : <<extend>>\n受阻 12 s
 Reroute ..> Plan : <<include>>
 Takeover .> UC13 : <<extend>>\n3 s 无上报

@@ -38,7 +38,7 @@ public class VisionTest {
         BufferedImage img = scene(w, h, coneCx, coneH, true, 1);
         // 相机在 (15.5, 15.5)（向东车道上），朝东
         double[] pose = {15.5, 15.5, 0};
-        VisionService.Report r = vs.process(jpeg(img), new VisionService.Params("phone-1", pose, 60, 0.7, 1.0, false));
+        VisionService.Report r = vs.process(jpeg(img), new VisionService.Params("car-6", pose, 60, 0.7, 1.0, false));
         assertEquals("应只识别出一个目标（白色反光条不能把锥桶切成两个）：" + r.summary(), 1, r.objects().size());
         VisionService.Detection d = r.objects().get(0);
         assertEquals("barrier", d.kind());
@@ -101,7 +101,7 @@ public class VisionTest {
         int cell = map.index(16, 15);
         int tries = 0;
         while (!clearOfCars(w, cell) && tries++ < 400) w.step();
-        w.reportVision("phone-1", 1, "识别到 1 个路障", new int[]{cell}, 2.0);
+        w.reportVision("car-6", 1, "识别到 1 个路障", new int[]{cell}, 2.0);
         Snapshot s = w.snapshot(false, 1);
         assertArrayEquals("识别结果应立即写入地图", new int[]{16, 15}, s.discovered());
         assertTrue(!map.passable(cell));

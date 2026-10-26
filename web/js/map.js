@@ -10,7 +10,6 @@ export function carColor(num) {
   return CAR_COLORS[(Math.max(1, num) - 1) % CAR_COLORS.length];
 }
 
-const PHONE_COLOR = '#7b5cd6';
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 function lerpAngle(a, b, t) {
@@ -284,16 +283,12 @@ export class MapView {
     }
     this.drawBlocked(g, s.blocked || [], S);
     this.drawPerception(g, s, S);
-    for (const a of s.agents) if (a.taxi && a.held) this.drawCarpet(g, a, S);
-    for (const a of s.agents) if (a.taxi && a.route) this.drawRoute(g, a, poses.get(a.id), S);
+    for (const a of s.agents) if (a.held) this.drawCarpet(g, a, S);
+    for (const a of s.agents) if (a.route) this.drawRoute(g, a, poses.get(a.id), S);
     if (this.layers.scan) for (const a of s.agents) if (a.scan) this.drawScan(g, a, poses.get(a.id), S);
     this.drawTasks(g, s, S, t);
     if (this.pendingCell) this.drawPending(g, S);
-    for (const a of s.agents) {
-      const p = poses.get(a.id);
-      if (a.taxi) this.drawCar(g, a, p, S);
-      else this.drawPhone(g, a, p, S);
-    }
+    for (const a of s.agents) this.drawCar(g, a, poses.get(a.id), S);
   }
 
   drawBlocked(g, cells, S) {
@@ -617,32 +612,6 @@ export class MapView {
     g.fill();
     g.fillStyle = a.driver !== 'INTERNAL' ? this.col.panel : '#1a2430';
     g.fillText(label, px, ly + 1);
-  }
-
-  drawPhone(g, a, p, S) {
-    const px = this.sx(p.x), py = this.sy(p.y);
-    const rr = a.r * this.scale;
-    g.fillStyle = PHONE_COLOR + '26';
-    g.strokeStyle = PHONE_COLOR;
-    g.lineWidth = 1.5;
-    g.setLineDash([3, 3]);
-    g.beginPath();
-    g.arc(px, py, rr, 0, Math.PI * 2);
-    g.fill();
-    g.stroke();
-    g.setLineDash([]);
-    g.save();
-    g.translate(px, py);
-    g.rotate(-p.theta);
-    g.fillStyle = PHONE_COLOR;
-    this.roundRect(g, -rr * 0.32, -rr * 0.5, rr * 0.64, rr * 1.0, 2);
-    g.fill();
-    g.restore();
-    g.font = `600 ${clamp(S * 0.38, 9, 12)}px ${this.col.font}`;
-    g.textAlign = 'left';
-    g.textBaseline = 'middle';
-    g.fillStyle = PHONE_COLOR;
-    g.fillText(a.id, px + rr + 3, py);
   }
 
   // ------------------------------------------------------------ 交互

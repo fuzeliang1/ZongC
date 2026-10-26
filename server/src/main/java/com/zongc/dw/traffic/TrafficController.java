@@ -23,20 +23,14 @@ import java.util.List;
  *   <li>申请顺序按"受阻时间"排序，等得最久的先申请；等待超过 priorityHoldSec 的那一辆可以
  *       先占住它需要的空闲格，防止被源源不断的车流"饿死"。</li>
  *   <li>受阻超过 stuckRerouteSec 的车交给 World 绕行重规划。</li>
- *   <li>授权一般只增不减；例外是已授权的格子里闯进了行人、或格子变得不可通行（路障、感知发现的障碍），
+ *   <li>授权一般只增不减；例外是已授权的格子变得不可通行（路障、感知发现的障碍），
  *       这时立即收回授权（{@link #revokeBefore}）。</li>
  * </ol>
- * <p>手机等自由智能体不受管控，但它们车身覆盖的格子同样被占用，其他车会主动避让。</p>
  */
 public final class TrafficController {
 
-    /**
-     * 一次更新的结果：需要 World 处理的车辆。
-     *
-     * @param yields 本次因行人闯入已授权格子而紧急停车的说明（写入事件日志）
-     */
-    public record Result(List<Agent> stuck, List<Integer> stuckBlockingCells, List<Agent> offRoute,
-                         List<String> yields) {}
+    /** 一次更新的结果：需要 World 处理的车辆。 */
+    public record Result(List<Agent> stuck, List<Integer> stuckBlockingCells, List<Agent> offRoute) {}
 
     /**
      * 授权被收回后，外部设备要等下一条授权到达才知道新的停车点：最多差一个上报周期（10 Hz）
@@ -48,8 +42,6 @@ public final class TrafficController {
     private final GridMap map;
     private final Config cfg;
     private final int[] owner;
-    /** 被行人（手机等自由智能体）车身覆盖的格子。 */
-    private final boolean[] pedestrian;
     /** 最近一次 update 的仿真时间（revokeBefore 也会在两次 update 之间被 World 调用）。 */
     private double now;
 
@@ -57,16 +49,11 @@ public final class TrafficController {
         this.map = map;
         this.cfg = cfg;
         this.owner = new int[map.size()];
-        this.pedestrian = new boolean[map.size()];
     }
 
     /** 格子当前归属的智能体下标，-1 表示空闲。 */
     public int ownerOf(int cell) {
         return owner[cell];
-    }
-
-    public double radiusOf(Agent a) {
-        return a.taxi ? cfg.vehicle.bodyRadius : cfg.vehicle.phoneRadius;
     }
 
     /** 内部仿真车应当停下的弧长位置（授权终点前留出车身半径和余量）。 */
@@ -90,8 +77,8 @@ public final class TrafficController {
 
         // 1. 车身覆盖的格子 & 路线进度
         for (Agent a : agents) {
-            a.bodyCells = map.cellsOverlappingCircle(a.x, a.y, radiusOf(a));
-            if (!a.taxi || a.route == null) continue;
+            a.bodyCells = map.cellsOverlappingCircle(a.x, a.y, cfg.vehicle.bodyRadius);
+            if (a.route == null) continue;
             if (a.internal()) {
                 a.progress = a.route.pieceAt(a.s);
             } else if (updateExternalProgress(a, dt, metrics)) {
@@ -99,19 +86,16 @@ public final class TrafficController {
             }
         }
 
-        // 2. 重建占用表：先车身，再已有授权。行人走进已授权的格子时先把授权收回
+        // 2. 重建占用表：先车身，再已有授权。已授权的格子变得不可通行时先把授权收回
         Arrays.fill(owner, -1);
-        Arrays.fill(pedestrian, false);
         for (Agent a : agents) {
             for (int c : a.bodyCells) {
                 if (owner[c] < 0) owner[c] = a.index();
-                if (!a.taxi) pedestrian[c] = true;
             }
         }
-        List<String> yields = new ArrayList<>();
         for (Agent a : agents) {
-            if (!a.taxi || a.route == null) continue;
-            enforceAuthority(a, agents, yields);
+            if (a.route == null) continue;
+            enforceAuthority(a);
             for (int i = a.progress; i <= a.authority; i++) {
                 int c = a.route.cell(i);
                 if (owner[c] < 0) owner[c] = a.index();
@@ -121,7 +105,7 @@ public final class TrafficController {
         // 3. 按受阻时间排序后依次申请授权
         List<Agent> order = new ArrayList<>();
         for (Agent a : agents) {
-            if (a.taxi && a.route != null) order.add(a);
+            if (a.route != null) order.add(a);
         }
         order.sort(Comparator.comparingDouble((Agent a) -> Double.isNaN(a.blockedSince) ? Double.MAX_VALUE : a.blockedSince)
                 .thenComparingInt(a -> a.num));
@@ -161,33 +145,18 @@ public final class TrafficController {
                 stuckCells.add(r.cell(pending[0]));
             }
         }
-        return new Result(stuck, stuckCells, offRoute, yields);
+        return new Result(stuck, stuckCells, offRoute);
     }
 
     /**
-     * 已获授权、但车还没开到的格子里出现了不能进入的东西时，立即把授权收回到它之前：
-     * <ul>
-     *   <li>行人（手机等自由智能体）走了进来；</li>
-     *   <li>格子变得不可通行（人工路障、车辆感知发现的障碍）。</li>
-     * </ul>
+     * 已获授权、但车还没开到的格子变得不可通行（人工路障、车辆感知发现的障碍）时，立即把授权收回到它之前。
      * 内部仿真车会按"授权终点前刹停"的约束马上减速 / 停住，外部设备会收到新的停车点。
      */
-    private void enforceAuthority(Agent a, List<Agent> agents, List<String> yields) {
+    private void enforceAuthority(Agent a) {
         Route r = a.route;
         for (int i = a.progress + 1; i <= a.authority; i++) {
-            int cell = r.cell(i);
-            if (map.passable(cell) && !pedestrian[cell]) continue;
+            if (map.passable(r.cell(i))) continue;
             revokeBefore(a, i);
-            if (pedestrian[cell]) {
-                String who = "";
-                for (Agent f : agents) {
-                    if (f.taxi) continue;
-                    for (int c : f.bodyCells) {
-                        if (c == cell) who = " " + f.id + " ";
-                    }
-                }
-                yields.add(a.id + " 为行人" + who + "紧急停车");
-            }
             return;
         }
     }
@@ -250,7 +219,7 @@ public final class TrafficController {
     }
 
     private boolean free(int cell, Agent a) {
-        return map.passable(cell) && !pedestrian[cell] && (owner[cell] < 0 || owner[cell] == a.index());
+        return map.passable(cell) && (owner[cell] < 0 || owner[cell] == a.index());
     }
 
     private boolean allFree(Route r, int from, int to, Agent a) {

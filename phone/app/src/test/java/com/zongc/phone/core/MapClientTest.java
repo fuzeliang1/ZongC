@@ -15,7 +15,6 @@ import static org.junit.Assert.fail;
 
 public class MapClientTest {
     private TinyHttpServer http;
-    private volatile String lastBody;
 
     @Before
     public void setUp() throws IOException {
@@ -37,7 +36,6 @@ public class MapClientTest {
         http.route("/api/tasks", new TinyHttpServer.Handler() {
             @Override
             public TinyHttpServer.Response handle(String method, String path, String body) {
-                lastBody = body;
                 if (!"POST".equals(method)) return new TinyHttpServer.Response(405, "{\"ok\":false,\"error\":\"只支持 POST\"}");
                 Map<String, Object> b = Json.parseObject(body);
                 double[] from = Json.nums(b, "from"), to = Json.nums(b, "to");
@@ -97,17 +95,9 @@ public class MapClientTest {
     }
 
     @Test
-    public void hailPostsCellsAndReturnsTaskId() throws IOException {
-        assertEquals("T042", client().hail(1, 5, 30, 24));
-        Map<String, Object> b = Json.parseObject(lastBody);
-        assertEquals(1, Json.nums(b, "from")[0], 0);
-        assertEquals(24, Json.nums(b, "to")[1], 0);
-    }
-
-    @Test
     public void serverErrorMessageIsPropagated() {
         try {
-            client().hail(1, 5, 1, 5);
+            client().request("POST", "/api/tasks", "{\"from\":[1,5],\"to\":[1,5]}");
             fail("应当抛出异常");
         } catch (IOException e) {
             assertEquals("上下车点不能相同", e.getMessage());
@@ -150,7 +140,6 @@ public class MapClientTest {
         assertEquals(8, p.snapshot().agents.size());
         assertTrue(p.snapshotAgeMs() >= 0);
         assertEquals(null, p.error());
-        assertEquals("T042", p.hail(1, 5, 2, 8));
     }
 
     @Test

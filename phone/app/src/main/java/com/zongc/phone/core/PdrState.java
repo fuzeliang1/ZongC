@@ -3,28 +3,20 @@ package com.zongc.phone.core;
 /**
  * {@link PdrEngine} 某一时刻的状态快照（每次调用 {@link PdrEngine#state(long)} 新建一个，之后不再修改）。
  *
- * <p>长度单位：地图坐标为"地图米"，其余为真实米。角度为弧度，逆时针从地图 +x 量起。</p>
+ * <p>长度单位为真实米。角度为弧度，逆时针从手机坐标系 P 的 +x 量起（室外模式下 +x 朝东）。</p>
  */
 public final class PdrState {
     /** 快照时间（ns，与传感器时间戳同一时基）。 */
     public long t;
 
-    // ---- 地图坐标（上报给数字世界的位姿，已平滑）
-    public double x;
-    public double y;
-    public double theta;
-    /** 地图坐标系下的速度（地图米/秒）。 */
-    public double v;
-    /** 竖直角速度（rad/s）。 */
-    public double w;
-    /** 未平滑的地图坐标。 */
-    public double rawX;
-    public double rawY;
-
-    // ---- 内部坐标系 P
+    // ---- 手机自己的位姿估计（坐标系 P）
     public double px;
     public double py;
     public double yawP;
+    /** 走路速度（米/秒），没在走时为 0。乘以 driveScale 就是手机车的期望车速。 */
+    public double v;
+    /** 竖直角速度（rad/s）。 */
+    public double w;
 
     // ---- 步伐
     public int steps;
@@ -45,9 +37,6 @@ public final class PdrState {
     public int calibSteps;
     public double calibDistance;
     public double weinbergK;
-    public double scale;
-    /** 地图坐标系相对内部坐标系的旋转角 φ。 */
-    public double rotation;
 
     // ---- 传感器
     public boolean hasGyro;

@@ -99,7 +99,7 @@ public final class Rebalancer {
 
         List<Agent> idle = new ArrayList<>();
         for (Agent a : w.agents()) {
-            if (a.taxi && a.status == AgentStatus.CRUISING && a.task == null && !a.replanPending && a.route != null) {
+            if (a.status == AgentStatus.CRUISING && a.task == null && !a.replanPending && a.route != null) {
                 idle.add(a);
             }
         }

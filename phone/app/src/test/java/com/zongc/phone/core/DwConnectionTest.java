@@ -27,7 +27,7 @@ import static org.junit.Assert.assertTrue;
 public class DwConnectionTest {
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
-    /** 最小的假服务端：回 welcome、回 pong，记录收到的每一行。 */
+    /** 最小的假服务端：回 welcome + path + permit、回 pong，记录收到的每一行。 */
     static final class FakeServer {
         final ServerSocket ss;
         final BlockingQueue<String> lines = new LinkedBlockingQueue<String>();
@@ -81,8 +81,11 @@ public class DwConnectionTest {
                     lines.add(line);
                     String type = Json.str(Json.parseObject(line), "type");
                     if ("register".equals(type) && replyWelcome) {
-                        out.write(("{\"type\":\"welcome\",\"protocol\":1,\"agentId\":\"phone-7\",\"role\":\"free\","
-                                + "\"map\":{\"name\":\"MiniCity 5x4\",\"width\":53,\"height\":34,\"resolution\":1.0}}\n")
+                        out.write(("{\"type\":\"welcome\",\"protocol\":1,\"agentId\":\"car-7\",\"role\":\"taxi\","
+                                + "\"pose\":{\"x\":12.5,\"y\":3.5,\"theta\":0,\"v\":0},"
+                                + "\"map\":{\"name\":\"MiniCity 5x4\",\"width\":53,\"height\":34,\"resolution\":1.0}}\n"
+                                + "{\"type\":\"path\",\"agentId\":\"car-7\",\"routeId\":1,\"waypoints\":[[12.5,3.5],[13.5,3.5]]}\n"
+                                + "{\"type\":\"permit\",\"agentId\":\"car-7\",\"routeId\":1,\"stopS\":0.5,\"final\":false}\n")
                                 .getBytes(UTF8));
                     } else if ("ping".equals(type) && replyPong) {
                         out.write("{\"type\":\"pong\",\"t\":12.5}\n".getBytes(UTF8));
@@ -121,6 +124,22 @@ public class DwConnectionTest {
         }
     };
 
+    /** 记录收到的消息类型和断线次数。 */
+    private static final class Recorder implements DwConnection.Listener {
+        final BlockingQueue<String> types = new LinkedBlockingQueue<String>();
+        final AtomicInteger disconnects = new AtomicInteger();
+
+        @Override
+        public void onMessage(Map<String, Object> m) {
+            types.add(Json.str(m, "type"));
+        }
+
+        @Override
+        public void onDisconnected() {
+            disconnects.incrementAndGet();
+        }
+    }
+
     private static boolean waitFor(DwConnection c, DwConnection.State st, long ms) throws InterruptedException {
         long end = System.currentTimeMillis() + ms;
         while (System.currentTimeMillis() < end) {
@@ -140,30 +159,32 @@ public class DwConnectionTest {
     }
 
     @Test
-    public void registersAsPhoneAndStreamsStateAtTenHertz() throws Exception {
+    public void registersAsPhoneCarAndStreamsStateAtTenHertz() throws Exception {
         server = new FakeServer();
-        conn = new DwConnection("127.0.0.1", server.port(), "phone-1", "单元测试", POSE, 10);
+        Recorder rec = new Recorder();
+        conn = new DwConnection("127.0.0.1", server.port(), "car-6", "单元测试", POSE, rec, 10);
         conn.start();
         String first = server.lines.poll(3, TimeUnit.SECONDS);
         assertNotNull("应收到 register", first);
         Map<String, Object> reg = Json.parseObject(first);
         assertEquals("register", Json.str(reg, "type"));
         assertEquals("phone", Json.str(reg, "kind"));
-        assertEquals("free", Json.str(reg, "role"));
-        assertEquals("phone-1", Json.str(reg, "agentId"));
+        assertEquals("car-6", Json.str(reg, "agentId"));
         assertEquals("单元测试", Json.str(reg, "name"));
-        assertEquals(12.5, Json.num(reg, "x", 0), 1e-9);
-        assertEquals(3.25, Json.num(reg, "y", 0), 1e-9);
+        assertFalse("手机车不再上报注册位置", reg.containsKey("x"));
 
         assertTrue(waitFor(conn, DwConnection.State.CONNECTED, 2000));
-        assertEquals("phone-7", conn.status().agentId);
+        assertEquals("car-7", conn.status().agentId);
         assertEquals("MiniCity 5x4", conn.status().mapName);
+        assertEquals("welcome", rec.types.poll(1, TimeUnit.SECONDS));
+        assertEquals("路线和授权交给监听者", "path", rec.types.poll(1, TimeUnit.SECONDS));
+        assertEquals("permit", rec.types.poll(1, TimeUnit.SECONDS));
 
         Thread.sleep(2000);
         List<Map<String, Object>> states = drain("state");
         assertTrue("2 秒应有约 20 条 state，实际 " + states.size(), states.size() >= 16 && states.size() <= 24);
         Map<String, Object> last = states.get(states.size() - 1);
-        assertEquals("phone-7", Json.str(last, "agentId"));
+        assertEquals("car-7", Json.str(last, "agentId"));
         assertEquals(12.5, Json.num(last, "x", 0), 1e-9);
         assertEquals(1.5708, Json.num(last, "theta", 0), 1e-9);
         assertEquals(0.8, Json.num(last, "v", 0), 1e-9);
@@ -173,24 +194,27 @@ public class DwConnectionTest {
         assertTrue(st.rttMs < 200);
         assertTrue(st.sent >= 18);
 
-        conn.sendEvent("叫车 T001");
+        conn.sendEvent("开始模拟行走");
         Thread.sleep(200);
-        assertEquals("叫车 T001", Json.str(drain("event").get(0), "event"));
+        assertEquals("开始模拟行走", Json.str(drain("event").get(0), "event"));
 
         conn.stop();
         assertTrue(waitFor(conn, DwConnection.State.STOPPED, 2000));
         assertEquals(null, conn.status().agentId);
+        assertEquals("停止时通知断线", 1, rec.disconnects.get());
     }
 
     @Test
     public void reconnectsAfterTheServerDropsTheConnection() throws Exception {
         server = new FakeServer();
-        conn = new DwConnection("127.0.0.1", server.port(), "phone-1", "t", POSE, 10);
+        Recorder rec = new Recorder();
+        conn = new DwConnection("127.0.0.1", server.port(), "car-6", "t", POSE, rec, 10);
         conn.start();
         assertTrue(waitFor(conn, DwConnection.State.CONNECTED, 2000));
         server.dropClient();
         assertTrue(waitFor(conn, DwConnection.State.WAITING, 2000));
         assertNotNull(conn.status().error);
+        assertEquals("断线时通知监听者（清掉旧路线）", 1, rec.disconnects.get());
         assertTrue(waitFor(conn, DwConnection.State.CONNECTED, 4000));
         assertEquals(2, server.accepts.get());
         assertEquals(2, conn.status().connects);
@@ -200,7 +224,7 @@ public class DwConnectionTest {
     public void silentServerIsDetected() throws Exception {
         server = new FakeServer();
         server.replyPong = false;
-        conn = new DwConnection("127.0.0.1", server.port(), "phone-1", "t", POSE, 10);
+        conn = new DwConnection("127.0.0.1", server.port(), "car-6", "t", POSE, null, 10);
         conn.silenceLimitNs = 1_500_000_000L;
         conn.start();
         assertTrue(waitFor(conn, DwConnection.State.CONNECTED, 2000));
@@ -214,7 +238,7 @@ public class DwConnectionTest {
         ServerSocket tmp = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
         port = tmp.getLocalPort();
         tmp.close();                                       // 端口上没有服务
-        conn = new DwConnection("127.0.0.1", port, "phone-1", "t", POSE, 10);
+        conn = new DwConnection("127.0.0.1", port, "car-6", "t", POSE, null, 10);
         conn.start();
         assertTrue(waitFor(conn, DwConnection.State.WAITING, 2000));
         assertTrue(conn.status().error, conn.status().error.startsWith("连接被拒绝"));

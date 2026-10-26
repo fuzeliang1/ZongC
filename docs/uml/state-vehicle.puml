@@ -1,5 +1,5 @@
 @startuml state-vehicle
-' 状态图（一）：出租车状态（Agent.status）。手机等自由智能体始终为 FREE。
+' 状态图（一）：出租车状态（Agent.status）。无论由内部仿真还是 Matlab / Gazebo / 手机驾驶，状态机都相同。
 !include _style.iuml
 
 [*] --> CRUISING : 生成 / 设备接管

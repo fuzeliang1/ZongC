@@ -4,15 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 手机位姿估计的总装：步伐检测 + 步长模型 + 航向 + 坐标换算 + 卫星融合 + 输出平滑。
+ * 手机自己的位姿估计（行人航位推算 PDR）：步伐检测 + 步长模型 + 航向 + 卫星融合。
  *
  * <pre>
  *  加速度 ─▶ StepDetector ─▶ 一步(时刻, 峰谷差) ─▶ 步长 L = K·Δa^¼
  *  陀螺/重力/磁力 ─▶ HeadingEstimator ─▶ 航向 ψ(t)
- *  每一步：p_P += L·(cos ψ, sin ψ)                      （内部坐标系 P，真实米）
- *  室外：卫星定位 → 局部东北坐标 → 卡尔曼增益融合进 p_P
- *  输出：p_M = MapFrame(p_P) → 一阶平滑 → 上报数字世界
+ *  每一步：p += L·(cos ψ, sin ψ)          （手机坐标系 P，真实米；室外模式下 x 朝东、y 朝北）
+ *  室外：卫星定位 → 局部东北坐标 → 卡尔曼增益融合进 p
+ *  走路速度 v = 步长 × 步频 ─▶ 手机车的"油门"（见 RouteFollower）
  * </pre>
+ *
+ * <p>课程要求"基于惯性元件估计位姿，精度不作要求"：p、ψ 就是这个估计，显示在 App 里、记录到 CSV。
+ * 手机车在数字世界里的位置由服务端规划的路线决定（人不可能沿地图上的街道走），只用走路速度驱动。</p>
  *
  * <p>所有公开方法都是 synchronized 的：传感器线程写，界面线程和网络线程读。
  * 时间参数一律是纳秒，与 Android 传感器时间戳同一时基（SystemClock.elapsedRealtimeNanos）。</p>
@@ -21,10 +24,9 @@ public final class PdrEngine {
     private final PdrConfig cfg;
     private final StepDetector detector;
     private final HeadingEstimator heading;
-    private final MapFrame frame = new MapFrame();
     private final List<StepDetector.Step> stepBuf = new ArrayList<StepDetector.Step>();
 
-    // 内部坐标系 P 中的位置（真实米）
+    // 手机坐标系 P 中的位置（真实米）
     private double px;
     private double py;
 
@@ -36,12 +38,6 @@ public final class PdrEngine {
     private double speed;
     private boolean anyStep;
     private long lastStepT;
-
-    // 输出平滑
-    private boolean outInit;
-    private double outX;
-    private double outY;
-    private long outT;
 
     // 卫星定位融合
     private static final int REF_FIXES = 5;
@@ -77,7 +73,6 @@ public final class PdrEngine {
         this.detector = new StepDetector(cfg);
         this.heading = new HeadingEstimator(cfg);
         heading.setMagCorrection(cfg.outdoor);
-        frame.setScaleKeeping(0, 0, cfg.mapScale);
     }
 
     // ================================================================ 传感器输入
@@ -179,33 +174,13 @@ public final class PdrEngine {
 
     // ================================================================ 输出
 
-    /** 计算并返回当前状态（顺便推进模拟行走与输出平滑）。 */
+    /** 计算并返回当前状态（顺便推进模拟行走）。 */
     public synchronized PdrState state(long now) {
         updateSimWalk(now);
-        double[] m = frame.toMap(px, py);
-        if (!outInit) {
-            outInit = true;
-            outX = m[0];
-            outY = m[1];
-            outT = now;
-        } else {
-            double dt = (now - outT) * 1e-9;
-            if (dt > 0) {
-                double a = cfg.smoothingTau <= 0 ? 1 : 1 - Math.exp(-dt / cfg.smoothingTau);
-                outX += (m[0] - outX) * a;
-                outY += (m[1] - outY) * a;
-                outT = now;
-            }
-        }
         PdrState s = new PdrState();
         s.t = now;
-        s.x = outX;
-        s.y = outY;
-        s.rawX = m[0];
-        s.rawY = m[1];
-        s.theta = frame.toMapHeading(heading.yaw());
         s.walking = anyStep && (now - lastStepT) * 1e-9 <= cfg.maxStepInterval;
-        s.v = s.walking ? speed * frame.scale() : 0;
+        s.v = s.walking ? speed : 0;
         s.w = heading.rate();
         s.px = px;
         s.py = py;
@@ -221,8 +196,6 @@ public final class PdrEngine {
         s.calibSteps = calibSteps;
         s.calibDistance = calibDistance;
         s.weinbergK = cfg.weinbergK;
-        s.scale = frame.scale();
-        s.rotation = frame.rotation();
         s.hasGyro = heading.hasGyro();
         s.hasMag = heading.hasMag();
         s.magYaw = heading.magYaw();
@@ -252,41 +225,10 @@ public final class PdrEngine {
 
     // ================================================================ 标定与设置
 
-    /** 把"我现在的位置"设为地图上的 (mx, my)。 */
-    public synchronized void setPosition(double mx, double my) {
-        frame.anchor(px, py, mx, my);
-        outInit = false;
-    }
-
-    /** 我现在（手机机头）正对着地图上 thetaM 方向。 */
-    public synchronized void alignHeading(double thetaM) {
-        frame.setRotationKeeping(px, py, thetaM - heading.yaw());
-    }
-
-    /** 我现在正对着地图上的点 (mx, my)。 */
-    public synchronized void faceToward(double mx, double my) {
-        double[] cur = frame.toMap(px, py);
-        if (Math.hypot(mx - cur[0], my - cur[1]) < 1e-6) return;
-        alignHeading(Math.atan2(my - cur[1], mx - cur[0]));
-    }
-
-    /** App 重启后恢复上次的地图位置与旋转角（比例尺在参数里）。 */
-    public synchronized void restore(double mx, double my, double rotation) {
-        if (Double.isNaN(mx) || Double.isNaN(my) || Double.isInfinite(mx) || Double.isInfinite(my)) return;
-        frame.anchor(px, py, mx, my);
-        if (!Double.isNaN(rotation) && !Double.isInfinite(rotation)) frame.setRotationKeeping(px, py, rotation);
-        outInit = false;
-    }
-
-    /** 应用新参数（比例尺、室内/室外模式等的切换在这里处理，保证地图位置不跳变）。 */
+    /** 应用新参数（室内 / 室外模式的切换在这里处理）。 */
     public synchronized void applyConfig(PdrConfig next) {
         boolean wasOutdoor = cfg.outdoor;
-        double oldScale = cfg.mapScale;
         cfg.copyFrom(PdrConfig.fromJson(next.toJson()));   // 经过一次序列化：顺便检查取值范围
-        if (cfg.mapScale != oldScale) {
-            frame.setScaleKeeping(px, py, cfg.mapScale);
-            outInit = false;
-        }
         if (cfg.outdoor != wasOutdoor) {
             heading.setMagCorrection(cfg.outdoor);
             gnssRef = false;                       // 下一次可用定位重新建立参考点
@@ -301,15 +243,13 @@ public final class PdrEngine {
     }
 
     /**
-     * 进入室外模式时把内部航向一步对齐到磁北，同时反向修改地图旋转角，
-     * 使地图上的朝向和位置都不跳变。磁力计暂时不可用时等它可用再做。
+     * 进入室外模式时把航向一步对齐到磁北（之后由磁力计持续修正），这样 P 坐标系就是东-北坐标，
+     * 可以和卫星定位融合。位置不变，之后的步伐沿新航向累加。磁力计暂时不可用时等它可用再做。
      */
     private void snapToMagnetic() {
         double mag = heading.magYaw();
         if (Double.isNaN(mag)) return;
-        double delta = Geo.diff(mag, heading.yaw());
-        heading.shiftYaw(delta);
-        frame.setRotationKeeping(px, py, frame.rotation() - delta);
+        heading.shiftYaw(Geo.diff(mag, heading.yaw()));
         pendingMagSnap = false;
     }
 
@@ -340,7 +280,7 @@ public final class PdrEngine {
         calibrating = false;
     }
 
-    /** 模拟行走（桌面演示）：按设定步频沿手机当前朝向自动"走路"，转动手机即可转向。 */
+    /** 模拟行走（桌面演示）：按设定的步长和步频自动"走路"，手机车就会沿路线开起来。 */
     public synchronized void setSimWalk(boolean on, long now) {
         if (on && !simWalk) simNextT = now;
         simWalk = on;

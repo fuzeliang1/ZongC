@@ -19,14 +19,15 @@ import java.util.Map;
  * 与数字世界的设备接入口（TCP 9000，每行一条 JSON）保持连接。
  *
  * <pre>
- *   连接 → register{kind:"phone"} → welcome{agentId:"phone-1"}
- *        → 每 0.1 s 发 state{x,y,theta,v,w}（地图坐标）
+ *   连接 → register{kind:"phone", agentId:"car-6"} → welcome{agentId, pose, params}
+ *        → path / permit（路线与移动授权）：交给 {@link Listener}（即 {@link RouteFollower}）
+ *        → 每 0.1 s 发 state{x,y,theta,v,w}（手机车沿路线的位姿）
  *        → 每 1 s 发 ping，收 pong 计算往返时延（RTT）
  *   断线 / 5 s 收不到任何消息 → 关闭连接，1、2、3、5 s 后自动重连
  * </pre>
  *
- * <p>服务端 3 s 收不到消息会判定心跳超时，把手机智能体移除；重连后会重新出现
- * （编号被占用时服务端会分配新的 phone-N）。</p>
+ * <p>手机和 Matlab 模拟车一样绑定一辆数字车（数字孪生）。断线后服务端立即由内部仿真接管这辆车；
+ * 重连时请求同一个编号，车空闲就重新绑定（被别的设备占用时服务端会分配另一辆）。</p>
  */
 public final class DwConnection {
     private static final Charset UTF8 = Charset.forName("UTF-8");
@@ -39,6 +40,15 @@ public final class DwConnection {
     public interface PoseSource {
         /** @return {x, y, theta, v, w}；返回 null 表示这一拍不上报 */
         double[] pose();
+    }
+
+    /** 接收服务端消息（在网络读线程里回调，不要做耗时操作）。 */
+    public interface Listener {
+        /** 收到一条消息（welcome / path / permit / world / scan 等，按 type 自行取用）。 */
+        void onMessage(Map<String, Object> m);
+
+        /** 连接断开（之后会自动重连，重连成功时会再收到 welcome）。 */
+        void onDisconnected();
     }
 
     public enum State {
@@ -74,6 +84,7 @@ public final class DwConnection {
     private final String wantedId;
     private final String deviceName;
     private final PoseSource source;
+    private final Listener listener;
     private final double stateHz;
 
     private final Object lock = new Object();
@@ -98,16 +109,19 @@ public final class DwConnection {
     private long lastRx;
 
     /**
-     * @param wantedId   希望使用的编号（如 "phone-1"），被占用时服务端会另分配
+     * @param wantedId   希望绑定的数字车编号（如 "car-6"），被占用时服务端会另分配
      * @param deviceName 手机型号等，只用于服务端日志
+     * @param listener   接收服务端消息，可以为 null
      * @param stateHz    上报频率（Hz），建议 10
      */
-    public DwConnection(String host, int port, String wantedId, String deviceName, PoseSource source, double stateHz) {
+    public DwConnection(String host, int port, String wantedId, String deviceName, PoseSource source,
+                        Listener listener, double stateHz) {
         this.host = host;
         this.port = port;
         this.wantedId = wantedId;
         this.deviceName = deviceName;
         this.source = source;
+        this.listener = listener;
         this.stateHz = stateHz > 0 ? stateHz : 10;
     }
 
@@ -181,6 +195,7 @@ public final class DwConnection {
                 err = "内部错误：" + e;
             }
             closeSocket();
+            if (listener != null) listener.onDisconnected();
             if (!running) break;
             boolean wasLong = System.nanoTime() - start > 10_000_000_000L;
             if (wasLong) attempt = 0;
@@ -317,6 +332,7 @@ public final class DwConnection {
                 serverError = Json.str(m, "message");
             }
         }
+        if (m != null && listener != null) listener.onMessage(m);
     }
 
     private String registerMessage() {
@@ -324,13 +340,8 @@ public final class DwConnection {
                 .put("type", "register")
                 .put("protocol", 1)
                 .put("kind", "phone")
-                .put("role", "free")
                 .put("agentId", wantedId)
                 .put("name", deviceName);
-        double[] p = source.pose();
-        if (p != null && p.length >= 3) {
-            o.put("x", p[0], 3).put("y", p[1], 3).put("theta", p[2], 4);
-        }
         return o.toString();
     }
 

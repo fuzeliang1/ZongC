@@ -102,7 +102,7 @@ public class ScenarioTest {
         runUntil(w, 2);
         Agent car = null;
         for (Agent a : w.agents()) {
-            if (a.taxi && a.v > 0.5) car = a;
+            if (a.v > 0.5) car = a;
         }
         assertNotNull(car);
         int cell = w.map().cellAt(car.x, car.y);

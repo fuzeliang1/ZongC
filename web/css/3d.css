@@ -58,8 +58,6 @@ body.view3d { height: 100%; }
   box-shadow: 0 1px 4px rgba(10, 20, 30, 0.25);
 }
 
-.labels .lb.phone { background: #7b5cd6; }
-
 .camera {
   position: absolute;
   top: 12px;

@@ -59,7 +59,6 @@ public final class World {
     private double dispatchTimer;
     private int taskSeq;
     private int nextTaxiNum = 1;
-    private int nextFreeNum = 1;
 
     public World(Config cfg, GridMap map, EventLog events) {
         this.cfg = cfg;
@@ -74,7 +73,7 @@ public final class World {
         // 订单的到达时间和起终点都完全一样，对比实验才公平
         this.generator = new TaskGenerator(cfg.tasks, map, new Random(cfg.seed * 1_000_003L + 17));
         this.devices = new DeviceBridge(this);
-        this.perception = new Perception(map, cfg.vehicle.bodyRadius, cfg.vehicle.phoneRadius);
+        this.perception = new Perception(map, cfg.vehicle.bodyRadius);
         this.rebalancer = new Rebalancer(map, cfg.dispatch.zoneSize, cfg.dispatch.demandTauSec);
         this.rebalanceOn = cfg.dispatch.rebalance;
         this.dispatcher = Dispatcher.of(cfg.dispatch.strategy, cfg.dispatch);
@@ -182,7 +181,7 @@ public final class World {
         if (scenario != null) scenario.update(this);
         generator.update(this, dt);
         for (Agent a : agents) {
-            if (a.taxi && a.internal()) driver.advance(a, dt, traffic.stopS(a));
+            if (a.internal()) driver.advance(a, dt, traffic.stopS(a));
         }
         updateOdometry();
         handleArrivals();
@@ -194,7 +193,6 @@ public final class World {
         if (rebalanceOn) rebalancer.update(this, dt, cfg.dispatch.rebalanceIntervalSec);
         perception.update(this, dt);
         TrafficController.Result r = traffic.update(agents, time, dt, metrics);
-        for (String msg : r.yields()) events.warn(time, msg);
         for (Agent a : agents) {
             if (!Double.isNaN(a.blockedSince)) metrics.maxBlocked = Math.max(metrics.maxBlocked, time - a.blockedSince);
         }
@@ -214,7 +212,6 @@ public final class World {
 
     private void updateOdometry() {
         for (Agent a : agents) {
-            if (!a.taxi) continue;
             double ds = Math.hypot(a.x - a.odoX, a.y - a.odoY);
             a.odoX = a.x;
             a.odoY = a.y;
@@ -235,7 +232,6 @@ public final class World {
 
     private void handleArrivals() {
         for (Agent a : agents) {
-            if (!a.taxi) continue;
             if (a.status == AgentStatus.BOARDING || a.status == AgentStatus.ALIGHTING) {
                 a.dwell -= dt;
                 if (a.dwell <= 0) finishDwell(a);
@@ -568,7 +564,7 @@ public final class World {
     private void dispatch() {
         List<Agent> idle = new ArrayList<>();
         for (Agent a : agents) {
-            if (a.taxi && a.status == AgentStatus.CRUISING && !a.replanPending && a.route != null) idle.add(a);
+            if (a.status == AgentStatus.CRUISING && !a.replanPending && a.route != null) idle.add(a);
         }
         List<Task> waiting = new ArrayList<>();
         for (Task t : activeTasks) {
@@ -694,7 +690,7 @@ public final class World {
      */
     public void setRoadblock(int cell, boolean on) {
         if (!map.type(cell).drivable()) throw new IllegalArgumentException("建筑格不能设置路障");
-        if (on && occupied(cell)) throw new IllegalArgumentException("该格上有车辆或行人，不能设置路障");
+        if (on && occupied(cell)) throw new IllegalArgumentException("该格上有车辆，不能设置路障");
         boolean was = map.isBlocked(cell);
         perception.manual(cell);
         if (was == on) return;
@@ -702,11 +698,10 @@ public final class World {
         applyBlock(cell, on);
     }
 
-    /** 某格当前是否被车身或行人覆盖。 */
+    /** 某格当前是否被车身覆盖。 */
     private boolean occupied(int cell) {
-        double r = Math.max(cfg.vehicle.bodyRadius, cfg.vehicle.phoneRadius);
         for (Agent a : agents) {
-            for (int c : map.cellsOverlappingCircle(a.x, a.y, r)) {
+            for (int c : map.cellsOverlappingCircle(a.x, a.y, cfg.vehicle.bodyRadius)) {
                 if (c == cell) return true;
             }
         }
@@ -745,7 +740,7 @@ public final class World {
             }
         }
         for (Agent a : agents) {
-            if (!a.taxi || a.route == null) continue;
+            if (a.route == null) continue;
             int idx = a.route.indexOf(cell, a.progress + 1, a.route.last());
             if (idx < 0) continue;
             traffic.revokeBefore(a, idx);
@@ -790,7 +785,7 @@ public final class World {
         int cell = findSpawnCell();
         if (cell < 0) return null;
         nextTaxiNum = Math.max(nextTaxiNum, num + 1);
-        Agent a = new Agent(id, num, true);
+        Agent a = new Agent(id, num);
         a.x = map.centerX(cell);
         a.y = map.centerY(cell);
         a.theta = map.type(cell).laneDir.angle();
@@ -799,28 +794,6 @@ public final class World {
         register(a);
         startCruise(a);
         return a;
-    }
-
-    /** 新增自由智能体（手机等），不参与派单，作为动态障碍参与交通管控。 */
-    Agent addFree(String requestedId, double x, double y, double theta) {
-        String id = requestedId;
-        if (id == null || id.isBlank() || byId.containsKey(id)) {
-            do {
-                id = "phone-" + nextFreeNum++;
-            } while (byId.containsKey(id));
-        }
-        Agent a = new Agent(id, 100 + nextFreeNum++, false);
-        a.x = x;
-        a.y = y;
-        a.theta = theta;
-        register(a);
-        return a;
-    }
-
-    void removeAgent(Agent a) {
-        agents.remove(a);
-        byId.remove(a.id);
-        for (int i = 0; i < agents.size(); i++) agents.get(i).index = i;
     }
 
     private void register(Agent a) {
@@ -890,18 +863,11 @@ public final class World {
 
     public Snapshot snapshot(boolean paused, double timeScale) {
         List<Snapshot.AgentView> av = new ArrayList<>(agents.size());
-        int external = 0, free = 0, taxis = 0;
         for (Agent a : agents) {
-            if (a.taxi) {
-                taxis++;
-                if (!a.internal()) external++;
-            } else {
-                free++;
-            }
             double[] route = null;
             int[] held = null;
             double[] stop = null;
-            if (a.taxi && a.route != null) {
+            if (a.route != null) {
                 Route r = a.route;
                 int from = Math.min(a.progress, r.last());
                 route = new double[(r.last() - from + 1) * 2];
@@ -919,16 +885,16 @@ public final class World {
                 stop = new double[]{Num.r3(p.x()), Num.r3(p.y())};
             }
             int[] scan = null, seen = null;
-            Perception.Scan sc = a.taxi ? perception.lastScan(a) : null;
+            Perception.Scan sc = perception.lastScan(a);
             if (sc != null) {
                 scan = new int[Perception.RAYS];
                 for (int k = 0; k < Perception.RAYS; k++) scan[k] = (int) Math.round(sc.ranges[k] * 10);
-                seen = new int[]{sc.vehicles, sc.pedestrians, sc.unknown};
+                seen = new int[]{sc.vehicles, sc.unknown};
             }
             String zone = rebalanceOn && a.homeZone >= 0 ? rebalancer.zoneName(a.homeZone) : null;
-            av.add(new Snapshot.AgentView(a.id, a.num, a.taxi, a.driver.name(), a.online(),
+            av.add(new Snapshot.AgentView(a.id, a.num, a.driver.name(), a.online(),
                     a.link != null ? a.link.remote() : null, a.status.name(),
-                    Num.r3(a.x), Num.r3(a.y), Num.r3(a.theta), Num.r3(a.v), traffic.radiusOf(a),
+                    Num.r3(a.x), Num.r3(a.y), Num.r3(a.theta), Num.r3(a.v), cfg.vehicle.bodyRadius,
                     a.task != null ? a.task.id : null, route, held, stop, a.routeId,
                     !Double.isNaN(a.blockedSince), scan, seen, zone));
         }
@@ -940,7 +906,7 @@ public final class World {
         }
         return new Snapshot("snapshot", Num.r3(time), System.currentTimeMillis(), paused, timeScale,
                 dispatcher.name(), cfg.tasks.ratePerMin, av, tv,
-                metricsView(taxis, external, free), events.recent(30), manualRoadblocks(),
+                metricsView(), events.recent(30), manualRoadblocks(),
                 perception.undiscoveredCells(), perception.discoveredCells(), perception.suspectCells(),
                 scenario != null ? scenario.view(time) : null,
                 demand.isUniform() ? null : demand.views(),
@@ -949,20 +915,11 @@ public final class World {
 
     /** 当前指标的视图（实验工具用它，不必构造整个快照）。 */
     public Metrics.View metricsView() {
-        int taxis = 0, external = 0, free = 0;
+        int external = 0;
         for (Agent a : agents) {
-            if (a.taxi) {
-                taxis++;
-                if (!a.internal()) external++;
-            } else {
-                free++;
-            }
+            if (!a.internal()) external++;
         }
-        return metricsView(taxis, external, free);
-    }
-
-    private Metrics.View metricsView(int taxis, int external, int free) {
-        return metrics.view(time, waitingCount(), taxis, external, free, perception,
+        return metrics.view(time, waitingCount(), agents.size(), external, perception,
                 perception.coverage(time, 60), rebalancer.moves, visionReports);
     }
 

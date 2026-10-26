@@ -26,10 +26,10 @@ public record Snapshot(String type, double t, long wall, boolean paused, double 
      * @param route 剩余路线上各格中心 [x0,y0,x1,y1,...]，从当前格开始
      * @param held  已获授权（预约）的格子 [cx0,cy0,cx1,cy1,...]
      * @param stop  停车点 [x,y]，没有路线时为 null
-     * @param scan  最近一次激光雷达扫描，48 个距离（分米），射线 k 的角度 = theta − π + k·2π/48；手机为 null
-     * @param seen  这次扫描识别到的 [车辆数, 行人数, 未知障碍命中数]
+     * @param scan  最近一次激光雷达扫描，48 个距离（分米），射线 k 的角度 = theta − π + k·2π/48
+     * @param seen  这次扫描识别到的 [车辆数, 未知障碍命中数]
      */
-    public record AgentView(String id, int num, boolean taxi, String driver, boolean online, String device,
+    public record AgentView(String id, int num, String driver, boolean online, String device,
                             String status, double x, double y, double theta, double v, double r,
                             String taskId, double[] route, int[] held, double[] stop, int routeId,
                             boolean blocked, int[] scan, int[] seen, String zone) {}

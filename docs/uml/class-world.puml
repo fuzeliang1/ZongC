@@ -27,7 +27,6 @@ package "world" {
   }
   class Agent {
     + id : String
-    + taxi : boolean
     + driver : DriverKind
     + x, y, theta, v : double
     + status : AgentStatus
@@ -50,7 +49,6 @@ package "world" {
     BOARDING
     TO_DROPOFF
     ALIGHTING
-    FREE
   }
   enum DriverKind {
     INTERNAL

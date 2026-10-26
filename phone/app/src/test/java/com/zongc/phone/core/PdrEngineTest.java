@@ -12,9 +12,7 @@ public class PdrEngineTest {
     private static final double DEG = Math.PI / 180;
 
     private static PdrConfig cfg() {
-        PdrConfig c = new PdrConfig();
-        c.smoothingTau = 0;          // 测试位置时不要平滑延迟
-        return c;
+        return new PdrConfig();
     }
 
     @Test
@@ -42,65 +40,22 @@ public class PdrEngineTest {
     }
 
     @Test
-    public void setPositionAndAlignHeadingDefineTheMapFrame() {
+    public void walkingSpeedIsStepLengthTimesCadence() {
         SyntheticWalker w = new SyntheticWalker(22);
-        w.yaw = 70 * DEG;                                   // 人实际朝向随意
         PdrEngine e = new PdrEngine(cfg());
         SyntheticWalker.Sink s = SyntheticWalker.into(e);
         w.stand(2, 0, s);
-        e.setPosition(20, 8.5);
-        e.alignHeading(0);                                  // "我现在面朝地图 +x 方向"
+        assertEquals("站着不动：速度为 0（手机车不走）", 0, e.state(w.t).v, 0);
+        w.walk(6, 0, s);
         PdrState a = e.state(w.t);
-        assertEquals(20, a.x, 1e-9);
-        assertEquals(8.5, a.y, 1e-9);
-        assertEquals(0, a.theta, 1e-9);
-        w.walkSteps(10, s);
+        assertTrue(a.walking);
+        double real = w.stepLength * w.stepHz;
+        assertEquals("走路速度 " + a.v + " m/s", real, a.v, 0.15 * real);
+        assertEquals(1.8 * 60, a.cadence, 10);
         w.stand(2, 0, s);
         PdrState b = e.state(w.t);
-        assertEquals(10, b.steps, 1);
-        assertTrue("沿 +x 前进：" + b.x, b.x - 20 > 5);
-        assertEquals(8.5, b.y, 0.4);
-        assertEquals(0, b.theta / DEG, 3);
-    }
-
-    @Test
-    public void faceTowardPointsHeadingAtTarget() {
-        SyntheticWalker w = new SyntheticWalker(23);
-        PdrEngine e = new PdrEngine(cfg());
-        SyntheticWalker.Sink s = SyntheticWalker.into(e);
-        w.stand(1, 0, s);
-        e.setPosition(10, 10);
-        e.faceToward(10, 20);                               // 正对地图上方的一点
-        assertEquals(90, e.state(w.t).theta / DEG, 1e-6);
-        w.turn(-90 * DEG, 2, s);                            // 向右转 90°
-        assertEquals(0, e.state(w.t).theta / DEG, 2);
-    }
-
-    @Test
-    public void mapScaleMultipliesDisplacementWithoutJumping() {
-        SyntheticWalker w = new SyntheticWalker(24);
-        PdrEngine e = new PdrEngine(cfg());
-        SyntheticWalker.Sink s = SyntheticWalker.into(e);
-        w.stand(2, 0, s);
-        e.setPosition(10, 10);
-        w.walkSteps(10, s);
-        w.stand(2, 0, s);
-        PdrState a = e.state(w.t);
-        double d1 = Math.hypot(a.x - 10, a.y - 10);
-
-        PdrConfig c = e.config();
-        c.mapScale = 3;
-        e.applyConfig(c);
-        PdrState b = e.state(w.t);
-        assertEquals("改比例尺不应跳变", a.x, b.x, 1e-9);
-        assertEquals(a.y, b.y, 1e-9);
-
-        w.walkSteps(10, s);
-        w.stand(2, 0, s);
-        PdrState d = e.state(w.t);
-        double d2 = Math.hypot(d.x - b.x, d.y - b.y);
-        assertEquals(3 * d1, d2, 0.15 * 3 * d1);
-        assertEquals(3, d.scale, 0);
+        assertFalse("停下超过 maxStepInterval 就不算在走", b.walking);
+        assertEquals(0, b.v, 0);
     }
 
     @Test
@@ -110,8 +65,7 @@ public class PdrEngineTest {
         SyntheticWalker.Sink s = SyntheticWalker.into(e);
         w.pitchDeg = 0;                                     // 手机平放在桌上
         w.stand(1, 0, s);
-        e.setPosition(5, 5);
-        e.alignHeading(90 * DEG);                           // 机头朝地图 +y
+        PdrState start = e.state(w.t);
         e.setSimWalk(true, w.t);
         long t0 = w.t;
         PdrState mid = null;
@@ -123,8 +77,10 @@ public class PdrEngineTest {
         PdrState end = e.state(w.t);
         int expectedSteps = 19;                             // t0, t0 + 0.556 s, …, t0 + 10 s
         assertEquals(expectedSteps, end.steps);
-        assertEquals(5, end.x, 0.3);
-        assertEquals(5 + expectedSteps * 0.65, end.y, 0.3);
+        double along = (end.px - start.px) * Math.cos(start.yawP) + (end.py - start.py) * Math.sin(start.yawP);
+        double across = -(end.px - start.px) * Math.sin(start.yawP) + (end.py - start.py) * Math.cos(start.yawP);
+        assertEquals("沿机头方向前进", expectedSteps * 0.65, along, 0.3);
+        assertEquals(0, across, 0.3);
         assertTrue(mid.walking);
         assertEquals(0.65 * 1.8, mid.v, 0.05);
         assertTrue(end.simWalk);
@@ -225,7 +181,7 @@ public class PdrEngineTest {
     }
 
     @Test
-    public void switchingToOutdoorModeKeepsMapPoseContinuous() {
+    public void switchingToOutdoorModeAlignsHeadingAndKeepsPosition() {
         SyntheticWalker w = new SyntheticWalker(28);
         w.yaw = 10 * DEG;
         PdrEngine e = new PdrEngine(cfg());
@@ -233,62 +189,37 @@ public class PdrEngineTest {
         w.stand(1, 0, s);
         w.walk(5, 0.3, s);                                  // 走一段、转一转，让陀螺航向与磁北有偏差
         w.stand(1, 0, s);
-        e.setPosition(12, 7);
-        e.alignHeading(1.0);
         PdrState a = e.state(w.t);
         PdrConfig c = e.config();
         c.outdoor = true;
         e.applyConfig(c);
         PdrState b = e.state(w.t);
-        assertEquals(a.x, b.x, 1e-9);
-        assertEquals(a.y, b.y, 1e-9);
-        assertEquals(0, Geo.diff(a.theta, b.theta), 1e-9);
-        assertEquals("内部航向对齐磁北", 0, Geo.diff(b.yawP, w.yaw) / DEG, 3);
+        assertEquals("位置不跳变", a.px, b.px, 1e-9);
+        assertEquals(a.py, b.py, 1e-9);
+        assertEquals("航向对齐磁北", 0, Geo.diff(b.yawP, w.yaw) / DEG, 3);
         assertTrue(b.outdoor);
-    }
-
-    @Test
-    public void restoreAndSmoothing() {
-        PdrConfig c = new PdrConfig();
-        c.smoothingTau = 0.5;
-        PdrEngine e = new PdrEngine(c);
-        e.restore(12, 7, 0.5);
-        PdrState a = e.state(1_000_000_000L);
-        assertEquals(12, a.x, 1e-9);
-        assertEquals(7, a.y, 1e-9);
-        assertEquals(0.5, Geo.diff(a.theta, a.yawP), 1e-9);
-
-        // 模拟行走一步后，输出位置应平滑地追上真实位置
-        e.setSimWalk(true, 1_000_000_000L);
-        PdrState b = e.state(1_000_000_000L);          // 第一步立即发生
-        assertTrue(Math.hypot(b.rawX - 12, b.rawY - 7) > 0.6);
-        assertEquals(12, b.x, 1e-9);                    // dt = 0：输出还没动
-        PdrState c1 = e.state(1_100_000_000L);
-        double gap1 = Math.hypot(c1.rawX - c1.x, c1.rawY - c1.y);
-        assertTrue(gap1 > 0.3 && gap1 < 0.65);
-        e.setSimWalk(false, 1_100_000_000L);
-        PdrState c2 = e.state(4_000_000_000L);
-        assertEquals(c2.rawX, c2.x, 0.01);
-        assertEquals(c2.rawY, c2.y, 0.01);
     }
 
     @Test
     public void configSurvivesSerialization() {
         PdrConfig c = new PdrConfig();
         c.weinbergK = 0.512;
-        c.mapScale = 4;
+        c.driveScale = 4;
         c.outdoor = true;
         c.declinationDeg = -5.25;
         PdrConfig back = PdrConfig.fromJson(c.toJson());
         assertEquals(0.512, back.weinbergK, 1e-9);
-        assertEquals(4, back.mapScale, 0);
+        assertEquals(4, back.driveScale, 0);
         assertTrue(back.outdoor);
         assertEquals(-5.25, back.declinationDeg, 1e-9);
         // 损坏或不合理的值：用默认值
-        PdrConfig broken = PdrConfig.fromJson("{\"weinbergK\":-3,\"mapScale\":\"x\"");
+        PdrConfig broken = PdrConfig.fromJson("{\"weinbergK\":-3,\"driveScale\":\"x\"");
         assertEquals(new PdrConfig().weinbergK, broken.weinbergK, 0);
-        PdrConfig partial = PdrConfig.fromJson("{\"weinbergK\":-3,\"mapScale\":2}");
+        PdrConfig partial = PdrConfig.fromJson("{\"weinbergK\":-3,\"driveScale\":2,\"smoothingTau\":0.3}");
         assertEquals(new PdrConfig().weinbergK, partial.weinbergK, 0);
-        assertEquals(2, partial.mapScale, 0);
+        assertEquals(2, partial.driveScale, 0);
+        assertEquals("超出范围", 1, PdrConfig.fromJson("{\"driveScale\":50}").driveScale, 0);
+        // 旧版本保存的"比例尺"mapScale 接着当驾驶比例用
+        assertEquals(3, PdrConfig.fromJson("{\"mapScale\":3}").driveScale, 0);
     }
 }

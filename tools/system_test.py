@@ -3,11 +3,13 @@
 
 做的事情（与考核现场一样，不需要人工操作）：
   1. 编译并启动服务端，运行 demo 场景脚本（路障、未知障碍、高峰、订单潮按时间自动发生）；
-  2. 启动 5 辆模拟车（按协议注册为 matlab 设备，代替 Matlab 车队）和 1 部模拟手机；
+  2. 启动 5 辆模拟车（按协议注册为 matlab 设备，代替 Matlab 车队）和 1 辆模拟手机车
+     （kind = phone，驾驶 car-6：人拿着手机走走停停，走路即油门）；
   3. 每 10 s 采样一次运行指标；
   4. 运行到指定时间后杀掉模拟车队，检查 5 辆车是否在 5 s 内由数字世界内部仿真接管（FR-33）；
   5. 上传一张示例照片做图像识别，检查路障被写入地图（FR-52）；
-  6. 断言：车车碰撞、撞墙、撞障碍、越权行驶全部为 0；订单在被送达；感知发现了未知障碍。
+  6. 断言：车车碰撞、撞墙、撞障碍、越权行驶全部为 0；订单在被送达；感知发现了未知障碍；
+     手机车一直绑定着数字车并且在路线上开动。
 
 用法（仓库根目录；8080 / 9000 / 9001 端口不能被占用）：
     python3 tools/system_test.py                 # 默认运行 180 s 后断开车队，再观察 30 s
@@ -29,9 +31,11 @@ import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE = 'http://127.0.0.1:8080'
-KEYS = ['created', 'delivered', 'avgWait', 'collisions', 'obstacleHits', 'barrierHits', 'freeContacts',
+KEYS = ['created', 'delivered', 'avgWait', 'collisions', 'obstacleHits', 'barrierHits',
         'authorityViolations', 'revokeOverruns', 'minCarGap', 'minWallGap', 'discoveries', 'obstacleClears', 'uturns',
-        'rebalanceMoves', 'maxBlocked', 'externalTaxis', 'freeAgents']
+        'rebalanceMoves', 'maxBlocked', 'externalTaxis']
+FLEET = 5      # 模拟车（或外部车队）数量
+PHONES = 1     # 手机车数量
 
 
 def get(path, timeout=5):
@@ -65,6 +69,8 @@ def sample():
         drivers[a['driver']] = drivers.get(a['driver'], 0) + 1
     row = {'sim': s['t'], 'drivers': drivers}
     row.update({k: s['metrics'].get(k) for k in KEYS})
+    phones = [a for a in s['agents'] if a['driver'] == 'PHONE']
+    row['phone'] = [phones[0]['x'], phones[0]['y']] if phones else None
     return row
 
 
@@ -122,19 +128,20 @@ def main():
             cars = spawn(car_cmd, 'system_test_cars.log')
         else:
             print(f'等待外部车队接入（最长 {args.bind_timeout:.0f} s）')
-        spawn([py, os.path.join('tools', 'mock_devices.py'), '--cars', '0', '--phones', '1'], 'system_test_phone.log')
+        spawn([py, os.path.join('tools', 'mock_devices.py'), '--cars', '0', '--phones', str(PHONES)],
+              'system_test_phone.log')
 
         t_bind = None
         t0 = time.time()
         while time.time() - t0 < args.bind_timeout:
-            if sample()['externalTaxis'] == 5:
+            if sample()['externalTaxis'] == FLEET + PHONES:
                 t_bind = time.time() - t0
                 break
             time.sleep(0.5)
         if t_bind is None:
-            failures.append(f'{args.bind_timeout:.0f} s 内没有 5 辆车接入')
+            failures.append(f'{args.bind_timeout:.0f} s 内没有 {FLEET} 辆车和 {PHONES} 辆手机车接入')
         else:
-            print(f'5 辆车已接入（{t_bind:.1f} s），驾驶方：{sample()["drivers"]}')
+            print(f'{FLEET} 辆车和 {PHONES} 辆手机车已接入（{t_bind:.1f} s），驾驶方：{sample()["drivers"]}')
 
         t0 = time.time()
         next_print = 0
@@ -155,20 +162,20 @@ def main():
             t_kill = time.time()
             t_takeover = None
             while time.time() - t_kill < 10:
-                if sample()['externalTaxis'] == 0:
+                if sample()['externalTaxis'] == PHONES:     # 手机车还连着
                     t_takeover = time.time() - t_kill
                     break
                 time.sleep(0.2)
             if t_takeover is None or t_takeover > 5:
                 failures.append(f'断开车队后没有在 5 s 内被接管（{t_takeover}）')
             else:
-                print(f'断开车队：{t_takeover:.1f} s 后 5 辆车全部由内部仿真接管')
+                print(f'断开车队：{t_takeover:.1f} s 后 {FLEET} 辆车全部由内部仿真接管')
         else:
             # 外部车队到时自己断开（run_fleet 的 duration 参数），这里只等它断开
             t_wait = time.time()
-            while time.time() - t_wait < args.exit_timeout and sample()['externalTaxis'] > 0:
+            while time.time() - t_wait < args.exit_timeout and sample()['externalTaxis'] > PHONES:
                 time.sleep(0.5)
-            left = sample()['externalTaxis']
+            left = sample()['externalTaxis'] - PHONES
             if left > 0:
                 failures.append(f'外部车队 {args.exit_timeout:.0f} s 内没有断开（还剩 {left} 辆）')
             else:
@@ -208,15 +215,24 @@ def main():
         failures.append('没有送达任何订单')
     if args.scenario == 'demo' and args.seconds >= 150 and final['discoveries'] < 1:
         failures.append('demo 场景运行 150 s 以上却没有感知发现未知障碍')
-    if final['drivers'].get('INTERNAL', 0) < 5:
-        failures.append('断开后内部仿真车少于 5 辆')
+    if final['drivers'].get('INTERNAL', 0) < FLEET:
+        failures.append(f'断开后内部仿真车少于 {FLEET} 辆')
+    # 手机车：运行期间一直绑定着，并且沿路线开了一段（采样间隔 10 s，按直线距离累加，是下限）
+    track = [r['phone'] for r in rows if r.get('phone')]
+    driven = sum(((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 for a, b in zip(track, track[1:]))
+    if len(track) < len(rows) - 1:
+        failures.append(f'手机车没有一直接入（{len(track)}/{len(rows)} 次采样里有）')
+    elif driven < 10:
+        failures.append(f'手机车几乎没动（采样间累计 {driven:.1f} m）')
+    else:
+        print(f'手机车：{len(track)} 次采样都在，采样间累计行驶 ≥ {driven:.0f} m')
 
     print()
     print('| 指标 | 结果 |')
     print('|---|---|')
     for k, label in [('sim', '仿真时间 (s)'), ('created', '生成订单'), ('delivered', '送达订单'), ('avgWait', '平均等待 (s)'),
                      ('collisions', '车车碰撞'), ('obstacleHits', '撞墙'), ('barrierHits', '撞路障 / 障碍'),
-                     ('authorityViolations', '越权行驶'), ('revokeOverruns', '收回授权时来不及停下（设备收到新停车点前多走一格，不算违规）'), ('freeContacts', '行人接触（行人从侧面走进车身）'),
+                     ('authorityViolations', '越权行驶'), ('revokeOverruns', '收回授权时来不及停下（设备收到新停车点前多走一格，不算违规）'),
                      ('minCarGap', '最小车距 (m)'), ('minWallGap', '最小离墙 (m)'), ('discoveries', '感知发现障碍'),
                      ('obstacleClears', '障碍撤除'), ('uturns', '掉头'), ('maxBlocked', '最长连续受阻 (s)')]:
         print(f'| {label} | {final[k]} |')

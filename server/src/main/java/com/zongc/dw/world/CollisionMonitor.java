@@ -1,7 +1,6 @@
 package com.zongc.dw.world;
 
 import com.zongc.dw.map.GridMap;
-import com.zongc.dw.traffic.TrafficController;
 
 import java.util.HashSet;
 import java.util.List;
@@ -19,39 +18,29 @@ final class CollisionMonitor {
 
     void check(World w) {
         List<Agent> agents = w.agents();
-        TrafficController traffic = w.traffic();
         GridMap map = w.map();
         Metrics m = w.metrics();
+        double r = w.config().vehicle.bodyRadius;
 
         Set<String> now = new HashSet<>();
         for (int i = 0; i < agents.size(); i++) {
             Agent a = agents.get(i);
             for (int j = i + 1; j < agents.size(); j++) {
                 Agent b = agents.get(j);
-                if (!a.taxi && !b.taxi) continue;
                 double d = Math.hypot(a.x - b.x, a.y - b.y);
-                if (a.taxi && b.taxi) m.minCarGap = Math.min(m.minCarGap, d - traffic.radiusOf(a) - traffic.radiusOf(b));
-                double limit = traffic.radiusOf(a) + traffic.radiusOf(b) - TOLERANCE;
-                if (!a.taxi || !b.taxi) limit = 2 * w.config().vehicle.bodyRadius - TOLERANCE;
-                if (d >= limit) continue;
+                m.minCarGap = Math.min(m.minCarGap, d - 2 * r);
+                if (d >= 2 * r - TOLERANCE) continue;
                 String key = a.id + "|" + b.id;
                 now.add(key);
                 if (contacts.contains(key)) continue;
-                if (a.taxi && b.taxi) {
-                    m.collisions++;
-                    w.events().warn(w.time(), "碰撞：" + a.id + " 与 " + b.id);
-                } else {
-                    m.freeContacts++;
-                    w.events().warn(w.time(), "接触：" + a.id + " 与 " + b.id + "（自由智能体）");
-                }
+                m.collisions++;
+                w.events().warn(w.time(), "碰撞：" + a.id + " 与 " + b.id);
             }
         }
         contacts = now;
 
         Set<String> nowWall = new HashSet<>();
-        double r = w.config().vehicle.bodyRadius;
         for (Agent a : agents) {
-            if (!a.taxi) continue;
             double dw = map.distanceToObstacle(a.x, a.y, r + 0.5);
             if (Double.isFinite(dw)) m.minWallGap = Math.min(m.minWallGap, dw - r);
             if (dw < r - 0.05) {
@@ -68,7 +57,6 @@ final class CollisionMonitor {
         Set<String> nowBarrier = new HashSet<>();
         Perception p = w.perception();
         for (Agent a : agents) {
-            if (!a.taxi) continue;
             double best = Double.POSITIVE_INFINITY;
             int hit = -1;
             for (int c : map.cellsOverlappingCircle(a.x, a.y, r + 0.5)) {

@@ -3,7 +3,7 @@
 !include _style.iuml
 
 state "订单 Task" as Order {
-  [*] --> WAITING : 生成 / 手动下单 / 手机叫车
+  [*] --> WAITING : 自动生成 / 手动下单
   WAITING --> ASSIGNED : 派单
   ASSIGNED --> WAITING : 车辆到不了上车点（退回）
   ASSIGNED --> PICKED : 乘客上车

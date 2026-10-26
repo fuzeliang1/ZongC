@@ -12,6 +12,7 @@ package "com.zongc.phone（安卓层）" {
   class AppCore {
     ~ prefs : Prefs
     ~ engine : PdrEngine
+    ~ car : RouteFollower
     ~ sensors : SensorSource
     ~ gnss : GnssSource
     - conn : DwConnection
@@ -37,8 +38,6 @@ package "com.zongc.phone.core（纯 Java）" {
     + onMag(t, mx, my, mz) : void
     + onLocation(t, lat, lon, accuracy) : void
     + state(now : long) : PdrState
-    + setPosition(mx, my) : void
-    + alignHeading(thetaM) : void
     + startCalibration() : void
     + finishCalibration(realMeters) : double
   }
@@ -52,15 +51,17 @@ package "com.zongc.phone.core（纯 Java）" {
     + yaw() : double
     + biasUp() : double
   }
-  class MapFrame {
-    + anchor(px, py, mx, my) : void
-    + toMap(px, py) : double[]
-    + toMapHeading(thetaP) : double
-    + setScaleKeeping(px, py, s) : void
+  class RouteFollower {
+    + onMessage(m : Map) : void
+    + step(now : long, wanted : double) : double[]
+    + status() : Status
+    + reset() : void
+    - project(x, y) : double
+    - turnLimit() : double
   }
   class PdrConfig {
     + weinbergK : double
-    + mapScale : double
+    + driveScale : double
     + outdoor : boolean
     + copy() : PdrConfig
   }
@@ -74,10 +75,13 @@ package "com.zongc.phone.core（纯 Java）" {
   interface "DwConnection.PoseSource" as PoseSource <<interface>> {
     + pose() : double[]
   }
+  interface "DwConnection.Listener" as Listener <<interface>> {
+    + onMessage(m : Map) : void
+    + onDisconnected() : void
+  }
   class MapClient {
     + fetchMap() : MapData
     + fetchSnapshot() : WorldSnapshot
-    + hail(fromX, fromY, toX, toY) : String
     + detectPhoto(source, jpeg, hfov, scale) : VisionResult
   }
   class WorldPoller {
@@ -98,6 +102,7 @@ MainActivity *-- "1" AppCore
 MainActivity *-- "1" MiniMapView
 MiniMapView --> AppCore
 AppCore *-- "1" PdrEngine
+AppCore *-- "1" RouteFollower
 AppCore *-- "1" SensorSource
 AppCore *-- "1" GnssSource
 AppCore *-- "1" Prefs
@@ -108,12 +113,14 @@ SensorSource --> PdrEngine : 加速度·陀螺·磁力
 GnssSource --> PdrEngine : 经纬度
 PdrEngine *-- "1" StepDetector
 PdrEngine *-- "1" HeadingEstimator
-PdrEngine *-- "1" MapFrame
 PdrEngine --> "1" PdrConfig
 PdrEngine ..> PdrState : 生成
 PdrEngine ..> Geo
 DwConnection --> "1" PoseSource
-AppCore ..> PoseSource : 匿名类实现\n（10 Hz 取位姿）
+DwConnection --> "1" Listener
+AppCore ..> PoseSource : 匿名类实现（10 Hz）：\ncar.step(走路速度 × 驾驶比例)
+AppCore ..> Listener : 匿名类实现：\n服务端消息交给 RouteFollower
+RouteFollower ..> PdrState : 走路速度来自
 DwConnection ..> Json
 WorldPoller --> "1" MapClient
 MapClient ..> MapData

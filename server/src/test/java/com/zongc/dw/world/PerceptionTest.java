@@ -47,7 +47,7 @@ public class PerceptionTest {
     private static int cellAhead(World w) {
         GridMap map = w.map();
         for (Agent a : w.agents()) {
-            if (!a.taxi || !a.internal() || a.route == null || a.v < 0.5) continue;
+            if (!a.internal() || a.route == null || a.v < 0.5) continue;
             for (int k = a.progress + 3; k <= Math.min(a.route.last(), a.progress + 5); k++) {
                 int c = a.route.cell(k);
                 if (!map.isLane(c) || !map.passable(c)) continue;
@@ -86,7 +86,7 @@ public class PerceptionTest {
             assertEquals("车撞障碍", 0, w.metrics().barrierHits);
             assertEquals("车车碰撞", 0, w.metrics().collisions);
             for (Agent a : w.agents()) {
-                if (a.taxi && a.route != null) {
+                if (a.route != null) {
                     assertTrue(a.id + " 的路线仍经过障碍", a.route.indexOf(cell, a.progress, a.route.last()) < 0);
                 }
             }

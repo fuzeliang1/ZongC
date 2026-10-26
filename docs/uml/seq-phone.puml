@@ -1,42 +1,38 @@
 @startuml seq-phone
-' 时序图（五）：手机作为行人智能体接入，出租车给行人让路；手机叫车。
+' 时序图（五）：手机车——手机绑定一辆数字车，人走路驱动它沿服务端规划的路线行驶（走路即油门）。
 !include _style.iuml
 autonumber "<b>0."
 
 actor "手机用户" as U
-participant "安卓 App\n(PdrEngine / DwConnection)" as App
+participant "安卓 App\nPdrEngine" as Pdr
+participant "安卓 App\nRouteFollower" as RF
+participant "安卓 App\nDwConnection" as DC
 participant "服务端\nDeviceBridge" as Br
-participant "World" as W
-participant "TrafficController" as TC
-participant "HttpApi" as Http
-participant "出租车 car-3" as Car
+participant "World /\nTrafficController" as W
 
-U -> App : 打开 App（自动连接上次的服务端）
-App -> Br : register（kind=phone, x, y, θ）
-Br -> W : addFree("phone-1")
-Br --> App : welcome（agentId = phone-1）
+U -> DC : 打开 App（自动连接上次的服务端）
+DC -> Br : register（kind=phone, agentId=car-6）
+Br -> W : car-6 改由手机驾驶（driver = PHONE）
+Br --> DC : welcome（car-6 当前位姿、vMax / aAcc / aDec / vTurn）
+DC -> RF : onMessage(welcome)
+Br --> DC : path（routeId, waypoints）
+DC -> RF : onMessage(path)：投影当前位置作为起点，stopS = 0
+Br --> DC : permit（routeId, stopS）
+DC -> RF : onMessage(permit)：采用最新的 stopS
 
 loop 10 Hz
-  U -> App : 走路（加速度、陀螺、磁力）
-  App -> App : 计步 + Weinberg 步长 + 陀螺航向\n→ 换算到地图坐标（锚点·旋转·比例尺）
-  App -> Br : state（x, y, θ, v）
-  Br -> W : 更新 phone-1 位姿
+  U -> Pdr : 走路（加速度、陀螺、磁力）
+  Pdr -> Pdr : 计步 + Weinberg 步长 + 陀螺航向\n走路速度 v_walk = 步长 × 步频
+  DC -> RF : step(now, v_walk × 驾驶比例)
+  RF -> RF : 期望车速受 vMax、弯道限速、\n刹车曲线 √(2·aDec·(stopS − s)) 限制\n沿路线推进 s，始终 s ≤ stopS
+  RF --> DC : 车的位姿 (x, y, θ, v, ω)
+  DC -> Br : state（car-6 的位姿）
+  Br -> W : 镜像 car-6 位姿，延伸授权
+  opt 授权延伸、或前方出现障碍收回授权
+    Br --> DC : permit（新的 stopS）
+    DC -> RF : 立即采用（变小时不倒车）
+  end
 end
 
-W -> TC : update()
-TC -> TC : 行人车身（0.45 m）覆盖的格子\n标记为"行人"，任何车都申请不到
-alt 行人走进 car-3 已授权、车还没开到的格子
-  TC -> TC : revokeBefore(car-3, 行人之前)
-  TC --> Car : 授权收回，停在行人前
-  note right of Car : 行人离开后授权照常延伸；\n12 s 不走则绕行
-end
-
-== 叫车 ==
-U -> App : 在小地图上点目的地，"叫车"
-App -> Http : POST /api/tasks {from: 手机旁最近的车道格, to}
-Http -> W : engine.call(w.createTask(...))
-W --> Http : Task T012
-Http --> App : {"ok":true,"id":"T012"}
-App -> Br : event "叫车 T012"
-note over W : 之后与普通订单相同：派单 → 接驾 → 送达（见 seq-order）
+note over W : 派单、规划、接送与其他车相同（见 seq-order）；\n断开或 3 s 无消息时由内部仿真接管（见 seq-device）
 @enduml

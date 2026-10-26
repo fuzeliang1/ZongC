@@ -14,7 +14,7 @@
 
 只需要安装 **JDK 17 或更新版本**。演示用的模拟设备另需 Python 3。
 
-**Windows**：双击 `scripts\start_demo.bat`，会依次启动服务端（运行"期末演示"场景脚本，之后全程自动）、5 辆 Matlab 模拟车（没装 MATLAB 时自动改用 Python 模拟车）、1 部模拟手机，并打开 2D 和 3D 两个视图。
+**Windows**：双击 `scripts\start_demo.bat`，会依次启动服务端（运行"期末演示"场景脚本，之后全程自动）、5 辆 Matlab 模拟车（没装 MATLAB 时自动改用 Python 模拟车）、1 辆模拟手机车，并打开 2D 和 3D 两个视图。
 
 **Linux / macOS**：
 
@@ -41,7 +41,7 @@ scripts/start_demo.sh
 | 启动后全自主运行 | 一键启动（含 Matlab 车队）；场景脚本按时间自动制造路障、未知障碍、早晚高峰、订单潮并循环播放（`server/scenarios/`）；手机 App 打开即自动连接；设备断线自动接管、重连自动恢复 |
 | 智能：环境感知与辅助建图（第 2 页） | 每辆车 10 Hz 模拟 48 束激光雷达；系统一开始不知道的障碍由车辆发现，占据栅格确认后写入全局地图、收回授权、重规划或掉头，障碍消失后自动撤掉；按真实世界统计"车撞障碍"，长时间实验为零。详见 [架构设计说明 5.9 节](docs/architecture.md#59-环境感知与辅助建图) |
 | 优化与决策：空车调度 | 分区需求预测 + 匈牙利算法调度空车；潮汐需求下平均等待降低约 20% |
-| 手机 App 作为智能体接入、位姿估计 | `phone/`：安卓 App，行人航位推算（计步 + 步长 + 陀螺仪航向），室外可融合磁力计和卫星定位（含北斗）；出租车会给行人让路，还能在手机上叫车。详见 [phone/README.md](phone/README.md) |
+| 手机模拟车辆运动、位姿估计 | `phone/`：安卓 App。按课程要求"以人携带手机运动来模拟车辆的运动"：手机驾驶一辆数字车（默认 car-6），车沿服务端规划的路线行驶，人走路的速度就是油门；惯性位姿估计用行人航位推算（计步 + 步长 + 陀螺仪航向），室外可融合磁力计和卫星定位（含北斗）。详见 [phone/README.md](phone/README.md) |
 | 3D 可视化（挑战项） | `web/3d.html`：自己实现的 WebGL 渲染（不依赖第三方库，断网也能打开），城市、车辆、乘客、障碍、雷达扫描、路线；自由 / 俯视 / 跟随某辆车 / 自动巡游四种视角 |
 | Gazebo（进阶挑战） | `gazebo/`：由地图自动生成 Gazebo Harmonic 世界和 5 辆差速小车；ROS 2 桥接节点把每辆车注册为 `gazebo` 设备（数字孪生），纯追踪 + 授权限速 + 延迟补偿。已在 ROS 2 Jazzy + Gazebo Harmonic 的无界面模式下实测零碰撞，带界面版本待在 Ubuntu 上实测。详见 [gazebo/README.md](gazebo/README.md) |
 
@@ -76,7 +76,7 @@ docs/      文档
 
 ```bash
 cd server && mvn test                                    # 服务端单元测试（30 项）
-cd phone && ./gradlew test                               # 手机 App 核心算法单元测试（65 项）
+cd phone && ./gradlew test                               # 手机 App 核心算法单元测试（66 项）
 scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16   # 派单策略对比
 python3 tools/run_evaluation.py                          # 跑完全部效果评估实验，结果写到 docs/eval/summary.md
 python3 tools/system_test.py                             # 系统集成测试：服务端 + 5 车 + 手机，断线接管、图像识别，断言零碰撞

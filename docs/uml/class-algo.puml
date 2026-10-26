@@ -25,7 +25,6 @@ package "plan" {
 package "traffic" {
   class TrafficController {
     - owner : int[]
-    - pedestrian : boolean[]
     + update(agents, time, dt, metrics) : Result
     + revokeBefore(a : Agent, idx : int) : boolean
     + stopS(a : Agent) : double

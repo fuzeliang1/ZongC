@@ -17,9 +17,9 @@ import java.util.Set;
  * 场景脚本可以在真实世界里放置<b>未知障碍</b>（{@link #hidden}），系统一开始并不知道，
  * 规划器照样会把车往那里派。车辆靠自己的"激光雷达"发现它：
  * <pre>
- *  每辆车 10 Hz 扫描：48 束射线、360°、量程 3 m，对真实世界做光线投射（建筑、障碍、路障、其他车和行人）
+ *  每辆车 10 Hz 扫描：48 束射线、360°、量程 3 m，对真实世界做光线投射（建筑、障碍、路障、其他车）
  *     │
- *     ├─ 命中点分类：落在已知建筑/路障上 → 已知静态物；靠近已知的车 / 行人 → 动态目标；其余 → 未知障碍
+ *     ├─ 命中点分类：落在已知建筑/路障上 → 已知静态物；靠近已知的车 → 动态目标；其余 → 未知障碍
  *     └─ 占据栅格（log-odds，限制在 [−2, 4]）：未知障碍所在格 +0.85，射线经过的格 −0.4
  *  某格的占据概率超过 0.8 → 服务端把它加入全局地图（等同路障），收回经过它的行驶授权，相关车辆立即重规划
  *  被感知加入的障碍格，之后被观测为空闲（概率低于 0.2）→ 自动从地图上撤掉，道路恢复通行
@@ -50,12 +50,12 @@ public final class Perception {
     public static final class Scan {
         /** 各射线距离（米），未命中为 RANGE。射线 k 的角度 = theta − π + k·2π/RAYS。 */
         public final double[] ranges = new double[RAYS];
-        /** 命中类型：0 无，1 建筑/边界，2 障碍/路障，3 车辆，4 行人。 */
+        /** 命中类型：0 无，1 建筑/边界，2 障碍/路障，3 车辆。 */
         public final byte[] kinds = new byte[RAYS];
-        /** 射线命中的格子（光线投射直接给出；命中车辆、行人或未命中时为 −1）。 */
+        /** 射线命中的格子（光线投射直接给出；命中车辆或未命中时为 −1）。 */
         final int[] cells = new int[RAYS];
         public double x, y, theta, t;
-        public int vehicles, pedestrians, unknown;
+        public int vehicles, unknown;
     }
 
     private final GridMap map;
@@ -74,7 +74,6 @@ public final class Perception {
     private int stampSeq;
     private final int drivableCells;
     private final double radiusTaxi;
-    private final double radiusPhone;
     private final Map<Agent, Scan> scans = new IdentityHashMap<>();
     private double scanTimer;
     private long scanCount;
@@ -86,10 +85,9 @@ public final class Perception {
     int timedDiscoveries;
     int reports;
 
-    Perception(GridMap map, double taxiRadius, double phoneRadius) {
+    Perception(GridMap map, double taxiRadius) {
         this.map = map;
         this.radiusTaxi = taxiRadius;
-        this.radiusPhone = phoneRadius;
         int n = map.size();
         hidden = new boolean[n];
         hiddenSince = new double[n];
@@ -147,7 +145,6 @@ public final class Perception {
         expireVisionObstacles(w);
         List<Agent> agents = w.agents();
         for (Agent a : new ArrayList<>(agents)) {
-            if (!a.taxi) continue;
             Scan s = scan(a, agents, w.time());
             scans.put(a, s);
             integrate(w, a, s, agents);
@@ -174,15 +171,14 @@ public final class Perception {
             Agent hitAgent = null;
             for (Agent o : agents) {
                 if (o == a) continue;
-                double rr = o.taxi ? radiusTaxi : radiusPhone;
-                double tHit = rayCircle(a.x, a.y, dx, dy, o.x, o.y, rr);
+                double tHit = rayCircle(a.x, a.y, dx, dy, o.x, o.y, radiusTaxi);
                 if (tHit >= 0 && tHit < r) {
                     r = tHit;
                     hitAgent = o;
                 }
             }
             if (hitAgent != null) {
-                kind = (byte) (hitAgent.taxi ? 3 : 4);
+                kind = 3;
                 cell = -1;
                 seen.add(hitAgent);
             }
@@ -190,10 +186,7 @@ public final class Perception {
             s.kinds[k] = r >= RANGE ? 0 : kind;
             s.cells[k] = r >= RANGE ? -1 : cell;
         }
-        for (Agent o : seen) {
-            if (o.taxi) s.vehicles++;
-            else s.pedestrians++;
-        }
+        s.vehicles = seen.size();
         return s;
     }
 
@@ -269,7 +262,7 @@ public final class Perception {
             markFree(a, s.x, s.y, dx, dy, free, now, cleared);
             if (!hit) continue;
             double hx = s.x + dx * r, hy = s.y + dy * r;
-            if (nearKnownAgent(a, hx, hy, agents)) continue;             // 动态目标（已知的车 / 行人）
+            if (nearKnownAgent(a, hx, hy, agents)) continue;             // 动态目标（已知的车）
             int c = s.cells[k];
             if (c < 0 || !map.type(c).drivable()) continue;            // 已知建筑 / 边界
             if (map.isBlocked(c) && !discovered[c]) continue;           // 已知的人工路障
@@ -324,7 +317,7 @@ public final class Perception {
     private boolean nearKnownAgent(Agent self, double x, double y, List<Agent> agents) {
         for (Agent o : agents) {
             if (o == self) continue;
-            double r = (o.taxi ? radiusTaxi : radiusPhone) + AGENT_MATCH;
+            double r = radiusTaxi + AGENT_MATCH;
             if (Math.hypot(o.x - x, o.y - y) <= r) return true;
         }
         return false;

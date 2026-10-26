@@ -14,11 +14,11 @@ participant "DeviceBridge" as Br
 actor "外部设备\n(若该车由设备驱动)" as Dev
 
 Scn -> P : setHidden(cell, true)\n（obstacle 事件：只进入"真实世界"）
-note right of P : 2.5 m 内有车或行人时推迟出现
+note right of P : 2.5 m 内有车时推迟出现
 
 loop 10 Hz，每辆出租车
-  P -> P : scan()：48 束 × 3 m 光线投射\n（建筑、路障、未知障碍、车、行人）
-  P -> P : 命中点按"已知信息"分类：\n已知建筑/路障 → 忽略；靠近车/人 → 动态目标；\n其余 → 命中格 log-odds +0.85，穿过格 −0.4
+  P -> P : scan()：48 束 × 3 m 光线投射\n（建筑、路障、未知障碍、车）
+  P -> P : 命中点按"已知信息"分类：\n已知建筑/路障 → 忽略；靠近车 → 动态目标；\n其余 → 命中格 log-odds +0.85，穿过格 −0.4
 end
 
 P -> P : 命中格 log-odds ≥ 1.4（p ≈ 0.8）

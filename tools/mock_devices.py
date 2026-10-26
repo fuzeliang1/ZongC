@@ -4,12 +4,14 @@
 用途：
   1. 在没有 Matlab / 手机的情况下，模拟 N 辆"外部模拟车"接入数字世界，测试设备接入全流程；
   2. 作为 docs/protocol.md 的可运行参考实现，Matlab（matlab/SimCar.m）和 Gazebo 桥接
-     都按同样的逻辑实现：收 path / permit / world，按纯追踪 + 速度 PI 控制行驶，10 Hz 上报 state。
+     都按同样的逻辑实现：收 path / permit / world，按纯追踪 + 速度 PI 控制行驶，10 Hz 上报 state；
+     手机车（PhoneCar）与安卓 App 的 RouteFollower 同一套逻辑：沿路线前进，走路速度就是油门。
 
 用法：
   python tools/mock_devices.py                       # 5 辆车（car-1 … car-5），连接 127.0.0.1:9000
   python tools/mock_devices.py --cars 3 --start 4    # 绑定 car-4 … car-6
-  python tools/mock_devices.py --phones 1            # 另外模拟 1 部随机走动的手机
+  python tools/mock_devices.py --phones 1            # 另外模拟 1 部手机车（人拿着手机走走停停，绑定 car-6）
+  python tools/mock_devices.py --cars 0 --phones 1   # 只模拟手机车
   python tools/mock_devices.py --udp                 # 状态改走 UDP 9001
   python tools/mock_devices.py --duration 60         # 运行 60 秒后退出并打印统计
 """
@@ -272,44 +274,171 @@ class SimCar:
                 'v': round(self.v, 4), 'w': round(self.w, 4)}
 
 
-class Phone:
-    """模拟手机：人拿着手机在地图上随机走动（不受道路约束），作为自由智能体接入。"""
+class PhoneCar:
+    """手机车（kind = phone）：人拿着手机走路来驾驶数字世界里的一辆车，与安卓 App 的 RouteFollower 同一套逻辑。
 
-    def __init__(self, agent_id, w=53.0, h=34.0):
+    车的位置由服务端规划的路线决定（人不可能沿地图上的街道走），车的快慢由人走路决定：
+    期望车速 = 走路速度 × 驾驶比例，再受最高车速、转弯限速、"在授权停车点 stopS 前刹得住"的刹车曲线
+    和加减速度限制；沿路线折线推进弧长 s（任何时候 s ≤ stopS），上报 s 处的位姿。
+    这里用"走一会儿（15~40 s，1.0~1.4 m/s）、停一会儿（2~6 s）"模拟拿着手机的人。
+    """
+
+    BEFORE_START = 1.0   # 新路线投影时，允许车位于第一个路点之前的最大距离（m）
+    TURN_EPS = 0.05      # 相邻两段航向差超过它（rad）就算转弯段
+
+    def __init__(self, agent_id, scale=1.0):
         self.agent_id = agent_id
-        self.W, self.H = w, h
-        self.x, self.y = random.uniform(5, w - 5), random.uniform(5, h - 5)
-        self.th, self.v, self.w = 0.0, 0.0, 0.0
-        self.goal = self._new_goal()
-        self.ready = True
+        self.scale = scale
+        self.x = self.y = self.th = 0.0
+        self.v = self.w = 0.0
+        self.ready = False
+        self.vmax, self.a_acc, self.a_dec, self.v_turn = 1.5, 1.0, 1.5, 0.6
+        self.wp, self.cum, self.head, self.turn = [], [0.0], [], []
+        self.route_id = -1
+        self.s = self.stop_s = 0.0
+        # 拿着手机的人
+        self.walking = False
+        self.walk_v = 0.0
+        self.phase_left = random.uniform(1, 4)
+        # 统计
         self.routes = self.permits = 0
         self.dist = 0.0
 
-    def _new_goal(self):
-        return random.uniform(2, self.W - 2), random.uniform(2, self.H - 2)
-
+    # ---------------- 消息处理
     def on_message(self, m):
-        if m.get('type') == 'welcome':
+        t = m.get('type')
+        if t == 'welcome':
             self.agent_id = m['agentId']
-            map_info = m.get('map', {})
-            self.W = map_info.get('width', self.W) * map_info.get('resolution', 1.0)
-            self.H = map_info.get('height', self.H) * map_info.get('resolution', 1.0)
+            p = m.get('pose', {})
+            self.x, self.y, self.th = p.get('x', self.x), p.get('y', self.y), p.get('theta', self.th)
+            self.v = self.w = 0.0
+            prm = m.get('params', {})
+            self.vmax = prm.get('vMax', self.vmax)
+            self.a_acc = prm.get('aAcc', self.a_acc)
+            self.a_dec = prm.get('aDec', self.a_dec)
+            self.v_turn = min(self.vmax, prm.get('vTurn', self.v_turn))
+            self.wp = []
+            self.ready = True
+        elif t == 'path' and m.get('waypoints'):
+            self.wp = [tuple(p) for p in m['waypoints']]
+            self.cum = [0.0]
+            for i in range(1, len(self.wp)):
+                self.cum.append(self.cum[-1] + math.dist(self.wp[i - 1], self.wp[i]))
+            self._headings()
+            self.route_id = m['routeId']
+            self.s = self._project()
+            self.stop_s = 0.0          # 新路线在收到它的 permit 之前不能走
+            self._place()
+            self.routes += 1
+        elif t == 'permit':
+            if self.wp and m['routeId'] == self.route_id:
+                self.stop_s = m['stopS']   # 直接采用最新一条（授权可能被收回）
+                self.permits += 1
+        elif t == 'error':
+            print(f'[{self.agent_id}] 服务端错误: {m.get("message")}', file=sys.stderr)
 
+    # ---------------- 几何
+    def _headings(self):
+        n = max(1, len(self.wp) - 1)
+        self.head, self.turn = [0.0] * n, [False] * n
+        nxt = None
+        for i in range(n - 1, -1, -1):
+            if i + 1 < len(self.wp) and self.cum[i + 1] - self.cum[i] > 1e-9:
+                (ax, ay), (bx, by) = self.wp[i], self.wp[i + 1]
+                nxt = math.atan2(by - ay, bx - ax)
+            self.head[i] = nxt
+        prev = None
+        for i in range(n):
+            if self.head[i] is None:              # 零长度段（原地转向）：沿用前一段的航向
+                self.head[i] = self.th if prev is None else prev
+            self.turn[i] = i > 0 and abs(wrap(self.head[i] - self.head[i - 1])) > self.TURN_EPS
+            prev = self.head[i]
+
+    def _seg(self, s):
+        """s 所在的段号：cum[k] ≤ s < cum[k+1]。"""
+        k = 0
+        while k < len(self.head) - 1 and self.cum[k + 1] <= s:
+            k += 1
+        return k
+
+    def _point(self, s):
+        n = len(self.wp)
+        if n == 1 or s >= self.cum[-1]:
+            return self.wp[-1]
+        if s < 0:                                 # 车在路线起点后面一点：沿第一段反向延长
+            h = self.head[0]
+            return self.wp[0][0] + s * math.cos(h), self.wp[0][1] + s * math.sin(h)
+        k = self._seg(s)
+        (ax, ay), (bx, by) = self.wp[k], self.wp[k + 1]
+        seg = self.cum[k + 1] - self.cum[k]
+        t = (s - self.cum[k]) / seg if seg > 1e-12 else 0.0
+        return ax + (bx - ax) * t, ay + (by - ay) * t
+
+    def _place(self):
+        self.x, self.y = self._point(self.s)
+        k = len(self.head) - 1 if self.s >= self.cum[-1] else self._seg(self.s)
+        self.th = self.head[k]
+
+    def _project(self):
+        """把当前位置投影到新路线上；距离差不多（5 cm 内）时取最靠前的（路线可能经过同一处两次）。"""
+        n = len(self.wp)
+        if n == 1:
+            return 0.0
+        cands = []
+        for i in range(n - 1):
+            (ax, ay), (bx, by) = self.wp[i], self.wp[i + 1]
+            L = self.cum[i + 1] - self.cum[i]
+            if L < 1e-12:
+                t = 0.0
+            else:
+                t = ((self.x - ax) * (bx - ax) + (self.y - ay) * (by - ay)) / (L * L)
+                t = clamp(t, -self.BEFORE_START / L if i == 0 else 0.0, 1.0)
+            px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+            cands.append((math.hypot(self.x - px, self.y - py), self.cum[i] + t * L))
+        best = min(d for d, _ in cands)
+        return next(s for d, s in cands if d <= best + 0.05)
+
+    def _turn_limit(self):
+        """前方第一个转弯段要在到达前减到 vTurn，转弯段里不超过 vTurn。"""
+        look = self.vmax ** 2 / (2 * self.a_dec) + 0.5
+        k = self._seg(self.s)
+        while k < len(self.turn) and self.cum[k] < self.s + look:
+            if self.turn[k]:
+                return math.sqrt(self.v_turn ** 2 + 2 * self.a_dec * max(0.0, self.cum[k] - self.s))
+            k += 1
+        return self.vmax
+
+    # ---------------- 人走路 + 车沿路线推进
     def step(self, dt):
-        dx, dy = self.goal[0] - self.x, self.goal[1] - self.y
-        d = math.hypot(dx, dy)
-        if d < 0.3:
-            self.goal = self._new_goal()
+        self.phase_left -= dt
+        if self.phase_left <= 0:
+            self.walking = not self.walking
+            self.phase_left = random.uniform(15, 40) if self.walking else random.uniform(2, 6)
+            self.walk_v = random.uniform(1.0, 1.4) if self.walking else 0.0
+        if not self.ready:
             return
-        self.th = math.atan2(dy, dx)
-        self.v = 1.0
-        self.x += self.v * math.cos(self.th) * dt
-        self.y += self.v * math.sin(self.th) * dt
-        self.dist += self.v * dt
+        old_th = self.th
+        if not self.wp:
+            self.v = 0.0
+        else:
+            room = min(self.stop_s, self.cum[-1]) - self.s
+            cap = 0.0 if room <= 1e-6 else min(self.vmax, math.sqrt(2 * self.a_dec * room), self._turn_limit())
+            target = min(self.walk_v * self.scale, cap)
+            if target > self.v:
+                nv = min(target, self.v + self.a_acc * dt)
+            else:
+                nv = max(target, self.v - self.a_dec * dt)
+            ds = min(min(nv, cap) * dt, max(0.0, room))
+            self.s += ds
+            self.v = ds / dt if dt > 0 else 0.0
+            self.dist += ds
+            self._place()
+        self.w = wrap(self.th - old_th) / dt if dt > 0 else 0.0
 
     def state_msg(self, seq):
         return {'type': 'state', 'agentId': self.agent_id, 'seq': seq, 't': int(time.time() * 1000),
-                'x': round(self.x, 3), 'y': round(self.y, 3), 'theta': round(self.th, 3), 'v': self.v}
+                'x': round(self.x, 4), 'y': round(self.y, 4), 'theta': round(self.th, 4),
+                'v': round(self.v, 4), 'w': round(self.w, 4)}
 
 
 # ============================================================ 主程序
@@ -322,7 +451,9 @@ def main():
     ap.add_argument('--cars', type=int, default=5, help='模拟车数量')
     ap.add_argument('--start', type=int, default=1, help='绑定的第一辆数字车编号')
     ap.add_argument('--kind', default='generic', help='注册时的设备类型：generic / matlab / gazebo')
-    ap.add_argument('--phones', type=int, default=0, help='模拟手机数量')
+    ap.add_argument('--phones', type=int, default=0, help='模拟手机车数量（人拿着手机走路驾驶）')
+    ap.add_argument('--phone-start', type=int, default=6, help='手机车绑定的第一辆数字车编号')
+    ap.add_argument('--drive-scale', type=float, default=1.0, help='手机车的驾驶比例：人走 1 m，车开几 m')
     ap.add_argument('--hz', type=float, default=20.0, help='控制频率')
     ap.add_argument('--state-hz', type=float, default=10.0, help='状态上报频率')
     ap.add_argument('--udp', action='store_true', help='状态上报走 UDP')
@@ -337,9 +468,9 @@ def main():
         reg = {'type': 'register', 'kind': args.kind, 'agentId': aid, 'name': f'mock-{aid}'}
         devices.append([Link(args.host, args.port, aid), SimCar(aid, args.noise), reg])
     for i in range(args.phones):
-        ph = Phone(f'phone-{i + 1}')
-        reg = {'type': 'register', 'kind': 'phone', 'agentId': ph.agent_id, 'x': ph.x, 'y': ph.y, 'theta': 0}
-        devices.append([Link(args.host, args.port, ph.agent_id), ph, reg])
+        aid = f'car-{args.phone_start + i}'
+        reg = {'type': 'register', 'kind': 'phone', 'agentId': aid, 'name': f'mock-phone-{i + 1}'}
+        devices.append([Link(args.host, args.port, aid), PhoneCar(aid, args.drive_scale), reg])
 
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) if args.udp else None
 

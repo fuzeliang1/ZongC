@@ -1,6 +1,6 @@
 # 持续集成（CI）：每次推送和 Pull Request 自动在 GitHub 的云端机器上跑一遍，保证 main 始终"能编译、测试通过、能演示"。
 # 四个任务并行运行，结果在仓库的 Actions 页面查看（README 顶部的徽章也会显示通过 / 失败）：
-#   1. Linux：服务端单元测试、Gazebo 桥接包测试、离线实验冒烟测试、系统集成测试（服务端 + 5 车 + 手机）
+#   1. Linux：服务端单元测试、Gazebo 桥接包测试、离线实验冒烟测试、系统集成测试（服务端 + 5 车 + 手机车）
 #   2. Windows：build / experiment / start_server / phone_sim / start_demo 五个 .bat 一键脚本，以及 Windows 上的系统集成测试
 #   3. Android：手机 App 单元测试，编译调试版 APK 并作为附件上传（组员可以直接下载安装，不用装 Android Studio）
 #   4. MATLAB：SimCar 离线控制器测试；run_fleet 的 5 辆 Matlab 车真正接入服务端，跑系统集成测试（零碰撞、零越权）
@@ -41,7 +41,7 @@ jobs:
         run: python3 -m unittest discover -s test -v
       - name: 离线对比实验冒烟测试
         run: bash scripts/experiment.sh --minutes 5 --seeds 1 --strategies GREEDY,HUNGARIAN
-      - name: 系统集成测试（服务端 + 5 辆模拟车 + 模拟手机，约 4 分钟）
+      - name: 系统集成测试（服务端 + 5 辆模拟车 + 模拟手机车，约 4 分钟）
         run: python3 tools/system_test.py --out system_test.json
       - name: 上传日志
         if: always()
@@ -94,7 +94,7 @@ jobs:
           if ($code -ne 0) { throw "phone_sim.bat 失败（退出码 $code）" }
           Write-Host 'start_server.bat、phone_sim.bat 正常'
           exit 0
-      - name: start_demo.bat（服务端 + 5 辆模拟车 + 模拟手机）
+      - name: start_demo.bat（服务端 + 5 辆模拟车 + 模拟手机车）
         shell: pwsh
         run: |
           cmd /c scripts\start_demo.bat
@@ -103,18 +103,18 @@ jobs:
             Start-Sleep -Seconds 1
             try {
               $m = (Invoke-RestMethod http://127.0.0.1:8080/api/snapshot -TimeoutSec 2).metrics
-              if ($m.externalTaxis -eq 5 -and $m.freeAgents -ge 1) { $ok = $true; break }
+              if ($m.externalTaxis -eq 6) { $ok = $true; break }
             } catch { }
           }
           Start-Sleep -Seconds 20
           $m = (Invoke-RestMethod http://127.0.0.1:8080/api/snapshot -TimeoutSec 5).metrics
-          $m | Format-List created, delivered, externalTaxis, freeAgents, collisions, obstacleHits, barrierHits, authorityViolations
+          $m | Format-List created, delivered, externalTaxis, collisions, obstacleHits, barrierHits, authorityViolations
           Get-Process java, python -ErrorAction SilentlyContinue | Stop-Process -Force
-          if (-not $ok) { throw 'start_demo.bat: 120 s 内没有 5 辆模拟车和 1 部模拟手机接入' }
+          if (-not $ok) { throw 'start_demo.bat: 120 s 内没有 5 辆模拟车和 1 辆模拟手机车接入' }
           if ($m.collisions -ne 0 -or $m.obstacleHits -ne 0 -or $m.barrierHits -ne 0 -or $m.authorityViolations -ne 0) {
             throw 'start_demo.bat: 出现碰撞或越权'
           }
-          Write-Host 'start_demo.bat 正常：5 辆模拟车、1 部模拟手机接入，零碰撞'
+          Write-Host 'start_demo.bat 正常：5 辆模拟车、1 辆模拟手机车接入，零碰撞'
           exit 0
       - name: 上传日志
         if: always()

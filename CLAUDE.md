@@ -7,7 +7,7 @@
 ## 0. 接手第一步
 
 1. 读本文件第 6 节：已完成什么、还剩什么（按优先级排好了，每项写了做法）。
-2. 跑一遍测试确认环境正常（第 3 节）：服务端 30 项、手机核心 65 项，应全部通过。
+2. 跑一遍测试确认环境正常（第 3 节）：服务端 30 项、手机核心 66 项，应全部通过。
 3. 起服务端看看效果：`scripts/start_demo.sh --no-browser`，浏览器打开 http://localhost:8080 和 /3d.html。
 4. 用户（项目组成员）用中文交流；文档、注释、界面、提交信息也都用中文。
 
@@ -33,7 +33,7 @@
   - 樊宇泽（2351586）：服务端——数字世界、交通管控、设备接入、感知建图、图像处理；设计文档、测试报告
   - 李昊博（2352853）：控制与可视化——Matlab 模拟车、2D / 3D 网页；部署手册、PPT、视频
   - 付泽亮（2353413）：移动端与进阶——安卓 App、Gazebo；评估报告、GitHub 仓库管理
-  - 第 1 组，指导教师许春权；报告封面不写完成日期。报告 9.3 节个人总结已按分工写好（改了相关内容要同步）。
+  - 第 1 组，指导教师许春权；报告封面不写完成日期。报告 8.3 节个人总结已按分工写好（改了相关内容要同步）。
 
 ## 2. 仓库结构
 
@@ -67,19 +67,19 @@ scripts/build.sh                      # 编译服务端 → server/build/classes
 scripts/start_server.sh               # 启动服务端：2D http://localhost:8080，3D /3d.html，设备 TCP 9000 / UDP 9001
 scripts/start_server.sh --scenario perception   # 运行指定场景脚本（server/scenarios/ 下的文件名），none = 不运行
 scripts/start_demo.sh                 # 一键全自主演示：服务端 + demo 场景 + Matlab 车队（没装 MATLAB 时用 Python 模拟车）
-                                      #   + 模拟手机 + 浏览器；参数 --cars auto|matlab|python|none --phones N --scenario 名 --no-browser
+                                      #   + 模拟手机车 + 浏览器；参数 --cars auto|matlab|python|none --phones N --scenario 名 --no-browser
 scripts/experiment.sh --minutes 30 --seeds 1,2,3 --taxis 16 --rate 16     # 派单策略对比（仓库根目录运行）
 scripts/experiment.sh --minutes 30 --seeds 1,2,3,4,5,6,7,8 --strategies HUNGARIAN \
     --rebalance off,on --rate 5 --scenario rush-hour                     # 空车调度对比
 python3 tools/run_evaluation.py       # 全部效果评估实验（约 5 分钟）→ docs/eval/summary.md + CSV
 python3 tools/plot_eval.py            # 评估 CSV → docs/images/eval/*.png（需要 matplotlib）
-python3 tools/system_test.py          # 系统集成测试（约 4 分钟）：服务端 + 5 车 + 手机、断线接管、图像识别，断言零碰撞
+python3 tools/system_test.py          # 系统集成测试（约 4 分钟）：服务端 + 5 车 + 1 辆手机车、断线接管、图像识别，断言零碰撞
 python3 tools/render_uml.py           # docs/uml/*.puml → docs/images/uml/*.png（PlantUML，自动下载；有 Graphviz 更好）
 python3 tools/build_report.py --pdf   # 技术报告 docs/report/report.md → deliverables/*.docx / *.pdf（pandoc + LibreOffice）
 python3 gazebo/gen_world.py           # 地图 → Gazebo 世界 + ros_gz_bridge 配置；桥接包测试：cd gazebo/minididi_bridge && python3 -m unittest discover -s test
-scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路"，接入运行中的服务端
+scripts/phone_sim.sh                  # 用手机 App 的核心代码模拟"拿着手机走路驾驶 car-6"，接入运行中的服务端
 cd server && mvn test                 # 服务端单元测试 30 项（需要能访问 Maven Central）
-cd phone && ./gradlew test            # 手机核心算法单元测试 65 项（需要 Android SDK）
+cd phone && ./gradlew test            # 手机核心算法单元测试 66 项（需要 Android SDK）
 python3 tools/system_test.py --fleet external --bind-timeout 300   # 不起模拟车，等外部车队（如 MATLAB run_fleet）接入
 ```
 
@@ -109,7 +109,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   3D 视图：地图 (x, y) → GL (x, 高度, −y)。
 - **交通管控 = 格子预约的"移动授权"**：一格一车；车只能驶入已授权格，在授权终点前 bodyRadius+stopMargin
   处停车；路口整段 + 出口格一次性申请（不堵路口）；受阻 3 s 优先、12 s 绕行。授权通常只向前延伸，
-  **例外**：行人走进、或格子变得不可通行（路障 / 感知发现的障碍）时立即收回（`TrafficController.revokeBefore`，
+  **例外**：已授权的格子变得不可通行（路障 / 感知发现的障碍）时立即收回（`TrafficController.revokeBefore`，
   停在路口里时退到路口前）。设备端必须直接采用最新 permit 的 `stopS`（不要取历史最大值）。
   外部设备有延迟：收回后 `REVOKE_GRACE_SEC`（1 s）内、在收回前已授权范围内多走进一格记为 `revokeOverruns`，不算 `authorityViolations`。
 - **规划**：A*，状态 = (格, 驶入方向)，禁止原地掉头；前方无路时 `AStarPlanner.planUTurn` 借对向车道掉头，
@@ -117,7 +117,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   派单时 `dispatch()` 里改上车点）。
 - **派单**：GREEDY / HUNGARIAN（代价 = 路网距离 − 等待时间权重）；可选空车调度 `Rebalancer`（9×9 格分区、
   τ = 180 s 衰减的需求计数、匈牙利算法调空车）。订单生成用**独立随机数序列**（只由种子决定），对比实验是配对的。
-- **数字孪生**：设备注册 `kind = matlab/gazebo/generic` 绑定出租车，`phone` 新建自由智能体（行人）；
+- **数字孪生**：设备注册（`kind = matlab/gazebo/phone/generic`）后一律绑定一辆出租车，世界里没有行人；
   3 s 无消息判离线，出租车由内部仿真接管。协议以 `docs/protocol.md` 为准，改协议必须同步改文档、
   `tools/mock_devices.py`、`matlab/`、`phone/` 四处（新增的下行消息旧设备会忽略）。
 - **感知与建图**（`world/Perception.java`）：真实世界（建筑 + 未知障碍 `hidden` + 人工路障）与系统认知
@@ -128,8 +128,13 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   （合并被白色反光条切开的锥桶）→ 针孔模型测方位和距离 → 落到地图格子。路障作为观测并入占据栅格（一次即确认），
   同时登记到数字孪生"真实世界" 120 s（`World.VISION_TTL_SEC`，再拍到续期），过期后由感知撤掉。
 - **场景脚本**（`world/Scenario*.java`，格式见 `docs/protocol.md` 第 6 节）：按仿真时间自动触发事件；循环播放时
-  新一轮开始会撤掉上一轮的路障和障碍并清掉感知结论；未知障碍 2.5 m 内有车或人时推迟出现。
-- **安全统计**：`CollisionMonitor` 独立计数碰撞 / 撞墙 / 撞障碍 / 行人接触；所有测试和实验必须为 0。
+  新一轮开始会撤掉上一轮的路障和障碍并清掉感知结论；未知障碍 2.5 m 内有车时推迟出现。
+- **安全统计**：`CollisionMonitor` 独立计数碰撞 / 撞墙 / 撞障碍；所有测试和实验必须为 0。
+- **手机 = 模拟车**（课程 PPT 第 12 页"以人携带手机运动来模拟车辆的运动"）：App 以 `kind = phone` 注册、默认请求
+  `car-6`（Matlab 车队占 car-1~5）。路线由服务端规划，快慢由人决定：`core/RouteFollower` 以"走路速度 × 驾驶比例
+  （driveScale）"为期望车速沿 path 折线推进弧长 s，受 vMax / vTurn / 刹车曲线 / 加减速度限制，始终 s ≤ stopS，
+  上报 s 处的位姿。PDR 只在手机坐标系 P 里估计位姿（显示、记录），不再有地图坐标换算。`tools/mock_devices.py`
+  的 `PhoneCar` 是同一套逻辑的 Python 版，改一处要同步另一处。
 
 ## 5. 约定
 
@@ -164,6 +169,23 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | cb2a700 | CI 在 main 上发现的缺陷 D12：外部设备来不及响应授权收回被误记为越权 → `REVOKE_GRACE_SEC` + `revokeOverruns`，新增回归测试（服务端 30 项） |
 
 以上提交已全部合并到 main（当前 `cb2a700`），main 上最近一次 CI 四个任务全部通过。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main；合并前分支上的 CI 要先变绿，合并后再看一次 main 上的 CI。
+
+### 已完成、待提交：手机改为"模拟车"（本地分支 `phone-car`，2026-10-26）
+
+用户按课程 PPT 第 12 页的要求决定：**只保留车**（删除行人、叫车、车给行人让路，以及文档里的相关内容），
+手机驾驶方式为**走路 = 油门**（车沿服务端路线自动行驶，人走多远车开多远，不需要转身选路）。
+
+- 已完成并验证：服务端（删除 FREE / taxi 字段 / 行人表 / freeContacts / phoneRadius，新增
+  `WorldTest.arcLengthDeviceCompletesTrips`，30 项通过）；网页；手机 App（新增 `RouteFollower` + 5 项测试，删除
+  `MapFrame`、设位置 / 对方向 / 比例尺 / 叫车，设置里加"车号""驾驶比例"，CSV 加车的列，核心 66 项通过，安卓层对照
+  android.jar 编译通过）；`PhoneSim` 端到端通过（走 23.0 m、车开 21.6 m、位置差平均 0.10 m）；`mock_devices.py`
+  的 `PhoneCar`；`system_test.py` 全部通过（手机车全程接入、累计 ≥161 m、零碰撞）；CI、start_demo 脚本；
+  文档：protocol、phone/README（小地图图片用 App 的绘图代码重新渲染）、architecture、requirements、design、
+  test-report（2026-10-26 重测数据；D01 / D12 保留并加说明）、report、onboarding、deployment、plan、evaluation、
+  proposal、dev-guide、CHANGELOG、README、docs/README；15 张 UML 改完重新渲染（Graphviz 排版）；2D / 3D 截图重拍；网页冒烟测试
+  （Edge 无头，2D / 3D 控制台零报错）；`build_slides.js` 第 4 页改为"拿着手机走路就能开车"；报告 docx / pdf 和 PPT 已重新生成（报告里的 UML 图按用户要求改成表格和文字，目录写进 docx；付泽亮在 WPS 里删掉了第 7 章"部署与使用"和附录 B、改短 1.2 节首句，`deliverables/` 里的报告就是他改的那份，按他的要求在他那份上把原第 8、9 章顺延为第 7、8 章（节号、图表号、引用同步），用 WPS 更新目录并导出 PDF（40 页），`report.md` 已同步；PPT 按用户要求重新设计：宽屏、大字号、原生图示，正文 5 页 + 附录 4 页）；演示视频重录（4 分 41 秒，`record_demo.py --car car-6` 跟拍手机车）。
+- 还没做：
+  - 提交、推送（**先问用户**）；推送后看 CI，把结果补进 `docs/test-report.md` 4.6 节，然后把本节并入上面的进度表。
 
 **2026-10-24 的决定**：调研同类项目后提出过几项改进（录制回放 + 指标曲线、报告补"相关工作"一节、动态改派、拼车、时空预约 / 路口细化、拥堵感知规划、感知加噪声等），用户只要求做 CI，**其他都不做**。除非用户再提，不要主动去做这些。
 
@@ -202,9 +224,27 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   不要反复重试；有的会话可以访问（2026-10-24 那次可以 `pip install matplotlib`、`apt-get install graphviz`、下载 PlantUML）。无论如何：
   服务端不用 Spring Boot、Gson jar 随仓库提供；网页不用 Three.js；Android APK 无法在沙箱里构建（交给 CI）。
 - 安卓层在沙箱里只能对照手写的安卓 API 桩做编译检查，桩没有提交进仓库；改了安卓代码以 CI 的 Android 任务（真实 SDK）为准。
+- 在 Windows 的 Git Bash 里：Java 类路径分隔符是 `;` 不是 `:`（`scripts/phone_sim.sh` 因此在 Git Bash 下跑不了，
+  用 `.bat` 或手动 javac/java）；Java 中文输出会乱码，加 `-Dstdout.encoding=UTF-8`，Python 用 `python -X utf8`。
+- Windows 上系统 Python 没有 LibreOffice 的 uno，LibreOffice 自带的 Python 又没有 python-docx，所以报告分两步生成：
+  `python tools/build_report.py`，再用 `<LibreOffice>/program/python.exe tools/build_report.py --pdf-only`
+  （更新目录、导出 PDF，并把目录写进 docx——不写的话 Word / WPS 打开时目录是空的，要手动"更新域"）。
+  LibreOffice 的配置目录必须用 `pathlib.Path(...).as_uri()`：写成 `file://C:\...` 会弹"bootstrap.ini 已经损坏"（文件其实没坏）。
+  导出 PDF 后关闭文档偶尔会卡住（soffice.bin 一直满负荷），`to_pdf` 只等 20 秒，然后用 `taskkill /T` 连子进程一起结束。
+  报告里不放 UML 图（缩到 A4 后字看不清），用表格和文字写；表格列宽由 `widen_tables` 按内容计算，源文件里写 `|---|` 即可。
+- 组员可能直接用 WPS / Word 改 `deliverables/` 里的文件。重新生成报告或 PPT 之前，先看 `docProps/core.xml` 的
+  `lastModifiedBy`、`docProps/app.xml` 的 `Application` 和修改时间，被人改过就先比较内容、把改动并回源文件。
+- Windows 版 PlantUML 自带 Graphviz 2.44.1（`java -jar plantuml.jar -testdot` 可以看到），但 `tools/render_uml.py`
+  只看 PATH 里有没有 `dot`，没有就强制用 smetana 排版（和其他图风格不一致）。在 Windows 上渲染前，把任意一个
+  `dot.exe` 所在目录加进 PATH（或者装 Graphviz）。
+- 在 Windows 上录演示视频（`tools/record_demo.py`）：Playwright 自带的 Chromium 和 ffmpeg 都要从国外下载，可以不装。
+  写一个名为 `playwright` 的转接模块（放进 `NODE_PATH`），转发 `playwright-core`，并把 `chromium.launch` 的 `executablePath`
+  指向本机 Edge；Playwright 录屏用的 ffmpeg 放在 `$PLAYWRIGHT_BROWSERS_PATH/ffmpeg-<版本>/ffmpeg-win64.exe`（版本号见
+  `playwright-core/browsers.json`），转 MP4 的 ffmpeg 要在 PATH 里。完整的 ffmpeg 可以从国内 PyPI 镜像下载 `imageio-ffmpeg` 包，
+  包里自带 exe。Git Bash 会把以 `/` 开头的参数改写成 Windows 路径，必要时加 `MSYS_NO_PATHCONV=1`。
 - `.bat` 里不要用 `timeout /t N` 等待：输入被重定向时（CI、部分 IDE 终端）会直接报错退出，用 `ping -n N+1 127.0.0.1 >nul`。
 - GitHub Actions 的同一分支并发组会取消正在跑的运行：等一轮 CI 结果时不要推送会触发 CI 的提交（只改文档的可以）。
-- CI 的 MATLAB / 系统测试任务里有真实的时序（设备延迟、模拟手机随机横穿），同一份代码在不同运行里可能碰到不同情况：
+- CI 的 MATLAB / 系统测试任务里有真实的时序（设备延迟、模拟手机车走走停停的节奏），同一份代码在不同运行里可能碰到不同情况：
   D12 就是分支上通过、main 上才出现的。偶发的红灯也要找原因，不要当成"运气不好"。
 - `pkill -f DwServer`（以及任何 `pkill -f <命令行里也出现的字符串>`）会把执行它的 shell 也杀掉；启动 / 停止服务端请记录 PID。
   `kill` 掉 `ros2 run` / `xvfb-run` / `timeout` 等包装进程时子进程会残留（同名 Gazebo 话题出现多个发布者，车辆位置乱跳）：

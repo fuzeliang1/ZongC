@@ -30,7 +30,7 @@ import java.util.Set;
  *  针孔相机：焦距 f = (W/2) / tan(水平视场角/2)（像素）
  *  方位角   β = atan((cx − W/2) / f)              目标在相机光轴右边为正
  *  距离     d = H_real · f / h_px                  H_real：目标真实高度，h_px：外接矩形高度（像素）
- *  地图坐标 p = 相机位置 + d·s·(cos(θ − β), sin(θ − β))   θ：相机朝向（手机航向），s：真实世界到地图的比例尺
+ *  地图坐标 p = 相机位置 + d·s·(cos(θ − β), sin(θ − β))   θ：相机朝向（手机车的航向），s：真实世界到地图的比例
  * </pre>
  * 识别是"颜色分割 + 连通域"（{@link ColorBlobDetector}），不需要训练数据，适合教学场景里的
  * 橙色锥桶、红色挡板、黄色警示牌。
@@ -44,11 +44,11 @@ public final class VisionService {
     /**
      * 一次识别的参数。
      *
-     * @param source       来源（手机的智能体编号，或 "web"）
+     * @param source       来源（手机车的编号，或 "web"）
      * @param pose         相机在地图上的位姿 {x, y, θ}；没有时只识别、不建图
      * @param hfovDeg      相机水平视场角（度），手机后置主摄一般 60°~70°
      * @param objectHeight 目标的真实高度（米，真实世界），用于估计距离
-     * @param scale        真实世界 1 米对应地图上多少米（手机 App 设置里的比例尺）
+     * @param scale        真实世界 1 米对应地图上多少米（手机 App 用设置里的驾驶比例）
      * @param benchmark    true 时再用单线程跑一遍，报告并行加速比
      */
     public record Params(String source, double[] pose, double hfovDeg, double objectHeight, double scale, boolean benchmark) {}

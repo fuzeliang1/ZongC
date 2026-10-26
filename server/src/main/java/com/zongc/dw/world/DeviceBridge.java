@@ -16,13 +16,10 @@ import java.util.Map;
 /**
  * 设备接入的业务逻辑（协议语义），在仿真线程中运行。网络收发在 device 包中实现。
  *
- * <p>设备分两类：</p>
- * <ul>
- *   <li>出租车驱动（matlab / gazebo / generic）：绑定一辆数字车，服务端下发 path 与 permit，
- *       设备负责控制车辆沿路线行驶并上报 state —— 数字车即该设备的数字孪生。</li>
- *   <li>自由智能体（phone）：新建一个不参与派单的智能体，位置完全由设备上报。</li>
- * </ul>
- * <p>设备断开或心跳超时后，出租车由数字世界内部仿真接管，系统继续运行。</p>
+ * <p>每个设备（matlab / phone / gazebo / generic）绑定一辆数字车，服务端下发 path 与 permit，
+ * 设备负责让车辆沿路线行驶并上报 state —— 数字车即该设备的数字孪生。手机模拟车由人拿着手机走路驱动
+ * （走多远车就沿路线开多远），驱动方式不同，协议完全一样。</p>
+ * <p>设备断开或心跳超时后，数字车由数字世界内部仿真接管，系统继续运行。</p>
  */
 public final class DeviceBridge {
     public static final int PROTOCOL_VERSION = 1;
@@ -95,16 +92,9 @@ public final class DeviceBridge {
     void onClosed(DeviceLink link) {
         registrations.remove(link);
         Agent a = bound.remove(link);
-        if (a == null) return;
-        if (a.taxi) {
-            if (a.link == link) {
-                w.setDriver(a, DriverKind.INTERNAL, null);
-                w.events().warn(w.time(), "设备 " + link.remote() + " 断开，" + a.id + " 由数字世界接管");
-            }
-        } else {
-            w.removeAgent(a);
-            w.events().warn(w.time(), "自由智能体 " + a.id + " 离线");
-        }
+        if (a == null || a.link != link) return;
+        w.setDriver(a, DriverKind.INTERNAL, null);
+        w.events().warn(w.time(), "设备 " + link.remote() + " 断开，" + a.id + " 由数字世界接管");
     }
 
     private void onRegister(DeviceLink link, JsonObject msg) {
@@ -113,36 +103,20 @@ public final class DeviceBridge {
             return;
         }
         String kind = str(msg, "kind");
-        DriverKind dk = DriverKind.fromKind(kind);
-        String wanted = str(msg, "agentId");
-        boolean free = dk == DriverKind.PHONE || "free".equals(str(msg, "role"));
-        GridMap map = w.map();
-        Agent a;
-        if (free) {
-            double x = num(msg, "x", map.width() * map.resolution() / 2);
-            double y = num(msg, "y", map.height() * map.resolution() / 2);
-            a = w.addFree(wanted, x, y, num(msg, "theta", 0));
-            a.driver = dk;
-            a.link = link;
-            w.events().info(w.time(), "接入自由智能体 " + a.id + "（" + kindLabel(kind) + "@" + link.remote() + "）");
-        } else {
-            a = pickTaxi(wanted);
-            if (a == null) {
-                error(link, "没有可绑定的数字车（已达到 maxTaxis 上限）");
-                link.close("no taxi available");
-                return;
-            }
-            w.setDriver(a, dk == DriverKind.PHONE ? DriverKind.GENERIC : dk, link);
-            w.events().info(w.time(), "设备 " + kindLabel(kind) + "@" + link.remote() + " 接管 " + a.id + "（数字孪生）");
+        Agent a = pickTaxi(str(msg, "agentId"));
+        if (a == null) {
+            error(link, "没有可绑定的数字车（已达到 maxTaxis 上限）");
+            link.close("no taxi available");
+            return;
         }
+        w.setDriver(a, DriverKind.fromKind(kind), link);
+        w.events().info(w.time(), "设备 " + kindLabel(kind) + "@" + link.remote() + " 接管 " + a.id + "（数字孪生）");
         a.lastSeenNanos = System.nanoTime();
         bound.put(link, a);
         registrations.put(link, msg.deepCopy());
         link.send(welcome(a).toString());
-        if (a.taxi) {
-            sendPath(a);
-            sendPermit(a);
-        }
+        sendPath(a);
+        sendPermit(a);
     }
 
     /**
@@ -157,10 +131,10 @@ public final class DeviceBridge {
     private Agent pickTaxi(String wanted) {
         if (wanted != null) {
             Agent a = w.agent(wanted);
-            if (a == null && wanted.matches("car-\\d+") && taxiCount() < w.config().devices.maxTaxis) {
+            if (a == null && wanted.matches("car-\\d+") && w.agents().size() < w.config().devices.maxTaxis) {
                 a = w.addTaxi(wanted);
             }
-            if (a != null && a.taxi) {
+            if (a != null) {
                 if (a.link == null) return a;
                 boolean stale = !a.link.isOpen() || System.nanoTime() - a.lastSeenNanos > 1_000_000_000L;
                 if (stale) {
@@ -173,15 +147,9 @@ public final class DeviceBridge {
             }
         }
         for (Agent a : w.agents()) {
-            if (a.taxi && a.link == null) return a;
+            if (a.link == null) return a;
         }
-        return taxiCount() < w.config().devices.maxTaxis ? w.addTaxi(null) : null;
-    }
-
-    private int taxiCount() {
-        int n = 0;
-        for (Agent a : w.agents()) if (a.taxi) n++;
-        return n;
+        return w.agents().size() < w.config().devices.maxTaxis ? w.addTaxi(null) : null;
     }
 
     private void applyState(Agent a, JsonObject msg) {
@@ -216,7 +184,7 @@ public final class DeviceBridge {
             }
         }
         for (Agent a : bound.values()) {
-            if (!a.taxi || a.route == null) continue;
+            if (a.route == null) continue;
             if (a.routeDirty || a.routeId != a.lastSentRouteId) sendPath(a);
             if (a.permitDirty || a.authority != a.lastSentAuthority) sendPermit(a);
         }
@@ -224,9 +192,7 @@ public final class DeviceBridge {
         if (hz > 0 && now - lastWorldBroadcast >= (long) (1e9 / hz) && !bound.isEmpty()) {
             lastWorldBroadcast = now;
             String msg = worldMessage().toString();
-            for (Map.Entry<DeviceLink, Agent> e : bound.entrySet()) {
-                if (e.getValue().taxi) e.getKey().send(msg);
-            }
+            for (DeviceLink link : bound.keySet()) link.send(msg);
         }
     }
 
@@ -237,7 +203,7 @@ public final class DeviceBridge {
         o.addProperty("type", "welcome");
         o.addProperty("protocol", PROTOCOL_VERSION);
         o.addProperty("agentId", a.id);
-        o.addProperty("role", a.taxi ? "taxi" : "free");
+        o.addProperty("role", "taxi");
         o.addProperty("driver", a.driver.name());
         JsonObject pose = new JsonObject();
         pose.addProperty("x", Num.r3(a.x));
@@ -346,8 +312,7 @@ public final class DeviceBridge {
             x.addProperty("y", Num.r3(a.y));
             x.addProperty("theta", Num.r3(a.theta));
             x.addProperty("v", Num.r3(a.v));
-            x.addProperty("r", w.traffic().radiusOf(a));
-            x.addProperty("taxi", a.taxi);
+            x.addProperty("r", w.config().vehicle.bodyRadius);
             arr.add(x);
         }
         o.add("agents", arr);

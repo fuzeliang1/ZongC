@@ -23,7 +23,7 @@ node "演示笔记本（Windows 10/11 或 Linux）" as Laptop <<device>> {
 }
 
 node "安卓手机（Android 8.0+）" as Phone <<device>> {
-  artifact "MiniDiDi.apk\n行人航位推算 · 拍照" as Apk
+  artifact "MiniDiDi.apk\n手机车（走路即油门）· 惯性位姿估计 · 拍照" as Apk
 }
 
 node "Gazebo 工作站（可选，Ubuntu 24.04）" as Ws <<device>> {
@@ -42,7 +42,7 @@ P3D --> Srv : HTTP 8080（SSE）
 Laptop -- Router : Wi-Fi / 网线
 Phone -- Router : Wi-Fi
 Ws -- Router : 网线
-Apk ..> Srv : TCP 9000（位姿 10 Hz）\nHTTP 8080（叫车、拍照）
+Apk ..> Srv : TCP 9000（路线 / 授权，车的位姿 10 Hz）\nHTTP 8080（快照、拍照）
 BridgeArt ..> Srv : TCP 9000
 BridgeArt -- World : ros_gz_bridge\n/odom · /cmd_vel
 @enduml
