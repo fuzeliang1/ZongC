@@ -167,15 +167,19 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | 669688c / a6bcf21 | GitHub Actions 持续集成（Linux / Windows / Android / MATLAB），第一次运行全部通过；`run_fleet` 的 duration 参数、`system_test.py --fleet external`；修复 `start_demo.bat` 的 timeout 问题 |
 | 87589f7 | 文档同步 CI 结果：测试报告 4.6 节、上手指南 6.6 节、README 徽章；"Matlab 没跑过 / 只做过编译检查"的说法按实测改掉 |
 | cb2a700 | CI 在 main 上发现的缺陷 D12：外部设备来不及响应授权收回被误记为越权 → `REVOKE_GRACE_SEC` + `revokeOverruns`，新增回归测试（服务端 30 项） |
+| 8adfba6 | 交接本与上手指南：记录 CI 完成后的最终状态 |
+| 2038ba8 | 手机改为"模拟车"（走路即油门），删除行人与叫车；重新生成报告、PPT 和演示视频（详见下一小节） |
+| （本次） | 安卓真机实测（vivo S20，安卓 15）：结果和截图写进评估 / 测试 / 技术报告、phone/README、部署手册，重新生成报告 docx/pdf 和 PPT（详见"需要人来做"） |
 
-以上提交已全部合并到 main（当前 `cb2a700`），main 上最近一次 CI 四个任务全部通过。之后在分支 `claude/fervent-maxwell-q06bmm` 上开发，完成后再合并到 main；合并前分支上的 CI 要先变绿，合并后再看一次 main 上的 CI。
+以上提交已全部推送到 main（当前 `2038ba8`）。`cb2a700` 之前 main 上的 CI 四个任务全部通过；`2038ba8` 的 CI 结果还没记录（见下一小节）。
+以后的开发在新分支上进行，完成后再合并到 main；合并前分支上的 CI 要先变绿，合并后再看一次 main 上的 CI。
 
-### 已完成、待提交：手机改为"模拟车"（本地分支 `phone-car`，2026-10-26）
+### 手机改为"模拟车"（提交 `2038ba8`，2026-10-26）
 
 用户按课程 PPT 第 12 页的要求决定：**只保留车**（删除行人、叫车、车给行人让路，以及文档里的相关内容），
 手机驾驶方式为**走路 = 油门**（车沿服务端路线自动行驶，人走多远车开多远，不需要转身选路）。
 
-- 已完成并验证：服务端（删除 FREE / taxi 字段 / 行人表 / freeContacts / phoneRadius，新增
+- 完成并验证的内容：服务端（删除 FREE / taxi 字段 / 行人表 / freeContacts / phoneRadius，新增
   `WorldTest.arcLengthDeviceCompletesTrips`，30 项通过）；网页；手机 App（新增 `RouteFollower` + 5 项测试，删除
   `MapFrame`、设位置 / 对方向 / 比例尺 / 叫车，设置里加"车号""驾驶比例"，CSV 加车的列，核心 66 项通过，安卓层对照
   android.jar 编译通过）；`PhoneSim` 端到端通过（走 23.0 m、车开 21.6 m、位置差平均 0.10 m）；`mock_devices.py`
@@ -184,8 +188,9 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   test-report（2026-10-26 重测数据；D01 / D12 保留并加说明）、report、onboarding、deployment、plan、evaluation、
   proposal、dev-guide、CHANGELOG、README、docs/README；15 张 UML 改完重新渲染（Graphviz 排版）；2D / 3D 截图重拍；网页冒烟测试
   （Edge 无头，2D / 3D 控制台零报错）；`build_slides.js` 第 4 页改为"拿着手机走路就能开车"；报告 docx / pdf 和 PPT 已重新生成（报告里的 UML 图按用户要求改成表格和文字，目录写进 docx；付泽亮在 WPS 里删掉了第 7 章"部署与使用"和附录 B、改短 1.2 节首句，`deliverables/` 里的报告就是他改的那份，按他的要求在他那份上把原第 8、9 章顺延为第 7、8 章（节号、图表号、引用同步），用 WPS 更新目录并导出 PDF（40 页），`report.md` 已同步；PPT 按用户要求重新设计：宽屏、大字号、原生图示，正文 5 页 + 附录 4 页）；演示视频重录（4 分 41 秒，`record_demo.py --car car-6` 跟拍手机车）。
-- 还没做：
-  - 提交、推送（**先问用户**）；推送后看 CI，把结果补进 `docs/test-report.md` 4.6 节，然后把本节并入上面的进度表。
+- 已于 2026-10-26 提交推送到 main（`2038ba8`）。
+- 还没做：在 [Actions 页面](https://github.com/fuzeliang1/ZongC/actions/workflows/ci.yml) 查看 `2038ba8` 的 CI 结果，补进
+  `docs/test-report.md` 4.6 节末尾（目前写着"CI 结果待补充"）和第 7 节"安卓真机"一行；CI 红了按待做第 5 项找根因修复。
 
 **2026-10-24 的决定**：调研同类项目后提出过几项改进（录制回放 + 指标曲线、报告补"相关工作"一节、动态改派、拼车、时空预约 / 路口细化、拥堵感知规划、感知加噪声等），用户只要求做 CI，**其他都不做**。除非用户再提，不要主动去做这些。
 
@@ -214,7 +219,11 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 ### 需要人来做（AI 在云端做不了）
 
 - 在自己的 MATLAB 上跑带"Matlab 模拟车视图"图窗的 `run_fleet`，再跑一次 `start_demo`（会自动起 MATLAB）——CI 只验证了 Linux 上无图窗的 R2024b。
-- 从 Actions 下载 CI 编译的 APK（或用 Android Studio 编译 `phone/`）装到真机实测（PDR、拍照识别、自动连接），做 `phone/README.md` 第 4 节的 10 m 正方形实验。
+- ~~装到真机~~ 2026-10-27 已装到安卓真机，经手机热点接入服务端，功能正常（已写进测试报告第 7 节）。vivo S20、安卓 15，拍照识别稳定。
+  97 s 走路驾驶记录在 `docs/eval/phone/`，已写进评估报告 4.6 节、测试报告第 7 节、`phone/README.md` 第 4 节。真机截图在 `phone/docs/real_*.jpg`
+  和 `docs/images/phone_pair.jpg`（报告图 5-3，原 Gazebo 图顺延为 5-4）；技术报告 6.3、6.5、7.7、8.2 节和 PPT 附录 1 已同步，docx/pdf 用
+  LibreOffice 重新生成（44 页；之前 WPS 导出的是 40 页，多出的是新增的图和段落，以及 LibreOffice 的目录多占 1 页）。
+  CSV 里的经纬度两列已删掉（仓库公开）。还差（可选）：带停步的走路驾驶（测停步到停车的时间）、10 m 正方形实验。
 - 向老师确认 `docs/plan.md` 第 8 节的问题；在中文 Windows 笔记本上跑一次 `start_demo.bat`（CI 只在英文版 Windows 上跑过）。
 - 拍摄真机 / 现场演示视频；准备答辩。每人的具体任务见 `docs/onboarding.md` 第 7 节。
 

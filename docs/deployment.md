@@ -58,6 +58,16 @@ scripts/start_server.sh --config server/config/my.json
 
 启动后控制台会打印"局域网地址"，例如 `http://192.168.1.20:8080`，手机和其他电脑用这个地址。
 
+电脑上有多块网卡时会打印好几行地址，只有**连着 Wi-Fi / 热点的那块网卡**的地址能用。下面这些是虚拟网卡，不要填：
+
+| 地址 | 来源 |
+|---|---|
+| `169.254.x.x` | 没拿到 IP 的网卡或 VMware VMnet1 |
+| `192.168.x.1`（如 `192.168.88.1`） | VMware / VirtualBox 的虚拟网卡（VMnet8 等） |
+| `198.18.0.1` | Clash / Mihomo 等代理软件的 TUN 虚拟网卡 |
+
+拿不准的话，在 PowerShell 里运行 `Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias WLAN` 查看 WLAN 网卡的地址。
+
 | 场景 | 内容 |
 |---|---|
 | `demo` | 期末演示：正常运行 → 已知路障 → 未知障碍被感知发现 → 早高峰 + 空车调度 → 订单潮 → 障碍撤除 → 恢复平峰，循环 |
@@ -92,7 +102,9 @@ run_fleet("192.168.1.20")    % 服务端在另一台电脑上
 ### 4.4 手机 App
 
 1. **安装**：用 Android Studio 打开仓库里的 `phone` 文件夹，连接手机点 ▶；或者 **Build → Build APK(s)**，把
-   `app/build/outputs/apk/debug/app-debug.apk` 发到手机安装（需要允许"安装未知应用"）。
+   `app/build/outputs/apk/debug/app-debug.apk` 发到手机安装（需要允许"安装未知应用"）。不改代码时也可以直接下载
+   GitHub Actions 编译好的 APK（见 [phone/README.md](../phone/README.md) 第 1 节）。用 QQ"我的电脑"可以直接发 APK；
+   微信常把文件改名为 `app-debug.apk.1` 或拦截安装，可以先压缩成 zip 再发，或者在手机文件管理器里把后缀改回 `.apk`。
 2. **连接**：手机和电脑连同一个 Wi-Fi，打开 App，输入电脑 IP，点"连接"。顶栏显示"● 已接入，驾驶 car-6"即成功，
    网页车辆列表里 car-6 的驱动变为"手机 P"。以后打开 App 会**自动连接**上次的服务端。
 3. **设置与标定**（每次演示前）：在"设置"里确认车号（默认 car-6，Matlab 车队占用 car-1 ~ car-5）和驾驶比例
@@ -162,6 +174,7 @@ scripts/phone_sim.sh                                    # 用手机 App 的核�
 |---|---|
 | 启动时报"端口被占用" | 已经有一个服务端在运行，关掉它；或在配置中修改端口 |
 | 手机 / 另一台电脑连不上 | 是否在同一网段；防火墙是否放行；路由器是否开启了 AP 隔离；换用自己的路由器或手机热点 |
+| 手机连不上，但网络和防火墙都没问题 | App 里填的是否为 WLAN 网卡的地址，不是虚拟网卡的地址（见 4.1 节）；暂时关闭 Clash / Mihomo 等代理软件的 TUN 模式 |
 | 网页显示"连接中断" | 服务端没在运行，或地址不对 |
 | 控制台中文乱码 | Windows 下先执行 `chcp 65001`；Linux 下 `export LC_ALL=C.UTF-8` |
 | 3D 视图黑屏 | 浏览器不支持 WebGL：更新显卡驱动，或在浏览器设置里打开"使用硬件加速" |

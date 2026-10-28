@@ -23,14 +23,14 @@
 | 离线对比实验 | ✅ 完成 | `scripts/experiment.sh`；`tools/run_evaluation.py` 一键跑完全部评估实验，结果见 [eval/summary.md](eval/summary.md) |
 | 模拟设备（Python） | ✅ 完成 | 协议参考实现，可代替 Matlab 做联调 |
 | Matlab 模拟车 | ✅ CI 实测通过 | `matlab/`：GitHub Actions 中用 MATLAB R2024b 跑离线控制器测试和 5 车接入系统测试（零碰撞、零越权）；带"Matlab 模拟车视图"图窗的本地运行待组员确认 |
-| 手机 App（安卓） | 🟡 代码完成，待真机验证 | `phone/`：手机 = 模拟车（按 PPT"以人携带手机运动来模拟车辆的运动"，绑定一辆数字车，车沿服务端路线行驶，走路即油门）、惯性位姿估计（行人航位推算）、室外磁力计 + 卫星（北斗）融合、步长标定、小地图、拍照识别、模拟行走、数据记录、自动连接。核心算法已在电脑上单元测试并接入真实服务端做端到端仿真；GitHub Actions 已用真实安卓 SDK 编译出 APK（可在 Actions 页面下载）；下一步装到真机上，做 phone/README.md 第 4 节的 10 m 正方形实验 |
+| 手机 App（安卓） | ✅ 已在真机上验证 | `phone/`：手机 = 模拟车（按 PPT"以人携带手机运动来模拟车辆的运动"，绑定一辆数字车，车沿服务端路线行驶，走路即油门）、惯性位姿估计（行人航位推算）、室外磁力计 + 卫星（北斗）融合、步长标定、小地图、拍照识别、模拟行走、数据记录、自动连接。核心算法已在电脑上单元测试并接入真实服务端做端到端仿真；GitHub Actions 已用真实安卓 SDK 编译出 APK（可在 Actions 页面下载）；2026-10-27 在 vivo S20（安卓 15）上实测：接入、走路驾驶、拍照识别正常，车从未越过授权停车点；还可以补做 phone/README.md 第 4 节的 10 m 正方形实验 |
 | 挑战：3D 可视化（A） | ✅ 完成 | `web/3d.html`，自写 WebGL，不依赖第三方库 |
 | 挑战：调度优化（B） | ✅ 完成 | 需求热点 + 空车调度，潮汐需求下平均等待降低约 20%（配对实验） |
 | 挑战：感知与建图（C） | ✅ 完成 | 服务端模拟激光雷达 + 占据栅格，未知障碍被发现后写入全局地图、车辆重规划或掉头，消失后自动撤掉 |
 | 挑战：图像处理加速（I） | ✅ 完成 | 手机拍照上传，服务端颜色分割 + 连通域识别路障（多线程），测距后写入地图 |
 | Gazebo（进阶，E） | 🟡 无界面模式已实测 | `gazebo/`：世界生成器 + ROS 2 桥接包 + launch。云端用 ROS 2 Jazzy + Gazebo Harmonic（服务器模式）实测 5 车接入、零碰撞零越权；带界面版本待在 Ubuntu 24.04 上实测，见 [gazebo/README.md](../gazebo/README.md) |
 | 过程文档 | ✅ 完成 | 立项申请书、需求规格说明、软件设计说明（UML 18 张）、测试计划与报告、部署与使用手册、效果评估报告、版本记录，索引见 [README](README.md)；新组员先读 [上手指南](onboarding.md) |
-| 提交物 | ✅ 初稿完成 | `deliverables/`：技术报告 docx/pdf、答辩 PPT（正文 5 页）、演示视频（4 分 41 秒）；真机与 MATLAB 实测后补充 |
+| 提交物 | ✅ 初稿完成 | `deliverables/`：技术报告 docx/pdf、答辩 PPT（正文 5 页）、演示视频（4 分 41 秒）；真机实测结果和截图已补进报告；MATLAB 实测后补充 |
 
 ## 3. 分工
 
@@ -91,7 +91,7 @@ Gazebo 和目标检测要放在组里配置最好的电脑上跑，最好有独�
 | 需求 | 需求规格说明：用例图、功能和性能需求、验收标准 | ✅ [requirements.md](requirements.md) |
 | 设计 | 概要设计、接口设计说明、详细设计 | ✅ [design.md](design.md)（UML）、[architecture.md](architecture.md)、[protocol.md](protocol.md) |
 | 实现 | 各模块 README、API 文档、开发指南 | ✅ 模块 README、[协议文档](protocol.md)、[开发指南](dev-guide.md) |
-| 测试 | 测试计划、测试用例、测试报告（含缺陷记录） | ✅ [test-report.md](test-report.md)；Matlab、真机、Gazebo 实测后补充 |
+| 测试 | 测试计划、测试用例、测试报告（含缺陷记录） | ✅ [test-report.md](test-report.md)；真机已补充，Matlab 图窗、带界面 Gazebo 实测后补充 |
 | 部署 | 部署和使用手册、一键启动脚本、版本发布记录 | ✅ [deployment.md](deployment.md)、[CHANGELOG](../CHANGELOG.md) |
 | 评估 | 效果评估报告：指标、实验设计、对比图表、结论 | ✅ [evaluation.md](evaluation.md) |
 

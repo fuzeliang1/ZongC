@@ -17,7 +17,7 @@
 - 仓库配了持续集成（CI，见 6.6 节）：每次推送自动在 GitHub 的云端机器上验证服务端、Windows 一键脚本、安卓 APK 编译和
   Matlab 车队。Matlab 车已在 MATLAB R2024b 中实际运行（5 车接入零碰撞），安卓 App 已用真实 SDK 编译出 APK，`.bat` 已在 Windows 上跑通。
   `main` 上的 CI 目前全部通过（绿色）；CI 上线后发现并修好了 3 个问题（测试报告缺陷 D10–D12）。
-- 还没完成的是**要真设备、人来看**的部分：安卓 App 装到真机上实测、Matlab 的"模拟车视图"图窗、带界面的 Gazebo、答辩教室的网络。
+- 还没完成的是**要真设备、人来看**的部分：Matlab 的"模拟车视图"图窗、带界面的 Gazebo、答辩教室的网络。
 
 ## 2. 小组分工
 
@@ -105,7 +105,7 @@ UML 图共 18 张（用例图 2、组件图、部署图、类图 3、时序图 5
 | 人机交互与动态显示 | ✅ | 2D 实时地图、统计面板、配置面板 |
 | 不与静态 / 动态障碍碰撞 | ✅ | 格子预约：一格只给一辆车，两车授权区永不重叠；16 车高负载 6 × 60 分钟零碰撞（含撞障碍） |
 | Matlab 模拟车 ≥5 辆，与数字车同步 | ✅ | CI 中用 MATLAB R2024b 实际运行：离线控制器测试通过，5 辆 Matlab 车接入服务端 200 s，零碰撞、零越权（本地带图窗运行待确认） |
-| 手机 App：读 GPS / 北斗、加速度、陀螺、地磁，无线上报并同步，惯性元件估计位姿 | 🟡 | 代码完成（按 PPT"以人携带手机运动来模拟车辆的运动"：手机驾驶一辆数字车，走路即油门），核心算法 66 项测试通过并做过端到端仿真，CI 已编译出 APK，**待真机实测** |
+| 手机 App：读 GPS / 北斗、加速度、陀螺、地磁，无线上报并同步，惯性元件估计位姿 | ✅ | 代码完成（按 PPT"以人携带手机运动来模拟车辆的运动"：手机驾驶一辆数字车，走路即油门），核心算法 66 项测试通过并做过端到端仿真，CI 已编译出 APK；2026-10-27 在 vivo S20 真机上实测通过 |
 
 ### 4.2 挑战（决定能否拿"优"）
 
@@ -280,7 +280,7 @@ cd ZongC
 | 李昊博 | Matlab 车队本地运行 | CI 已用 MATLAB R2024b 跑通离线测试和 5 车接入；在自己电脑上启动服务端、跑带"Matlab 模拟车视图"的 `run_fleet`，网页上 car-1 … car-5 显示为 Matlab 驱动；再跑一次 `start_demo`，确认它会自动拉起 MATLAB | `matlab/README.md`、`docs/test-report.md` 第 7 节 |
 | 李昊博 | 用真 MATLAB 重录演示视频 | Matlab 车队跑通后运行 `python3 tools/record_demo.py --car car-6`（需要 Node.js + Playwright、ffmpeg），片头文字在 `tools/record_demo.py` 里改 | `deliverables/MiniDiDi_demo.mp4` |
 | 付泽亮 | 加协作者 | GitHub → Settings → Collaborators，邀请另外三位 | — |
-| 付泽亮 | 手机真机实测 | 从 Actions 下载 CI 编译的 APK 安装（或用 Android Studio 编译，`phone/README.md` 第 1 节）；连上服务端；做第 4 节的 10 m × 10 m 正方形行走实验（测闭合误差）和走路驾驶实验（车速跟随走路速度、停步后停车） | `docs/evaluation.md` 4.6 节、`phone/README.md` 第 4 节 |
+| 付泽亮 | 手机真机实测（✅ 已装机实测，2026-10-27） | 还可以补做：`phone/README.md` 第 4 节的 10 m × 10 m 正方形行走实验（测闭合误差），以及带停步的走路驾驶实验（停步后多久停车） | `docs/evaluation.md` 4.6 节、`phone/README.md` 第 4 节 |
 | 付泽亮 | 带界面的 Gazebo | 在 Ubuntu 24.04 上按 `gazebo/README.md` 第 3–5 节安装、构建、运行，截图、录屏 | `gazebo/README.md` 第 6 节、`docs/evaluation.md` 4.8 节 |
 | 每个人 | 读一遍自己的个人总结 | 报告 8.3 节已按分工写好，实测后可以补上真机、MATLAB 上遇到的问题 | `docs/report/report.md` |
 
@@ -305,7 +305,7 @@ cd ZongC
 | 项 | 说明 | 对策 |
 |---|---|---|
 | Matlab 车队 | CI 中 MATLAB R2024b（Linux）实测通过；图窗显示、Windows 上的 MATLAB、更老的 MATLAB 版本没测 | 李昊博在自己电脑上跑一次；不行时 `start_demo` 会自动改用 Python 模拟车，演示不受影响 |
-| 安卓真机 | CI 能编译出 APK，但还没在真机上运行 | 付泽亮尽早安装实测；`LocationListener` 的三个旧回调不能删，否则安卓 10 及以下会崩溃 |
+| 安卓真机 | 已在 vivo S20 上实测通过；连接时要填 WLAN 网卡的地址（见部署手册 4.1 节） | `LocationListener` 的三个旧回调不能删，否则安卓 10 及以下会崩溃 |
 | Windows 脚本 | CI（英文版 Windows）中全部通过；中文系统没测 | 樊宇泽在自己笔记本上跑一次 |
 | 现场网络 | 只在本机测试过；校园网常有终端隔离 | 自带路由器、固定 IP、放行端口，答辩教室彩排 |
 | 课程要求 gitee | 课程 PPT 写的是 gitee 私有库，小组决定只用 GitHub | 如果老师坚持，在 gitee 上"从 GitHub 导入仓库"即可，几分钟完成 |
