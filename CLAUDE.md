@@ -224,7 +224,9 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   和 `docs/images/phone_pair.jpg`（报告图 5-3，原 Gazebo 图顺延为 5-4）；技术报告 6.3、6.5、7.7、8.2 节和 PPT 附录 1 已同步，docx/pdf 用
   LibreOffice 重新生成（44 页；之前 WPS 导出的是 40 页，多出的是新增的图和段落，以及 LibreOffice 的目录多占 1 页）。
   CSV 里的经纬度两列已删掉（仓库公开）。还差（可选）：带停步的走路驾驶（测停步到停车的时间）、10 m 正方形实验。
-- 向老师确认 `docs/plan.md` 第 8 节的问题；在中文 Windows 笔记本上跑一次 `start_demo.bat`（CI 只在英文版 Windows 上跑过）。
+- 向老师确认 `docs/plan.md` 第 8 节的问题。~~中文 Windows 上跑 `start_demo.bat`~~ 2026-10-28 已在中文 Windows 11 上跑通（没装 MATLAB，
+  自动用 Python 模拟车；已写进测试报告第 7 节）。用户准备装 MATLAB，装好后再跑 `run_fleet`（带图窗）和 `start_demo`，结果补进测试报告第 7 节、
+  评估报告和技术报告 6.5 节。
 - 拍摄真机 / 现场演示视频；准备答辩。每人的具体任务见 `docs/onboarding.md` 第 7 节。
 
 ## 7. 已知坑

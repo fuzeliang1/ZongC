@@ -275,7 +275,7 @@ cd ZongC
 |---|---|---|---|
 | 阮飞翔 | 问老师 | `docs/plan.md` 第 8 节的四个问题 | `docs/plan.md` |
 | 阮飞翔 | 组织现场彩排 | 按 `docs/deployment.md` 第 5、6 节：自带路由器、关 AP 隔离、防火墙放行 8080 / 9000 / 9001；在答辩教室完整跑 10 分钟，碰撞全为 0 | `docs/test-report.md` 第 7 节 |
-| 樊宇泽 | 在自己的 Windows 笔记本上跑一次 `start_demo.bat` | CI 已在英文版 Windows 上验证 5 个 `.bat`；这里确认中文系统的控制台、浏览器里 2D / 3D 页面的显示，以及防火墙弹窗 | `docs/test-report.md` 第 7 节 |
+| 樊宇泽 | 在自己的 Windows 笔记本上跑一次 `start_demo.bat`（✅ 2026-10-28 已在一台中文 Windows 11 上跑通，没装 MATLAB 时用 Python 模拟车） | CI 已在英文版 Windows 上验证 5 个 `.bat`；这里确认中文系统的控制台、浏览器里 2D / 3D 页面的显示，以及防火墙弹窗 | `docs/test-report.md` 第 7 节 |
 | 樊宇泽 | 在自己电脑上跑全部测试 | IDEA 或 `mvn test` 跑服务端 30 项；`python3 tools/system_test.py`；熟悉 `World.java`、`TrafficController.java` | `docs/test-report.md` 第 7 节（实测结果） |
 | 李昊博 | Matlab 车队本地运行 | CI 已用 MATLAB R2024b 跑通离线测试和 5 车接入；在自己电脑上启动服务端、跑带"Matlab 模拟车视图"的 `run_fleet`，网页上 car-1 … car-5 显示为 Matlab 驱动；再跑一次 `start_demo`，确认它会自动拉起 MATLAB | `matlab/README.md`、`docs/test-report.md` 第 7 节 |
 | 李昊博 | 用真 MATLAB 重录演示视频 | Matlab 车队跑通后运行 `python3 tools/record_demo.py --car car-6`（需要 Node.js + Playwright、ffmpeg），片头文字在 `tools/record_demo.py` 里改 | `deliverables/MiniDiDi_demo.mp4` |
@@ -306,7 +306,7 @@ cd ZongC
 |---|---|---|
 | Matlab 车队 | CI 中 MATLAB R2024b（Linux）实测通过；图窗显示、Windows 上的 MATLAB、更老的 MATLAB 版本没测 | 李昊博在自己电脑上跑一次；不行时 `start_demo` 会自动改用 Python 模拟车，演示不受影响 |
 | 安卓真机 | 已在 vivo S20 上实测通过；连接时要填 WLAN 网卡的地址（见部署手册 4.1 节） | `LocationListener` 的三个旧回调不能删，否则安卓 10 及以下会崩溃 |
-| Windows 脚本 | CI（英文版 Windows）中全部通过；中文系统没测 | 樊宇泽在自己笔记本上跑一次 |
+| Windows 脚本 | CI（英文版 Windows）中全部通过；2026-10-28 中文 Windows 11 上 `start_demo.bat` 一键启动、全自主运行正常 | 装 MATLAB 的电脑上再跑一次，确认自动启动 Matlab 车队 |
 | 现场网络 | 只在本机测试过；校园网常有终端隔离 | 自带路由器、固定 IP、放行端口，答辩教室彩排 |
 | 课程要求 gitee | 课程 PPT 写的是 gitee 私有库，小组决定只用 GitHub | 如果老师坚持，在 gitee 上"从 GitHub 导入仓库"即可，几分钟完成 |
 | 2 核电脑 | 图像处理并行加速比只有 1.0~1.4 | 报告已如实写明；演示电脑核数多时会更高 |
