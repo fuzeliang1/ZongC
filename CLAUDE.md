@@ -220,13 +220,13 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 ### 需要人来做（AI 在云端做不了）
 
 - ~~在自己的 MATLAB 上跑带图窗的 `run_fleet` 和 `start_demo`~~ 2026-10-28 已在 Windows 11 + MATLAB R2024b（装在 `D:\software\matlab`，只装本体）上实测通过，
-  图窗截图 `docs/images/matlab_fleetview.png`；已写进测试报告第 7 节、评估报告 4.7 节、技术报告 6.3 / 6.5 节、PPT 附录 1。
+  图窗截图 `docs/images/matlab_fleetview.png`；已写进测试报告第 7 节、评估报告 4.7 节、技术报告 6.3 节（原 6.5 节"尚未覆盖的测试"已按用户要求删除）、PPT 附录 1。
 - ~~装到真机~~ 2026-10-27 已装到安卓真机，经手机热点接入服务端，功能正常（已写进测试报告第 7 节）。vivo S20、安卓 15，拍照识别稳定。
   97 s 走路驾驶记录在 `docs/eval/phone/`，已写进评估报告 4.6 节、测试报告第 7 节、`phone/README.md` 第 4 节。真机截图在 `phone/docs/real_*.jpg`
   和 `docs/images/phone_pair.jpg`（报告图 5-3，原 Gazebo 图顺延为 5-4）；技术报告 6.3、6.5、7.7、8.2 节和 PPT 附录 1 已同步，docx/pdf 用
   LibreOffice 重新生成（44 页；之前 WPS 导出的是 40 页，多出的是新增的图和段落，以及 LibreOffice 的目录多占 1 页）。
   CSV 里的经纬度两列已删掉（仓库公开）。还差（可选）：带停步的走路驾驶（测停步到停车的时间）、10 m 正方形实验。
-- 向老师确认 `docs/plan.md` 第 8 节的问题。~~中文 Windows 上跑 `start_demo.bat`~~ 2026-10-28 已在中文 Windows 11 上跑通（先用 Python 模拟车，
+- ~~向老师确认 `docs/plan.md` 第 8 节的问题~~ 2026-10-28 小组对照课程要求确认都已满足（含不接实体车、不用 Spring Boot），不再问。~~中文 Windows 上跑 `start_demo.bat`~~ 2026-10-28 已在中文 Windows 11 上跑通（先用 Python 模拟车，
   装好 MATLAB 后自动启动 Matlab 车队；已写进测试报告第 7 节）。
 - 拍摄真机 / 现场演示视频；准备答辩。每人的具体任务见 `docs/onboarding.md` 第 7 节。
 

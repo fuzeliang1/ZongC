@@ -31,12 +31,10 @@ actor "车辆设备" as Vehicle
 actor "Matlab 模拟车" as Matlab
 actor "Gazebo 小车" as Gazebo
 actor "手机（模拟车）" as PhoneDev
-actor "实体小车 / 其他设备" as Generic
 actor "时钟与场景脚本" as Clock <<时间>>
 Matlab -|> Vehicle
 Gazebo -|> Vehicle
 PhoneDev -|> Vehicle
-Generic -|> Vehicle
 
 Viewer -- UC02
 Viewer -- UC03

@@ -57,7 +57,7 @@
 | 阶段 | 文档 | 内容 |
 |---|---|---|
 | 立项 | [proposal.md](proposal.md) | 背景、目标、技术方案、可行性、分工、16 周甘特图、风险与对策 |
-| 计划 | [plan.md](plan.md) | 进度表、分工、挑战项、现场演示要点、待向老师确认的问题 |
+| 计划 | [plan.md](plan.md) | 进度表、分工、挑战项、现场演示要点、向老师确认的问题（已结清） |
 | 需求 | [requirements.md](requirements.md) | 用例图、功能需求 FR、非功能需求 NFR、验收标准、需求追踪矩阵 |
 | 设计 | [design.md](design.md) | 组件图、部署图、类图、时序图、状态图、活动图、设计决策 |
 | 设计 | [architecture.md](architecture.md) | 交通管控、规划、派单、感知建图、空车调度、图像识别、3D 的算法细节 |
@@ -230,7 +230,7 @@ cd ZongC
 
 1. 根目录 [README.md](../README.md)（10 分钟）：项目是什么、课程要求对照表。
 2. 本篇。
-3. [plan.md](plan.md)：分工、进度、现场演示要点；第 8 节是要问老师的问题。
+3. [plan.md](plan.md)：分工、进度、现场演示要点；第 8 节记录了立项时想问老师的问题（已确认都满足要求，不用再问）。
 4. [architecture.md](architecture.md)：算法怎么工作。**每个人都要读**。
 5. [protocol.md](protocol.md)：设备协议。李昊博（Matlab）、付泽亮（手机、Gazebo）必读。
 6. 自己模块的 README：[matlab/README.md](../matlab/README.md)、[phone/README.md](../phone/README.md)、[gazebo/README.md](../gazebo/README.md)。
@@ -274,7 +274,6 @@ cd ZongC
 
 | 成员 | 任务 | 怎么做 | 完成后更新 |
 |---|---|---|---|
-| 阮飞翔 | 问老师 | `docs/plan.md` 第 8 节的四个问题 | `docs/plan.md` |
 | 阮飞翔 | 组织现场彩排 | 按 `docs/deployment.md` 第 5、6 节：自带路由器、关 AP 隔离、防火墙放行 8080 / 9000 / 9001；在答辩教室完整跑 10 分钟，碰撞全为 0 | `docs/test-report.md` 第 7 节 |
 | 樊宇泽 | 在自己的 Windows 笔记本上跑一次 `start_demo.bat`（✅ 2026-10-28 已在一台中文 Windows 11 上跑通，没装 MATLAB 时用 Python 模拟车） | CI 已在英文版 Windows 上验证 5 个 `.bat`；这里确认中文系统的控制台、浏览器里 2D / 3D 页面的显示，以及防火墙弹窗 | `docs/test-report.md` 第 7 节 |
 | 樊宇泽 | 在自己电脑上跑全部测试 | IDEA 或 `mvn test` 跑服务端 30 项；`python3 tools/system_test.py`；熟悉 `World.java`、`TrafficController.java` | `docs/test-report.md` 第 7 节（实测结果） |
