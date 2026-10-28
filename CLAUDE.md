@@ -171,7 +171,8 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | 2038ba8 | 手机改为"模拟车"（走路即油门），删除行人与叫车；重新生成报告、PPT 和演示视频（详见下一小节） |
 | （本次） | 安卓真机实测（vivo S20，安卓 15）：结果和截图写进评估 / 测试 / 技术报告、phone/README、部署手册，重新生成报告 docx/pdf 和 PPT（详见"需要人来做"） |
 
-以上提交已全部推送到 main（当前 `2038ba8`）。`cb2a700` 之前 main 上的 CI 四个任务全部通过；`2038ba8` 的 CI 结果还没记录（见下一小节）。
+以上提交已全部推送到 main（当前 `2038ba8`）。`2038ba8` 在 main 上的 CI 四个任务全部通过（已写进测试报告 4.6 节）。
+真机实测和中文 Windows 一键演示的记录在分支 `phone-real-test` 上（2026-10-28），CI 通过后合并到 main。
 以后的开发在新分支上进行，完成后再合并到 main；合并前分支上的 CI 要先变绿，合并后再看一次 main 上的 CI。
 
 ### 手机改为"模拟车"（提交 `2038ba8`，2026-10-26）
@@ -189,8 +190,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   proposal、dev-guide、CHANGELOG、README、docs/README；15 张 UML 改完重新渲染（Graphviz 排版）；2D / 3D 截图重拍；网页冒烟测试
   （Edge 无头，2D / 3D 控制台零报错）；`build_slides.js` 第 4 页改为"拿着手机走路就能开车"；报告 docx / pdf 和 PPT 已重新生成（报告里的 UML 图按用户要求改成表格和文字，目录写进 docx；付泽亮在 WPS 里删掉了第 7 章"部署与使用"和附录 B、改短 1.2 节首句，`deliverables/` 里的报告就是他改的那份，按他的要求在他那份上把原第 8、9 章顺延为第 7、8 章（节号、图表号、引用同步），用 WPS 更新目录并导出 PDF（40 页），`report.md` 已同步；PPT 按用户要求重新设计：宽屏、大字号、原生图示，正文 5 页 + 附录 4 页）；演示视频重录（4 分 41 秒，`record_demo.py --car car-6` 跟拍手机车）。
 - 已于 2026-10-26 提交推送到 main（`2038ba8`）。
-- 还没做：在 [Actions 页面](https://github.com/fuzeliang1/ZongC/actions/workflows/ci.yml) 查看 `2038ba8` 的 CI 结果，补进
-  `docs/test-report.md` 4.6 节末尾（目前写着"CI 结果待补充"）和第 7 节"安卓真机"一行；CI 红了按待做第 5 项找根因修复。
+- `2038ba8` 的 CI 四个任务全部通过（2026-10-28 查看，已补进测试报告 4.6 节和第 7 节）。
 
 **2026-10-24 的决定**：调研同类项目后提出过几项改进（录制回放 + 指标曲线、报告补"相关工作"一节、动态改派、拼车、时空预约 / 路口细化、拥堵感知规划、感知加噪声等），用户只要求做 CI，**其他都不做**。除非用户再提，不要主动去做这些。
 
