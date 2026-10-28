@@ -17,7 +17,8 @@
 - 仓库配了持续集成（CI，见 6.6 节）：每次推送自动在 GitHub 的云端机器上验证服务端、Windows 一键脚本、安卓 APK 编译和
   Matlab 车队。Matlab 车已在 MATLAB R2024b 中实际运行（5 车接入零碰撞），安卓 App 已用真实 SDK 编译出 APK，`.bat` 已在 Windows 上跑通。
   `main` 上的 CI 目前全部通过（绿色）；CI 上线后发现并修好了 3 个问题（测试报告缺陷 D10–D12）。
-- 还没完成的是**要真设备、人来看**的部分：Matlab 的"模拟车视图"图窗、带界面的 Gazebo、答辩教室的网络。
+- 安卓真机（2026-10-27）、中文 Windows 上的一键演示和 Windows 上带图窗的 Matlab 车队（2026-10-28）都已实测通过（测试报告第 7 节）。
+- 还没完成的是**要真设备、人来看**的部分：带界面的 Gazebo、答辩教室的网络。
 
 ## 2. 小组分工
 
@@ -104,7 +105,7 @@ UML 图共 18 张（用例图 2、组件图、部署图、类图 3、时序图 5
 | 基于最优化的路径规划 | ✅ | A* 最短路（带转弯代价）；匈牙利算法全局最优派单 |
 | 人机交互与动态显示 | ✅ | 2D 实时地图、统计面板、配置面板 |
 | 不与静态 / 动态障碍碰撞 | ✅ | 格子预约：一格只给一辆车，两车授权区永不重叠；16 车高负载 6 × 60 分钟零碰撞（含撞障碍） |
-| Matlab 模拟车 ≥5 辆，与数字车同步 | ✅ | CI 中用 MATLAB R2024b 实际运行：离线控制器测试通过，5 辆 Matlab 车接入服务端 200 s，零碰撞、零越权（本地带图窗运行待确认） |
+| Matlab 模拟车 ≥5 辆，与数字车同步 | ✅ | CI 中用 MATLAB R2024b 实际运行：离线控制器测试通过，5 辆 Matlab 车接入服务端 200 s，零碰撞、零越权；2026-10-28 在 Windows 上带图窗运行约 16 分钟零碰撞，`start_demo` 自动启动 MATLAB 车队 |
 | 手机 App：读 GPS / 北斗、加速度、陀螺、地磁，无线上报并同步，惯性元件估计位姿 | ✅ | 代码完成（按 PPT"以人携带手机运动来模拟车辆的运动"：手机驾驶一辆数字车，走路即油门），核心算法 66 项测试通过并做过端到端仿真，CI 已编译出 APK；2026-10-27 在 vivo S20 真机上实测通过 |
 
 ### 4.2 挑战（决定能否拿"优"）
@@ -277,7 +278,7 @@ cd ZongC
 | 阮飞翔 | 组织现场彩排 | 按 `docs/deployment.md` 第 5、6 节：自带路由器、关 AP 隔离、防火墙放行 8080 / 9000 / 9001；在答辩教室完整跑 10 分钟，碰撞全为 0 | `docs/test-report.md` 第 7 节 |
 | 樊宇泽 | 在自己的 Windows 笔记本上跑一次 `start_demo.bat`（✅ 2026-10-28 已在一台中文 Windows 11 上跑通，没装 MATLAB 时用 Python 模拟车） | CI 已在英文版 Windows 上验证 5 个 `.bat`；这里确认中文系统的控制台、浏览器里 2D / 3D 页面的显示，以及防火墙弹窗 | `docs/test-report.md` 第 7 节 |
 | 樊宇泽 | 在自己电脑上跑全部测试 | IDEA 或 `mvn test` 跑服务端 30 项；`python3 tools/system_test.py`；熟悉 `World.java`、`TrafficController.java` | `docs/test-report.md` 第 7 节（实测结果） |
-| 李昊博 | Matlab 车队本地运行 | CI 已用 MATLAB R2024b 跑通离线测试和 5 车接入；在自己电脑上启动服务端、跑带"Matlab 模拟车视图"的 `run_fleet`，网页上 car-1 … car-5 显示为 Matlab 驱动；再跑一次 `start_demo`，确认它会自动拉起 MATLAB | `matlab/README.md`、`docs/test-report.md` 第 7 节 |
+| 李昊博 | Matlab 车队本地运行（✅ 2026-10-28 已在 Windows 11 + MATLAB R2024b 上实测，带图窗约 16 分钟零碰撞，`start_demo` 自动启动 MATLAB） | CI 已用 MATLAB R2024b 跑通离线测试和 5 车接入；在自己电脑上启动服务端、跑带"Matlab 模拟车视图"的 `run_fleet`，网页上 car-1 … car-5 显示为 Matlab 驱动；再跑一次 `start_demo`，确认它会自动拉起 MATLAB | `matlab/README.md`、`docs/test-report.md` 第 7 节 |
 | 李昊博 | 用真 MATLAB 重录演示视频 | Matlab 车队跑通后运行 `python3 tools/record_demo.py --car car-6`（需要 Node.js + Playwright、ffmpeg），片头文字在 `tools/record_demo.py` 里改 | `deliverables/MiniDiDi_demo.mp4` |
 | 付泽亮 | 加协作者 | GitHub → Settings → Collaborators，邀请另外三位 | — |
 | 付泽亮 | 手机真机实测（✅ 已装机实测，2026-10-27） | 还可以补做：`phone/README.md` 第 4 节的 10 m × 10 m 正方形行走实验（测闭合误差），以及带停步的走路驾驶实验（停步后多久停车） | `docs/evaluation.md` 4.6 节、`phone/README.md` 第 4 节 |
@@ -304,9 +305,9 @@ cd ZongC
 
 | 项 | 说明 | 对策 |
 |---|---|---|
-| Matlab 车队 | CI 中 MATLAB R2024b（Linux）实测通过；图窗显示、Windows 上的 MATLAB、更老的 MATLAB 版本没测 | 李昊博在自己电脑上跑一次；不行时 `start_demo` 会自动改用 Python 模拟车，演示不受影响 |
+| Matlab 车队 | CI 中 MATLAB R2024b（Linux）和 Windows 上的 MATLAB R2024b（带图窗）都实测通过；更老的 MATLAB 版本没测。安装时只勾 MATLAB 本体即可，`bin` 目录要在 PATH 里 | 答辩电脑上彩排一次；MATLAB 不可用时 `start_demo` 会自动改用 Python 模拟车，演示不受影响 |
 | 安卓真机 | 已在 vivo S20 上实测通过；连接时要填 WLAN 网卡的地址（见部署手册 4.1 节） | `LocationListener` 的三个旧回调不能删，否则安卓 10 及以下会崩溃 |
-| Windows 脚本 | CI（英文版 Windows）中全部通过；2026-10-28 中文 Windows 11 上 `start_demo.bat` 一键启动、全自主运行正常 | 装 MATLAB 的电脑上再跑一次，确认自动启动 Matlab 车队 |
+| Windows 脚本 | CI（英文版 Windows）中全部通过；2026-10-28 中文 Windows 11 上 `start_demo.bat` 一键启动、全自主运行正常，装了 MATLAB 时自动启动 Matlab 车队 | 答辩电脑上彩排一次 |
 | 现场网络 | 只在本机测试过；校园网常有终端隔离 | 自带路由器、固定 IP、放行端口，答辩教室彩排 |
 | 课程要求 gitee | 课程 PPT 写的是 gitee 私有库，小组决定只用 GitHub | 如果老师坚持，在 gitee 上"从 GitHub 导入仓库"即可，几分钟完成 |
 | 2 核电脑 | 图像处理并行加速比只有 1.0~1.4 | 报告已如实写明；演示电脑核数多时会更高 |

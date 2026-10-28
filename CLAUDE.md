@@ -118,7 +118,7 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 - **派单**：GREEDY / HUNGARIAN（代价 = 路网距离 − 等待时间权重）；可选空车调度 `Rebalancer`（9×9 格分区、
   τ = 180 s 衰减的需求计数、匈牙利算法调空车）。订单生成用**独立随机数序列**（只由种子决定），对比实验是配对的。
 - **数字孪生**：设备注册（`kind = matlab/gazebo/phone/generic`）后一律绑定一辆出租车，世界里没有行人；
-  3 s 无消息判离线，出租车由内部仿真接管。协议以 `docs/protocol.md` 为准，改协议必须同步改文档、
+  3 s 无消息判离线，出租车由内部仿真接管（从注册开始计时：设备要先做完耗时的准备再注册，注册后立即上报，见缺陷 D13）。协议以 `docs/protocol.md` 为准，改协议必须同步改文档、
   `tools/mock_devices.py`、`matlab/`、`phone/` 四处（新增的下行消息旧设备会忽略）。
 - **感知与建图**（`world/Perception.java`）：真实世界（建筑 + 未知障碍 `hidden` + 人工路障）与系统认知
   （地图 + 感知加入的障碍 `discovered`）分开；每辆车 10 Hz 模拟 48 束、3 m 激光雷达，命中格直接取光线投射撞上的
@@ -169,10 +169,11 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 | cb2a700 | CI 在 main 上发现的缺陷 D12：外部设备来不及响应授权收回被误记为越权 → `REVOKE_GRACE_SEC` + `revokeOverruns`，新增回归测试（服务端 30 项） |
 | 8adfba6 | 交接本与上手指南：记录 CI 完成后的最终状态 |
 | 2038ba8 | 手机改为"模拟车"（走路即油门），删除行人与叫车；重新生成报告、PPT 和演示视频（详见下一小节） |
-| （本次） | 安卓真机实测（vivo S20，安卓 15）：结果和截图写进评估 / 测试 / 技术报告、phone/README、部署手册，重新生成报告 docx/pdf 和 PPT（详见"需要人来做"） |
+| 6771e7f / 47416d9 / 90e92fd | 安卓真机实测（vivo S20，安卓 15）：结果和截图写进评估 / 测试 / 技术报告、phone/README、部署手册，重新生成报告 docx/pdf 和 PPT（详见"需要人来做"）；中文 Windows 一键演示实测；测试报告补 `2038ba8` 的 CI 结果 |
+| （本次，分支 `matlab-fleetview-first`） | Windows 11 + MATLAB R2024b 实测（带图窗 `run_fleet` 约 16 分钟零碰撞、`start_demo` 自动起 MATLAB）；修复缺陷 D13（测试报告编号；技术报告里是 D08）：刚启动的 MATLAB 注册后画图 / 建连接太慢，3 s 心跳超时 → `run_fleet` 先画图、建好全部连接再一起注册；文档、报告 docx/pdf、PPT 同步 |
 
-以上提交已全部推送到 main（当前 `2038ba8`）。`2038ba8` 在 main 上的 CI 四个任务全部通过（已写进测试报告 4.6 节）。
-真机实测和中文 Windows 一键演示的记录在分支 `phone-real-test` 上（2026-10-28），CI 通过后合并到 main。
+除"本次"外的提交已全部推送到 main（当前 `90e92fd`）。`2038ba8` 在 main 上的 CI 四个任务全部通过（已写进测试报告 4.6 节）。
+真机实测和中文 Windows 一键演示的记录（分支 `phone-real-test`，2026-10-28）已合并到 main。
 以后的开发在新分支上进行，完成后再合并到 main；合并前分支上的 CI 要先变绿，合并后再看一次 main 上的 CI。
 
 ### 手机改为"模拟车"（提交 `2038ba8`，2026-10-26）
@@ -218,15 +219,15 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
 
 ### 需要人来做（AI 在云端做不了）
 
-- 在自己的 MATLAB 上跑带"Matlab 模拟车视图"图窗的 `run_fleet`，再跑一次 `start_demo`（会自动起 MATLAB）——CI 只验证了 Linux 上无图窗的 R2024b。
+- ~~在自己的 MATLAB 上跑带图窗的 `run_fleet` 和 `start_demo`~~ 2026-10-28 已在 Windows 11 + MATLAB R2024b（装在 `D:\software\matlab`，只装本体）上实测通过，
+  图窗截图 `docs/images/matlab_fleetview.png`；已写进测试报告第 7 节、评估报告 4.7 节、技术报告 6.3 / 6.5 节、PPT 附录 1。
 - ~~装到真机~~ 2026-10-27 已装到安卓真机，经手机热点接入服务端，功能正常（已写进测试报告第 7 节）。vivo S20、安卓 15，拍照识别稳定。
   97 s 走路驾驶记录在 `docs/eval/phone/`，已写进评估报告 4.6 节、测试报告第 7 节、`phone/README.md` 第 4 节。真机截图在 `phone/docs/real_*.jpg`
   和 `docs/images/phone_pair.jpg`（报告图 5-3，原 Gazebo 图顺延为 5-4）；技术报告 6.3、6.5、7.7、8.2 节和 PPT 附录 1 已同步，docx/pdf 用
   LibreOffice 重新生成（44 页；之前 WPS 导出的是 40 页，多出的是新增的图和段落，以及 LibreOffice 的目录多占 1 页）。
   CSV 里的经纬度两列已删掉（仓库公开）。还差（可选）：带停步的走路驾驶（测停步到停车的时间）、10 m 正方形实验。
-- 向老师确认 `docs/plan.md` 第 8 节的问题。~~中文 Windows 上跑 `start_demo.bat`~~ 2026-10-28 已在中文 Windows 11 上跑通（没装 MATLAB，
-  自动用 Python 模拟车；已写进测试报告第 7 节）。用户准备装 MATLAB，装好后再跑 `run_fleet`（带图窗）和 `start_demo`，结果补进测试报告第 7 节、
-  评估报告和技术报告 6.5 节。
+- 向老师确认 `docs/plan.md` 第 8 节的问题。~~中文 Windows 上跑 `start_demo.bat`~~ 2026-10-28 已在中文 Windows 11 上跑通（先用 Python 模拟车，
+  装好 MATLAB 后自动启动 Matlab 车队；已写进测试报告第 7 节）。
 - 拍摄真机 / 现场演示视频；准备答辩。每人的具体任务见 `docs/onboarding.md` 第 7 节。
 
 ## 7. 已知坑
@@ -253,6 +254,9 @@ cd server && mkdir -p $O/m $O/t && javac -nowarn -encoding UTF-8 --release 17 -c
   指向本机 Edge；Playwright 录屏用的 ffmpeg 放在 `$PLAYWRIGHT_BROWSERS_PATH/ffmpeg-<版本>/ffmpeg-win64.exe`（版本号见
   `playwright-core/browsers.json`），转 MP4 的 ffmpeg 要在 PATH 里。完整的 ffmpeg 可以从国内 PyPI 镜像下载 `imageio-ffmpeg` 包，
   包里自带 exe。Git Bash 会把以 `/` 开头的参数改写成 Windows 路径，必要时加 `MSYS_NO_PATHCONV=1`。
+- 从 Git Bash 运行 MATLAB：PATH 里只有 `matlab.exe` 没有 `matlab`，用全路径 `/d/software/matlab/bin/matlab.exe -batch "..."`；
+  `-batch` 里的双引号字符串会被拆坏，参数用单引号字符向量 / 元胞数组（如 `{'car-7','car-8'}`）；输出是 GBK 编码。
+  验证车队时别占用演示正在用的 car-1~5，可以用 car-7、car-8。
 - `.bat` 里不要用 `timeout /t N` 等待：输入被重定向时（CI、部分 IDE 终端）会直接报错退出，用 `ping -n N+1 127.0.0.1 >nul`。
 - GitHub Actions 的同一分支并发组会取消正在跑的运行：等一轮 CI 结果时不要推送会触发 CI 的提交（只改文档的可以）。
 - CI 的 MATLAB / 系统测试任务里有真实的时序（设备延迟、模拟手机车走走停停的节奏），同一份代码在不同运行里可能碰到不同情况：

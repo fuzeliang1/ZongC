@@ -32,12 +32,12 @@ for k = 1:N
     clients{k} = DwClient(cfg.host, cfg.port);
     cars{k} = SimCar(cfg.ids(k));
     cars{k}.Noise = cfg.noise;
-    if clients{k}.connect()
-        clients{k}.send(registerMsg(cfg.ids(k), k));
-    end
 end
 cleanupObj = onCleanup(@() closeAll(clients, cars)); %#ok<NASGU>
 
+% 注册后服务端开始计心跳，3 s 收不到状态就断开。刚启动的 MATLAB 第一次画图可能要
+% 十几秒，第一次建立 TCP 连接也可能要 1 s 左右，所以先打开本地视图、建好全部连接，
+% 最后再一起注册，注册完马上进入主循环上报状态。
 viewer = [];
 if showPlot
     try
@@ -45,6 +45,13 @@ if showPlot
     catch err
         warning('run_fleet:map', '无法获取地图，不显示本地视图：%s', err.message);
     end
+end
+
+for k = 1:N
+    clients{k}.connect();
+end
+for k = 1:N
+    clients{k}.send(registerMsg(cfg.ids(k), k));   % 没连上的 send 直接返回，主循环里会重连
 end
 
 fprintf('已启动 %d 辆模拟车，连接 %s:%d。关闭图窗或按 Ctrl+C 结束。\n', N, cfg.host, cfg.port);

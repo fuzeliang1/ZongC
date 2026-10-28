@@ -375,14 +375,14 @@ async function main() {
   // 附录 1：课程要求完成情况
   s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: '附录' });
   s.addText(title('附录 1', '课程要求完成情况'), { placeholder: 'title' });
-  s.addText('必做 7 项、挑战 5 项全部完成并经测试验证，手机 App 已在安卓真机上实测', { placeholder: 'sub' });
+  s.addText('必做 7 项、挑战 5 项全部完成并经测试验证，手机 App 和 Matlab 车队已实机运行', { placeholder: 'sub' });
   const done = (rest) => [{ text: '已完成', options: { bold: true, color: C.accent2 } }, { text: '：' + rest }];
   const req = [
     ['必做', '数字世界：≥ 5 辆数字车、随机运输任务', done('默认 8 辆可配置，泊松到达订单，完整接送流程')],
     ['必做', '基于最优化的路径规划', done('A* 最短路，匈牙利算法全局最优派单')],
     ['必做', '人机交互与动态显示', done('2D 实时地图、指标面板、配置与控制')],
     ['必做', '不与静态 / 动态障碍碰撞', done('移动授权交通管控，长时间高负载零碰撞')],
-    ['必做', 'Matlab 模拟车 ≥ 5 辆并与数字车同步', done('CI 中 MATLAB R2024b 运行，5 车零碰撞、零越权')],
+    ['必做', 'Matlab 模拟车 ≥ 5 辆并与数字车同步', done('CI 与本机 MATLAB R2024b 实测，5 车零碰撞、零越权')],
     ['必做', '手机 App：读传感器、无线同步、估计位姿', done('真机（vivo S20）走路驾驶，延迟约 34 ms，不越权')],
     ['必做', '整体集成、全自主运行', done('一键启动，场景脚本自动触发，断线自动接管')],
     ['挑战', '3D 渲染可视化', done('自写 WebGL 渲染器，四种视角')],
@@ -393,7 +393,7 @@ async function main() {
   ];
   s.addTable([[th('档次'), th('要求'), th('完成情况')], ...zebra(req.map((r) => [r[0], r[1], { text: r[2] }]))],
     { ...tableOpts(Y0, [1.7, 4.4, CW - 6.1], 13), rowH: 0.37 });
-  s.addNotes('备用页：课程要求逐项对照。手机 App 已在 vivo S20 真机上实测：走路驾驶、拍照识别正常，车从未越过授权停车点。');
+  s.addNotes('备用页：课程要求逐项对照。手机 App 已在 vivo S20 真机上实测：走路驾驶、拍照识别正常，车从未越过授权停车点。Matlab 车队在 Windows 上的 MATLAB R2024b 中带图窗运行约 16 分钟，零碰撞、零越权。');
 
   // 附录 2：交通管控规则
   s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: '附录' });

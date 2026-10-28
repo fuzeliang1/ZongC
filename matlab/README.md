@@ -2,13 +2,17 @@
 
 PPT 任务"基于 Matlab 的模拟车"的实现：5 辆在 PC 上运行的模拟车，通过网络与数字世界中的数字车保持同步（数字孪生），在地图描述的世界中行驶，不与静态障碍和其他车辆碰撞。
 
-> 说明：这部分代码按 `tools/mock_devices.py`（协议参考实现）逐行移植，已在 GitHub Actions（CI）中用 **MATLAB R2024b（Linux）实际运行**：`test_simcar_offline` 通过；`run_fleet` 的 5 辆车接入服务端运行 200 s，送达订单、零碰撞、零越权，结束后由数字世界接管（见 `docs/test-report.md` 4.6 节）。CI 里不显示图窗，在自己电脑上第一次使用时请先跑 `test_simcar_offline`，再跑带"Matlab 模拟车视图"的 `run_fleet`。
+> 说明：这部分代码按 `tools/mock_devices.py`（协议参考实现）逐行移植，已在 GitHub Actions（CI）中用 **MATLAB R2024b（Linux）实际运行**：`test_simcar_offline` 通过；`run_fleet` 的 5 辆车接入服务端运行 200 s，送达订单、零碰撞、零越权，结束后由数字世界接管（见 `docs/test-report.md` 4.6 节）。2026-10-28 又在 Windows 11 + MATLAB R2024b（只装 MATLAB 本体）上实测：带"Matlab 模拟车视图"的 `run_fleet` 连续运行约 16 分钟，5 辆车合计行驶约 5920 m，零碰撞、零越权；`start_demo.bat` 能自动启动 MATLAB 车队（见 `docs/test-report.md` 第 7 节）。在自己电脑上第一次使用时请先跑 `test_simcar_offline`，再跑 `run_fleet`。
+
+![Matlab 模拟车视图](../docs/images/matlab_fleetview.png)
+
+*`run_fleet` 的本地视图：方块是建筑，彩色线是各车的路线，× 是授权停车点，车旁标出车号和车速。*
 
 ## 文件
 
 | 文件 | 作用 |
 |---|---|
-| `run_fleet.m` | 入口函数：建立 5 条 TCP 连接，注册 car-1 … car-5，20 Hz 控制循环，10 Hz 上报状态 |
+| `run_fleet.m` | 入口函数：打开本地视图，建立 5 条 TCP 连接后一起注册 car-1 … car-5，20 Hz 控制循环，10 Hz 上报状态 |
 | `SimCar.m` | 一辆模拟车：独轮车运动学模型、纯追踪转向、速度 PI 控制、遵守行驶授权、前车急停 |
 | `DwClient.m` | TCP 连接封装：每行一条 JSON，非阻塞收取消息 |
 | `FleetView.m` | 本地实时视图：从服务端获取地图，画出各车位置、路线和授权停车点 |
@@ -27,7 +31,11 @@ PPT 任务"基于 Matlab 的模拟车"的实现：5 辆在 PC 上运行的模拟
    ```
 
 3. 浏览器打开 `http://localhost:8080`，车辆列表中 car-1 … car-5 的驱动会显示为"Matlab M"。
-4. 关闭"Matlab 模拟车视图"窗口或按 Ctrl+C 结束。断开后数字世界会自动接管这些车，系统继续运行。
+4. 关闭"Matlab 模拟车视图"窗口或按 Ctrl+C 结束，命令行会打印每辆车的路线数、授权数和行驶里程。断开后数字世界会自动接管这些车，系统继续运行。
+   如果先关了服务端，`run_fleet` 会每 2 秒重连一次并打印"连接 127.0.0.1:9000 失败"的警告，这是正常的；服务端重新启动后会自动接上。
+
+`scripts\start_demo.bat` 要在 Windows 命令提示符里运行（或在资源管理器里双击），不能在 MATLAB 命令行里输入。它用 `where matlab` 判断有没有装 MATLAB，
+所以 MATLAB 的 `bin` 目录要在系统 PATH 里（新开一个命令提示符输入 `where matlab` 检查），否则会改用 Python 模拟车。
 
 需要 MATLAB R2020b 或更新版本（用到 `tcpclient`、`jsonencode` / `jsondecode`、字符串数组）。不需要任何工具箱。
 
