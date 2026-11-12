@@ -35,6 +35,10 @@ MiniDiDi / RoboTax　技术报告
 :::
 
 ::: {custom-style="Cover Info"}
+　　　　　张　川（2252947）
+:::
+
+::: {custom-style="Cover Info"}
 指导教师：许春权
 :::
 

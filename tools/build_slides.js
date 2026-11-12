@@ -137,7 +137,7 @@ async function main() {
   s.addText('综合设计与实践 C · 期末答辩', { placeholder: 'kicker' });
   s.addText('缩微滴滴\n多智能体无人出租车系统', { placeholder: 'title' });
   s.addText('城市里随时有人叫车，“系统超脑”负责派车、规划路径、管控交通；Matlab 车、手机和 Gazebo 小车都是它的数字孪生', { placeholder: 'body' });
-  s.addText('第 1 组　指导教师：许春权\n组长：阮飞翔 2252753\n组员：樊宇泽 2351586　李昊博 2352853　付泽亮 2353413', { placeholder: 'info' });
+  s.addText('第 1 组　指导教师：许春权\n组长：阮飞翔 2252753\n组员：樊宇泽 2351586　李昊博 2352853\n　　　付泽亮 2353413　张　川 2252947', { placeholder: 'info' });
   s.addImage({ path: img('docs/images/view3d.png'), x: 6.9, y: 1.74, w: W - 6.9, h: (W - 6.9) / 1.6, objectName: 'cover-3d', altText: '3D 视图截图：缩微城市与车辆' });
   s.addNotes('各位老师好，我们组的题目是缩微滴滴。我们做了一个“系统超脑”：城市里随时有人叫车，它负责派车、规划路径、管控交通；'
     + '车辆可以是服务端里的数字车，也可以是 Matlab 模拟车、手机和 Gazebo 小车，它们都是数字世界里的数字孪生。'
