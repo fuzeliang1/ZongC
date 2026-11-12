@@ -1,0 +1,23 @@
+{
+  "name": "中期演示（全自主循环）",
+  "description": "约 5 分钟一轮、自动循环：正常接单 → 已知路障（交通管制）→ 叫车高峰 → 订单潮 → 解除管制、恢复平峰。只用到必做功能（不含未知障碍、空车调度），全程无需人工操作。",
+  "loop": true,
+  "loopGapSec": 20,
+  "events": [
+    {"t": 0, "action": "announce", "text": "中期演示开始：无人出租车自主接单、规划路径、管控交通，全程无需人工操作"},
+    {"t": 0, "action": "rate", "ratePerMin": 6},
+    {"t": 0, "action": "strategy", "value": "HUNGARIAN"},
+
+    {"t": 30, "action": "roadblock", "cell": [17, 24], "text": "交通管制：(17,24) 封路，途经车辆立即收回授权并绕行"},
+    {"t": 75, "action": "roadblock", "cell": [35, 15], "text": "(35,15) 道路施工封闭"},
+
+    {"t": 120, "action": "rate", "ratePerMin": 10, "text": "叫车高峰：每分钟 10 单"},
+    {"t": 180, "action": "rush", "count": 8, "text": "演唱会散场：一次出现 8 个订单"},
+
+    {"t": 210, "action": "roadblock", "cell": [17, 24], "blocked": false, "text": "交通管制结束，(17,24) 恢复通行"},
+    {"t": 225, "action": "roadblock", "cell": [35, 15], "blocked": false, "text": "施工结束，(35,15) 恢复通行"},
+
+    {"t": 240, "action": "rate", "ratePerMin": 6, "text": "恢复平峰：每分钟 6 单"},
+    {"t": 280, "action": "announce", "text": "本轮演示结束，20 秒后自动重新开始"}
+  ]
+}

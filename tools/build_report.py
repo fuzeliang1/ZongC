@@ -4,6 +4,8 @@
 用法（仓库根目录）：
     python3 tools/build_report.py            # → deliverables/MiniDiDi_report.docx
     python3 tools/build_report.py --pdf      # 同时用 LibreOffice 更新目录、导出 PDF，并把目录写进 docx
+    python3 tools/build_report.py --src docs/report/midterm.md --out deliverables/MiniDiDi_midterm.docx \\
+        --header "综合设计与实践 C · MiniDiDi 中期报告"      # 中期报告
 
 需要：pandoc（2.19 以上）、python-docx（pip install python-docx）；导出 PDF 还需要 LibreOffice 和它的 Python 接口（uno）。
 Windows 上系统 Python 一般没有 uno，分两步：
@@ -601,9 +603,11 @@ def fill_toc(docx_path, entries, levels):
 
 
 def main():
+    global HEADER_TEXT
     ap = argparse.ArgumentParser(description='生成技术报告 docx（可选 PDF）')
     ap.add_argument('--src', default=SRC)
     ap.add_argument('--out', default=DOCX)
+    ap.add_argument('--header', default=HEADER_TEXT, help='页眉文字（中期报告等用）')
     ap.add_argument('--pdf', action='store_true', help='同时导出 PDF，并把目录写进 docx（需要 LibreOffice）')
     ap.add_argument('--pdf-only', action='store_true',
                     help='不重新生成 docx，只更新目录并导出 PDF（不需要 pandoc / python-docx，可用 LibreOffice 自带的 Python 运行）')
@@ -611,6 +615,7 @@ def main():
     if args.pdf_only:
         export_pdf(args)
         return
+    HEADER_TEXT = args.header
     if shutil.which('pandoc') is None:
         sys.exit('需要 pandoc：https://pandoc.org/installing.html')
     if docx is None:
